@@ -898,8 +898,11 @@ export function App() {
                   <Worktrees projectId={activeProjectId || selectedProjectId!} />
                 )}
                 {activeView === 'agent-tools' && <AgentTools />}
-                {activeView === 'workflow-studio' && (activeProjectId || selectedProjectId) && (
-                  <WorkflowStudioView projectId={activeProjectId || selectedProjectId!} />
+                {/* WorkflowStudioView is always mounted but hidden when not active to preserve execution state */}
+                {(activeProjectId || selectedProjectId) && (
+                  <div className={activeView === 'workflow-studio' ? 'h-full' : 'hidden'}>
+                    <WorkflowStudioView projectId={activeProjectId || selectedProjectId!} />
+                  </div>
                 )}
                 {/* EditorLayout is always mounted but hidden when not active to preserve code-server state */}
                 {selectedProject && selectedProject.path && (
