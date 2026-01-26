@@ -363,6 +363,57 @@ Use ONLY these values for the `type` field in phases:
 3. **Clear verification** - Every subtask must have a way to verify it works
 4. **Explicit dependencies** - Phases block until dependencies complete
 
+### ⚠️ CRITICAL: Subtask Sizing Rules
+
+**Claude has output token limits.** If a subtask requires too much content generation, the Write tool will fail with empty parameters. You MUST split large tasks.
+
+**Safe Limits per Subtask:**
+
+| Content Type | Maximum | Why |
+|-------------|---------|-----|
+| Text output (Chinese) | ≤ 2,000 characters | Token limit |
+| Text output (English) | ≤ 3,000 characters | Token limit |
+| Table/Matrix size | ≤ 10×10 cells | Output truncation |
+| Detailed entries | ≤ 5 items per subtask | Prevents truncation |
+| Code lines | ≤ 300 lines | Readability + tokens |
+
+**High-Risk Keywords - MUST SPLIT if present:**
+
+- **Quantity**: "50个", "100个", "所有", "全部", "完整列表", "all items", "complete list"
+- **Matrix**: "矩阵", "N×N" (where N > 10), "matrix", "grid"
+- **Combined**: "同时...并且...", "...以及...", "and also", "as well as" (multiple deliverables)
+
+**Examples of Tasks That MUST Be Split:**
+
+❌ **BAD** (Too large):
+```json
+{
+  "id": "subtask-1",
+  "description": "创建50×50关系矩阵，包含所有角色的详细信息"
+}
+```
+
+✅ **GOOD** (Split into manageable pieces):
+```json
+{
+  "id": "subtask-1-1",
+  "description": "创建角色关系矩阵框架（10×10）"
+},
+{
+  "id": "subtask-1-2",
+  "description": "填充矩阵第1-10行的关系数据"
+},
+{
+  "id": "subtask-1-3",
+  "description": "填充矩阵第11-20行的关系数据"
+}
+```
+
+**If You Violate These Rules:**
+- The Write tool will fail with "required parameter missing" errors
+- The agent will be stuck and unable to complete the task
+- You will need to manually split the subtask and restart
+
 ### Verification Types
 
 | Type | When to Use | Format |

@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+# Git Pre-commit Hook - Mass Deletion Protection
+# ===============================================
+#
+# This hook prevents accidental mass file deletions that could result from
+# git index corruption or incorrect git add commands.
+#
+# Installation:
+#   cp hooks/pre-commit.template .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# To bypass this check (if deletion is intentional):
+#   git commit --no-verify
+#
+
+# Check if this is a merge commit (skip check for merges)
+if git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Count staged deletions
+staged_deletions=$(git diff --cached --name-only --diff-filter=D | wc -l | tr -d ' ')
+
+# Count total tracked files
+total_files=$(git ls-files | wc -l | tr -d ' ')
+
+# Calculate deletion percentage threshold (50%)
+threshold=$((total_files / 2))
+
+# Check if deletions exceed threshold
+if [ "$staged_deletions" -gt "$threshold" ] && [ "$total_files" -gt 100 ]; then
+    echo ""
+    echo "❌ ERROR: Mass file deletion detected!"
+    echo ""
+    echo "   Staged deletions: $staged_deletions files"
+    echo "   Total tracked files: $total_files files"
+    echo "   Deletion percentage: $((staged_deletions * 100 / total_files))%"
+    echo ""
+    echo "This looks like git index corruption or an incorrect 'git add' command."
+    echo ""
+    echo "Common causes:"
+    echo "  - Running 'git add .' from a subdirectory"
+    echo "  - Git index corruption"
+    echo "  - Incorrect worktree operations"
+    echo ""
+    echo "To fix:"
+    echo "  1. Check your changes: git status"
+    echo "  2. Reset the index: git reset HEAD"
+    echo "  3. Re-add your changes correctly: git add -A"
+    echo ""
+    echo "If this deletion is intentional, bypass this check with:"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
+# All checks passed
+exit 0
