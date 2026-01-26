@@ -19,9 +19,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, Sparkles, CheckCircle, XCircle } from 'lucide-react';
-import { IPC_CHANNELS } from '../../../shared/constants/ipc';
-
-const { ipcRenderer } = window.Electron;
 
 interface AIGenerationDialogProps {
   open: boolean;
@@ -53,7 +50,7 @@ export function AIGenerationDialog({
     setResult(null);
 
     try {
-      const response = await ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_GENERATE, {
+      const response = await window.electronAPI.workflow.aiGenerate({
         description: description.trim(),
         context: context.trim(),
         projectPath,

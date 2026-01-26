@@ -820,7 +820,7 @@ export function App() {
           )}
 
           {/* Main content area */}
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1 overflow-hidden relative">
             {selectedProject ? (
               <>
                 {activeView === 'kanban' && (
@@ -899,14 +899,22 @@ export function App() {
                 )}
                 {activeView === 'agent-tools' && <AgentTools />}
                 {/* WorkflowStudioView is always mounted but hidden when not active to preserve execution state */}
+                {/* Using opacity and z-index instead of display:none so React Flow has dimensions */}
                 {(activeProjectId || selectedProjectId) && (
-                  <div className={activeView === 'workflow-studio' ? 'h-full' : 'hidden'}>
+                  <div
+                    className="absolute inset-0 h-full w-full"
+                    style={{
+                      opacity: activeView === 'workflow-studio' ? 1 : 0,
+                      zIndex: activeView === 'workflow-studio' ? 10 : -1,
+                      pointerEvents: activeView === 'workflow-studio' ? 'auto' : 'none'
+                    }}
+                  >
                     <WorkflowStudioView projectId={activeProjectId || selectedProjectId!} />
                   </div>
                 )}
                 {/* EditorLayout is always mounted but hidden when not active to preserve code-server state */}
                 {selectedProject && selectedProject.path && (
-                  <div className={activeView === 'editor' ? 'h-full' : 'hidden'}>
+                  <div className={activeView === 'editor' ? 'h-full w-full' : 'hidden h-full w-full'}>
                     <EditorLayout key={selectedProject.path} projectPath={selectedProject.path} />
                   </div>
                 )}

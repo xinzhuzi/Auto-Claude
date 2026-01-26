@@ -21,9 +21,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useUserInputStore } from '@/stores/user-input-store';
-import { IPC_CHANNELS } from '../../../shared/constants/ipc';
-
-const { ipcRenderer } = window.Electron;
 
 export function UserInputDialog() {
   const { currentRequest, removeRequest } = useUserInputStore();
@@ -50,13 +47,10 @@ export function UserInputDialog() {
       });
     };
 
-    ipcRenderer.on(IPC_CHANNELS.WORKFLOW_USER_INPUT_REQUEST, handleUserInputRequest);
+    const cleanup = window.electronAPI.workflow.onUserInputRequest(handleUserInputRequest);
 
     return () => {
-      ipcRenderer.removeListener(
-        IPC_CHANNELS.WORKFLOW_USER_INPUT_REQUEST,
-        handleUserInputRequest
-      );
+      cleanup();
     };
   }, []);
 
@@ -78,7 +72,7 @@ export function UserInputDialog() {
       }
 
       // Send response to main process
-      await ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_SUBMIT_USER_INPUT, {
+      await window.electronAPI.workflow.submitUserInput({
         requestId: currentRequest.requestId,
         response,
         cancelled: false,
@@ -99,7 +93,7 @@ export function UserInputDialog() {
 
     try {
       // Send cancellation to main process
-      await ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_CANCEL_USER_INPUT, currentRequest.requestId);
+      await window.electronAPI.workflow.cancelUserInput(currentRequest.requestId);
 
       // Remove request from store
       removeRequest(currentRequest.requestId);

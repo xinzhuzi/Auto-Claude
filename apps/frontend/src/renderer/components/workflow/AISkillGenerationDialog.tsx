@@ -23,9 +23,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Sparkles, CheckCircle, XCircle, FileText, Copy } from 'lucide-react';
-import { IPC_CHANNELS } from '../../../shared/constants/ipc';
-
-const { ipcRenderer } = window.Electron;
 
 interface AISkillGenerationDialogProps {
   open: boolean;
@@ -76,7 +73,7 @@ export function AISkillGenerationDialog({
     setResult(null);
 
     try {
-      const response = await ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_GENERATE_SKILL, {
+      const response = await window.electronAPI.workflow.aiGenerateSkill({
         description: description.trim(),
         skillName: skillName.trim(),
         context: context.trim(),

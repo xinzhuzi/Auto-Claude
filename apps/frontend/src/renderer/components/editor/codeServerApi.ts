@@ -16,7 +16,7 @@ export class CodeServerAPI {
    */
   static async start(projectPath: string, preferredPort?: number) {
     try {
-      return await window.electronAPI.start(projectPath, preferredPort);
+      return await window.electronAPI.codeServer.start(projectPath, preferredPort);
     } catch (error) {
       console.error('[CodeServerAPI] Failed to start:', error);
       return {
@@ -31,7 +31,7 @@ export class CodeServerAPI {
    */
   static async stop(projectPath: string) {
     try {
-      return await window.electronAPI.stop(projectPath);
+      return await window.electronAPI.codeServer.stop(projectPath);
     } catch (error) {
       console.error('[CodeServerAPI] Failed to stop:', error);
       return {
@@ -46,7 +46,7 @@ export class CodeServerAPI {
    */
   static async getInfo(projectPath: string) {
     try {
-      return await window.electronAPI.getInfo(projectPath);
+      return await window.electronAPI.codeServer.getInfo(projectPath);
     } catch (error) {
       console.error('[CodeServerAPI] Failed to get info:', error);
       return { running: false };
@@ -58,9 +58,9 @@ export class CodeServerAPI {
    */
   static async stopAll() {
     try {
-      return await window.electronAPI.stopAll();
+      return await window.electronAPI.codeServer.stopAll();
     } catch (error) {
-      console.error('[CodeServerAPI] Failed to stop all:', error);
+      console.error('PI] Failed to stop all:', error);
       return { success: false };
     }
   }

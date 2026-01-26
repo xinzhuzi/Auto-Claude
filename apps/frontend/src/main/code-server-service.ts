@@ -137,16 +137,18 @@ export class CodeServerService extends EventEmitter {
    * Get code-server binary path
    */
   private getCodeServerPath(): string {
-    // Use platform-specific filename:
-    // - Windows: code-server.cmd
-    // - Mac/Linux: code-server (no extension)
-    const binaryName = process.platform === 'win32' ? 'code-server.cmd' : 'code-server';
+    // Use platform-specific directory and filename:
+    // - Windows: code-server-4.108.0-win/bin/code-server.cmd
+    // - Mac/Linux: code-server-4.108.0/bin/code-server
+    const isWindows = process.platform === 'win32';
+    const libDir = isWindows ? 'code-server-4.108.0-win' : 'code-server-4.108.0';
+    const binaryName = isWindows ? 'code-server.cmd' : 'code-server';
 
     if (app.isPackaged) {
-      // Production: use packaged code-server
-      return path.join(process.resourcesPath, 'code-server', 'bin', binaryName);
+      // Production: use packaged code-server (lib directory only, no symlinks)
+      return path.join(process.resourcesPath, 'code-server', 'lib', libDir, 'bin', binaryName);
     } else {
-      // Development: use local code-server
+      // Development: use local code-server via bin symlink
       return path.join(__dirname, '../../../code-server', 'bin', binaryName);
     }
   }

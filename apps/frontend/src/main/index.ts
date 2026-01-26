@@ -196,7 +196,8 @@ function createWindow(): void {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false // Prevent terminal lag when window loses focus
+      backgroundThrottling: false, // Prevent terminal lag when window loses focus
+      webviewTag: true // Enable webview tag for VSCode embed
     }
   });
 

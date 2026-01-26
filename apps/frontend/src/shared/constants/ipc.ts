@@ -560,5 +560,65 @@ export const IPC_CHANNELS = {
   // Queue routing events (main -> renderer)
   QUEUE_PROFILE_SWAPPED: 'queue:profileSwapped',      // Task switched to different profile
   QUEUE_SESSION_CAPTURED: 'queue:sessionCaptured',    // Session ID captured from running task
-  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles' // All profiles unavailable
+  QUEUE_BLOCKED_NO_PROFILES: 'queue:blockedNoProfiles', // All profiles unavailable
+
+  // Workflow operations
+  WORKFLOW_CREATE: 'workflow:create',
+  WORKFLOW_SAVE: 'workflow:save',
+  WORKFLOW_LOAD: 'workflow:load',
+  WORKFLOW_LIST: 'workflow:list',
+  WORKFLOW_DELETE: 'workflow:delete',
+  WORKFLOW_DUPLICATE: 'workflow:duplicate',
+  WORKFLOW_EXPORT: 'workflow:export',
+  WORKFLOW_EXPORT_TO_PROJECT: 'workflow:exportToProject',
+  WORKFLOW_OPEN_FILE_PICKER: 'workflow:openFilePicker',
+  WORKFLOW_SELECT_PROJECT_DIR: 'workflow:selectProjectDir',
+  WORKFLOW_GET_PROJECT_PATH: 'workflow:getProjectPath',
+  WORKFLOW_SAVE_TO_PROJECT: 'workflow:saveToProject',
+  WORKFLOW_LIST_FROM_PROJECT: 'workflow:listFromProje',
+  WORKFLOW_LOAD_FROM_PROJECT: 'workflow:loadFromProject',
+
+  // Workflow execution
+  WORKFLOW_EXECUTE: 'workflow:execute',
+  WORKFLOW_EXECUTE_STREAM: 'workflow:executeStream',
+  WORKFLOW_PAUSE: 'workflow:pause',
+  WORKFLOW_RESUME: 'workflow:resume',
+  WORKFLOW_STOP: 'workflow:stop',
+  WORKFLOW_GET_EXECUTION_STATUS: 'workflow:getExecutionStatus',
+  WORKFLOW_GET_EXECUTION_LOGS: 'workflow:getExecutionLogs',
+  WORKFLOW_EXECUTE_COMMAND: 'workflow:executeCommand',
+
+  // Workflow execution events (main -> renderer)
+  WORKFLOW_EXECUTION_PROGRESS: 'workflow:executionProgress',
+  WORKFLOW_EXECUTION_COMPLETE: 'workflow:exeonComplete',
+  WORKFLOW_EXECUTION_ERROR: 'workflow:executionError',
+  WORKFLOW_NODE_EXECUTED: 'workflow:nodeExecuted',
+  WORKFLOW_STREAM_CHUNK: 'workflow:streamChunk',
+  WORKFLOW_STREAM_COMPLETE: 'workflow:streamComplete',
+  WORKFLOW_STREAM_ERROR: 'workflow:streamError',
+  WORKFLOW_COMMAND_OUTPUT: 'workflow:commandOutput',
+  WORKFLOW_COMMAND_COMPLETE: 'workflow:commandComplete',
+  WORKFLOW_COMMAND_ERROR: 'workflow:commandError',
+
+  // Workflow AI generation
+  WORKFLOW_AI_GENERATE: 'workflow:ai:generate',
+  WORKFLOW_AI_GENERATE_SKILL: 'workflow:ai:generateSkill',
+  WORKFLOW_AI_OPTIMIZE: 'workflow:ai:optimize',
+  WORKFLOW_AI_SUGGEST: 'workflow:ai:suggest',
+  WORKFLOW_AI_ANALYZE: 'workflow:ai:analyze',
+
+  // Workflow user input
+  WORKFLOW_USER_INPUT_REQUEST: 'workflow:userInput:request',
+  WORKFLOW_SUBMIT_USER_INPUT: 'workflow:userInput:submit',
+  WORKFLOW_CANCEL_USER_INPUT: 'workflow:userInput:cancel',
+  WORKFLOW_REQUEST_USER_INPUT: 'workflow:userInput:requestFromBackend',
+  WORKFLOW_USER_INPUT_RESPONSE: 'workflow:userInput:response',
+  WORKFLOW_GET_PENDING_USER_INPUTS: 'workflow:userInput:getPending',
+
+  // Node operations
+  NODE_VALIDATE: 'node:validate',
+
+  // Template operations
+  TEMPLATE_LIST: 'template:list',
+  TEMPLATE_APPLY: 'template:apply'
 } as const;

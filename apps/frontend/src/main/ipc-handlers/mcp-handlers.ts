@@ -10,6 +10,8 @@ import type { CustomMcpServer, McpHealthCheckResult, McpHealthStatus, McpTestCon
 import { spawn } from 'child_process';
 import { appLog } from '../app-logger';
 import { isWindows } from '../platform';
+// Import custom MetaMCP handler (won't be overwritten by upstream merges)
+import { isMetaMcpServer, testMetaMcpConnection, checkMetaMcpHealth } from '../custom/metamcp-handler';
 
 /**
  * Defense-in-depth: Frontend-side command validation
@@ -73,6 +75,11 @@ async function checkMcpHealth(server: CustomMcpServer): Promise<McpHealthCheckRe
   const startTime = Date.now();
 
   if (server.type === 'http') {
+    // Check if this is a MetaMCP server and use custom handler
+    if (isMetaMcpServer(server)) {
+      appLog.info('[MCP] Detected MetaMCP server for health check, using custom handler');
+      return checkMetaMcpHealth(server);
+    }
     return checkHttpHealth(server, startTime);
   } else {
     return checkCommandHealth(server, startTime);
@@ -248,6 +255,11 @@ async function testMcpConnection(server: CustomMcpServer): Promise<McpTestConnec
   const startTime = Date.now();
 
   if (server.type === 'http') {
+    // Check if this is a MetaMCP server and use custom handler
+    if (isMetaMcpServer(server)) {
+      appLog.info('[MCP] Detected MetaMCP server, using custom handler');
+      return testMetaMcpConnection(server);
+    }
     return testHttpConnection(server, startTime);
   } else {
     return testCommandConnection(server, startTime);

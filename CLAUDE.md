@@ -8,6 +8,25 @@ Auto Claude is a multi-agent autonomous coding framework that builds software th
 
 **CRITICAL: All AI interactions use the Claude Agent SDK (`claude-agent-sdk` package), NOT the Anthropic API directly.**
 
+## 渐进式读写原则 (Critical - 必须遵守)
+
+### 读取规则
+- **禁止一次性读取整个大文件** (>500行)
+- 使用 `offset` 和 `limit` 参数分段读取
+- 先读取文件结构/目录，再读取具体内容
+- 使用 Serena 的符号级工具 (`find_symbol`, `get_symbols_overview`) 而非整文件读取
+
+### 写入规则
+- **禁止一次性写入大量内容** (>300行)
+- 使用 Edit 工具进行增量修改，而非 Write 整文件覆盖
+- 大文件修改分多次 Edit 操作完成
+- 每次修改后验证结果再继续
+
+### Plan 规则
+- 计划文件超过 200 行时，分阶段编写
+- 先写框架，再填充细节
+- 使用 `<!-- PART N -->` 标记分段
+
 ## Project Structure
 
 ```

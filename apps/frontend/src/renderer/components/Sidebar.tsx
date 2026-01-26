@@ -363,38 +363,39 @@ export function Sidebar({
 
         <Separator className="mt-2" />
 
-        {/* Toggle button */}
-        <div className={cn(
-          "flex py-2 transition-all duration-300",
-          isCollapsed ? "justify-center px-2" : "justify-end px-3"
-        )}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={toggleSidebar}
-                aria-label={isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
-              >
-                {isCollapsed ? (
-                  <PanelLeft className="h-4 w-4" />
-                ) : (
-                  <PanelLeftClose className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        <Separator />
-
         {/* Navigation */}
         <ScrollArea className="flex-1">
           <div className={cn("py-4 transition-all duration-300", isCollapsed ? "px-2" : "px-3")}>
+            {/* Collapse Toggle - styled like nav items */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleSidebar}
+                  className={cn(
+                    'flex w-full items-center rounded-lg text-sm transition-all duration-200 mb-3',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+                  )}
+                >
+                  {isCollapsed ? (
+                    <PanelLeft className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <PanelLeftClose className="h-4 w-4 shrink-0" />
+                  )}
+                  {!isCollapsed && (
+                    <span className="flex-1 text-left">{t('actions.collapseSidebar')}</span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              {isCollapsed && (
+                <TooltipContent side="right">
+                  {t('actions.expandSidebar')}
+                </TooltipContent>
+              )}
+            </Tooltip>
+
+            <Separator className="mb-3" />
+
             {/* Project Section */}
             <div>
               {!isCollapsed && (

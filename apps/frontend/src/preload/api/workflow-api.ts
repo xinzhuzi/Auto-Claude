@@ -65,6 +65,17 @@ export interface WorkflowAPI {
   onWorkflowCommandOutput: (callback: (executionId: string, data: string) => void) => () => void;
   onWorkflowCommandComplete: (callback: (executionId: string) => void) => () => void;
   onWorkflowCommandError: (callback: (executionId: string, error: string) => void) => () => void;
+
+  // AI generation
+  aiGenerate: (request: { description: string; context?: string; projectPath: string }) => Promise<IPCResult<{ workflow: Workflow; iterations: number; suggestions?: Array<{ message: string }> }>>;
+  aiGenerateSkill: (request: { description: string; skillName?: string; context?: string; projectPath: string; overwrite?: boolean }) => Promise<IPCResult<{ workflow: Workflow }>>;
+  aiOptimize: (request: { workflow: Workflow; optimizationRequest: string; conversationHistory?: Array<{ role: string; content: string }>; projectPath: string }) => Promise<IPCResult<{ workflow: Workflow; summary?: string }>>;
+  aiSuggest: (request: { workflow: Workflow; projectPath: string }) => Promise<IPCResult<{ suggestions: Array<{ description?: string; message?: string }> }>>;
+
+  // User input
+  submitUserInput: (request: { requestId: string; response: any; cancelled: boolean }) => Promise<IPCResult<void>>;
+  cancelUserInput: (requestId: string) => Promise<IPCResult<void>>;
+  onUserInputRequest: (callback: (request: { requestId: string; question: string; options?: string[]; multiSelect?: boolean }) => void) => () => void;
 }
 
 export const createWorkflowAPI = (): WorkflowAPI => {
@@ -198,5 +209,28 @@ export const createWorkflowAPI = (): WorkflowAPI => {
 
     onWorkflowCommandError: (callback) =>
       createEventListener(IPC_CHANNELS.WORKFLOW_COMMAND_ERROR, callback),
+
+    // AI generation
+    aiGenerate: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_GENERATE, request),
+
+    aiGenerateSkill: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_GENERATE_SKILL, request),
+
+    aiOptimize: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_OPTIMIZE, request),
+
+    aiSuggest: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_SUGGEST, request),
+
+    // User input
+    submitUserInput: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_SUBMIT_USER_INPUT, request),
+
+    cancelUserInput: (requestId) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_CANCEL_USER_INPUT, requestId),
+
+    onUserInputRequest: (callback) =>
+      createEventListener(IPC_CHANNELS.WORKFLOW_USER_INPUT_REQUEST, callback),
   };
 };

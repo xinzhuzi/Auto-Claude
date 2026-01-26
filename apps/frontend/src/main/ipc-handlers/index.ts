@@ -34,6 +34,8 @@ import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
+import { registerCodeServerHandlers } from './code-server-handlers';
+import { registerWorkflowHandlers } from './workflow';
 import { notificationService } from '../notification-service';
 
 /**
@@ -122,6 +124,12 @@ export function setupIpcHandlers(
   // Screenshot capture handlers
   registerScreenshotHandlers();
 
+  // Code-server handlers (VSCode editor)
+  registerCodeServerHandlers();
+
+  // Workflow handlers (workflow studio)
+  registerWorkflowHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -149,5 +157,7 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerScreenshotHandlers
+  registerScreenshotHandlers,
+  registerCodeServerHandlers,
+  registerWorkflowHandlers
 };

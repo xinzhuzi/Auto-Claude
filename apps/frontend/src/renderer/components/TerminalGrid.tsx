@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   Group,
   Panel,
@@ -17,10 +17,10 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
-  rectSortingStrategy,
+  horizontalListSortingStrategy,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Plus, Sparkles, Grid2X2, FolderTree, File, Folder, History, ChevronDown, Loader2, TerminalSquare } from 'lucide-react';
+import { Plus, Sparkles, Grid2X2, FolderTree, File, Folder, History, ChevronDown, Loader2, TerminalSquare, X } from 'lucide-react';
 import { SortableTerminalWrapper } from './SortableTerminalWrapper';
 import { Button } from './ui/button';
 import {
@@ -78,6 +78,9 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
 
   // Expanded terminal state - when set, this terminal takes up the full grid space
   const [expandedTerminalId, setExpandedTerminalId] = useState<string | null>(null);
+
+  // Tab scroll container ref
+  const tabScrollRef = useRef<HTMLDivElement>(null);
 
   // Reset expanded terminal when project changes
   useEffect(() => {
@@ -229,11 +232,23 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
         e.preventDefault();
         handleCloseTerminal(activeTerminalId);
       }
+      // Cmd+F1-F12 (Mac) / Ctrl+F1-F12 (Win) to switch terminals
+      const fKeyMatch = e.code.match(/^F(\d+)$/);
+      if (fKeyMatch && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
+        const num = parseInt(fKeyMatch[1]);
+        if (num >= 1 && num <= 12 && num <= terminals.length) {
+          e.preventDefault();
+          const targetTerminal = terminals[num - 1];
+          if (targetTerminal) {
+            setActiveTerminal(targetTerminal.id);
+          }
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, addTerminal, canAddTerminal, projectPath, activeTerminalId, handleCloseTerminal]);
+  }, [isActive, addTerminal, canAddTerminal, projectPath, activeTerminalId, handleCloseTerminal, terminals, setActiveTerminal]);
 
   const handleAddTerminal = useCallback(() => {
     if (canAddTerminal(projectPath)) {
@@ -345,30 +360,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     }
   }, [reorderTerminals, terminals]);
 
-  // Calculate grid layout based on number of terminals
-  const gridLayout = useMemo(() => {
-    const count = terminals.length;
-    if (count === 0) return { rows: 0, cols: 0 };
-    if (count === 1) return { rows: 1, cols: 1 };
-    if (count === 2) return { rows: 1, cols: 2 };
-    if (count <= 4) return { rows: 2, cols: 2 };
-    if (count <= 6) return { rows: 2, cols: 3 };
-    if (count <= 9) return { rows: 3, cols: 3 };
-    return { rows: 3, cols: 4 }; // Max 12 terminals = 3x4
-  }, [terminals.length]);
-
-  // Group terminals into rows
-  const terminalRows = useMemo(() => {
-    const rows: typeof terminals[] = [];
-    const { cols } = gridLayout;
-    if (cols === 0) return rows;
-
-    for (let i = 0; i < terminals.length; i += cols) {
-      rows.push(terminals.slice(i, i + cols));
-    }
-    return rows;
-  }, [terminals, gridLayout]);
-
   // Terminal IDs for SortableContext
   const terminalIds = useMemo(() => terminals.map(t => t.id), [terminals]);
 
@@ -404,14 +395,47 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       onDragEnd={handleDragEnd}
     >
       <div className="flex h-full flex-col">
-        {/* Toolbar */}
-        <div className="flex h-10 items-center justify-between border-b border-border bg-card/30 px-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              {terminals.length} / 12 terminals
-            </span>
+        {/* Toolbar with horizontal tabs */}
+        <div className="flex h-10 items-center border-b border-border bg-card/30 px-2 gap-2">
+          {/* Terminal tabs - scrollable horizontal list */}
+          <div className="flex-1 flex items-center gap-1 min-w-0 overflow-hidden">
+            <div
+              ref={tabScrollRef}
+              className="flex items-center gap-1 overflow-x-auto scrollbar-none"
+              style={{ scrollBehavior: 'smooth' }}
+            >
+              <SortableContext items={terminalIds} strategy={horizontalListSortingStrategy}>
+                {terminals.map((terminal, index) => (
+                  <button
+                    key={terminal.id}
+                    onClick={() => setActiveTerminal(terminal.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors shrink-0",
+                      terminal.id === activeTerminalId
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <TerminalSquare className="h-3 w-3" />
+                    <span>{terminal.title || `Terminal ${index + 1}`}</span>
+                    <span className="text-[10px] opacity-60 ml-1">{navigator.platform.includes('Mac') ? '⌘' : '⌃'}F{index + 1}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseTerminal(terminal.id);
+                      }}
+                      className="ml-1 p-0.5 rounded hover:bg-background/50 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </button>
+                ))}
+              </SortableContext>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Right side buttons */}
+          <div className="flex items-center gap-2 shrink-0">
             {/* Session history dropdown */}
             {projectPath && sessionDates.length > 0 && (
               <DropdownMenu>
@@ -490,78 +514,34 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
           </div>
         </div>
 
-        {/* Main content area with terminal grid and file explorer sidebar */}
+        {/* Main content area - single active terminal fills the space */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Terminal grid using resizable panels */}
           <div className={cn(
-            "flex-1 overflow-hidden p-2 transition-all duration-300 ease-out",
+            "flex-1 overflow-hidden transition-all duration-300 ease-out",
             fileExplorerOpen && "pr-0"
           )}>
-            {expandedTerminalId ? (
-              // Show only the expanded terminal
-              (() => {
-                const expandedTerminal = terminals.find(t => t.id === expandedTerminalId);
-                if (!expandedTerminal) return null;
-                return (
-                  <div className="h-full p-1">
-                    <SortableTerminalWrapper
-                      id={expandedTerminal.id}
-                      cwd={expandedTerminal.cwd || projectPath}
-                      projectPath={projectPath}
-                      isActive={expandedTerminal.id === activeTerminalId}
-                      onClose={() => handleCloseTerminal(expandedTerminal.id)}
-                      onActivate={() => setActiveTerminal(expandedTerminal.id)}
-                      tasks={tasks}
-                      onNewTaskClick={onNewTaskClick}
-                      terminalCount={1}
-                      isExpanded={true}
-                      onToggleExpand={() => handleToggleExpand(expandedTerminal.id)}
-                    />
-                  </div>
-                );
-              })()
-            ) : (
-              // Show the normal grid layout
-              <SortableContext items={terminalIds} strategy={rectSortingStrategy}>
-                <Group orientation="vertical" className="h-full">
-                  {terminalRows.map((row, rowIndex) => (
-                    <React.Fragment key={rowIndex}>
-                      <Panel id={`row-${rowIndex}`} defaultSize={100 / terminalRows.length} minSize={15}>
-                        <Group orientation="horizontal" className="h-full">
-                          {row.map((terminal, colIndex) => (
-                            <React.Fragment key={terminal.id}>
-                              <Panel id={terminal.id} defaultSize={100 / row.length} minSize={10}>
-                                <div className="h-full p-1">
-                                  <SortableTerminalWrapper
-                                    id={terminal.id}
-                                    cwd={terminal.cwd || projectPath}
-                                    projectPath={projectPath}
-                                    isActive={terminal.id === activeTerminalId}
-                                    onClose={() => handleCloseTerminal(terminal.id)}
-                                    onActivate={() => setActiveTerminal(terminal.id)}
-                                    tasks={tasks}
-                                    onNewTaskClick={onNewTaskClick}
-                                    terminalCount={terminals.length}
-                                    isExpanded={false}
-                                    onToggleExpand={() => handleToggleExpand(terminal.id)}
-                                  />
-                                </div>
-                              </Panel>
-                              {colIndex < row.length - 1 && (
-                                <Separator className="w-1 hover:bg-primary/30 transition-colors" />
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </Group>
-                      </Panel>
-                      {rowIndex < terminalRows.length - 1 && (
-                        <Separator className="h-1 hover:bg-primary/30 transition-colors" />
-                      )}
-                    </React.Fragment>
-                  ))}
-                </Group>
-              </SortableContext>
-            )}
+            {/* Show only the active terminal, full size */}
+            {(() => {
+              const activeTerminal = terminals.find(t => t.id === activeTerminalId) || terminals[0];
+              if (!activeTerminal) return null;
+              return (
+                <div className="h-full">
+                  <SortableTerminalWrapper
+                    id={activeTerminal.id}
+                    cwd={activeTerminal.cwd || projectPath}
+                    projectPath={projectPath}
+                    isActive={true}
+                    onClose={() => handleCloseTerminal(activeTerminal.id)}
+                    onActivate={() => setActiveTerminal(activeTerminal.id)}
+                    tasks={tasks}
+                    onNewTaskClick={onNewTaskClick}
+                    terminalCount={1}
+                    isExpanded={true}
+                    onToggleExpand={() => {}}
+                  />
+                </div>
+              );
+            })()}
           </div>
 
           {/* File explorer panel (slides from right, pushes content) */}

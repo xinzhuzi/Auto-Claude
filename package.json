@@ -45,6 +45,7 @@
     "jsdom": "^27.4.0"
   },
   "dependencies": {
+    "driver.js": "^1.4.0",
     "lucide-react": "^0.562.0"
   },
   "overrides": {

@@ -244,6 +244,34 @@ function stageRuntimePackages(frontendDir, platform, arch) {
   }
 }
 
+/**
+ * Stage code-server with resolved symlinks for packaging.
+ * electron-builder doesn't handle symlinks well, so we copy with dereference.
+ */
+function stageCodeServer(frontendDir) {
+  const codeServerSrc = path.join(frontendDir, '..', 'code-server', 'lib');
+  const codeServerDest = path.join(frontendDir, 'code-server-staged', 'lib');
+
+  if (!fs.existsSync(codeServerSrc)) {
+    console.log('[package] code-server not found, skipping...');
+    return;
+  }
+
+  console.log('[package] Staging code-server with resolved symlinks...');
+
+  // Clean up previous staged directory
+  if (fs.existsSync(codeServerDest)) {
+    fs.rmSync(codeServerDest, { recursive: true, force: true });
+  }
+
+  fs.mkdirSync(path.dirname(codeServerDest), { recursive: true });
+
+  // Copy with dereference to resolve symlinks
+  fs.cpSync(codeServerSrc, codeServerDest, { recursive: true, dereference: true });
+
+  console.log('[package] code-server staged successfully');
+}
+
 async function main() {
   const frontendDir = path.join(__dirname, '..');
   const env = buildEnv(frontendDir);
@@ -264,6 +292,9 @@ async function main() {
       stageRuntimePackages(frontendDir, platform, arch);
     }
   }
+
+  // Stage code-server with resolved symlinks
+  stageCodeServer(frontendDir);
 
   const builderArgs = [...args];
   const hasPublishFlag = builderArgs.some((arg) => arg === '--publish' || arg.startsWith('--publish='));

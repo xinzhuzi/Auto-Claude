@@ -43,9 +43,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAIOptimizationStore } from '@/stores/ai-optimization-store';
-import { IPC_CHANNELS } from '../../../shared/constants/ipc';
-
-const { ipcRenderer } = window.Electron;
 
 interface AIOptimizationPanelProps {
   workflow: any;
@@ -98,7 +95,7 @@ export function AIOptimizationPanel({
   const loadSuggestions = async () => {
     setIsLoadingSuggestions(true);
     try {
-      const result = await ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_SUGGEST, {
+      const result = await window.electronAPI.workflow.aiSuggest({
         workflow,
         projectPath,
       });
@@ -136,7 +133,7 @@ export function AIOptimizationPanel({
       })) || [];
 
       // Call optimization API
-      const result = await ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_OPTIMIZE, {
+      const result = await window.electronAPI.workflow.aiOptimize({
         workflow,
         optimizationRequest: userMessage.content,
         conversationHistory,
@@ -212,7 +209,7 @@ export function AIOptimizationPanel({
       }));
 
       // Call optimization API
-      const result = await ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_AI_OPTIMIZE, {
+      const result = await window.electronAPI.workflow.aiOptimize({
         workflow,
         optimizationRequest: userMessage.content,
         conversationHistory,
