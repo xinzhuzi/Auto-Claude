@@ -1003,6 +1003,17 @@ class ComplexityAnalyzer:
         self, task_description: str, requirements: dict | None = None
     ) -> int:
         """Estimate the expected size of spec.md in characters."""
+        # 尝试目录扫描获取实际内容大小
+        from .directory_scanner import estimate_from_paths
+
+        project_dir = getattr(self, "project_dir", None)
+        scan_result = estimate_from_paths(task_description, project_dir)
+        if scan_result:
+            _, total_chars = scan_result
+            # 实际内容大小 + 基础模板大小
+            return total_chars + 3000
+
+        # 回退到原有启发式估算
         task_lower = task_description.lower()
         base_size = 3000  # Base template size
 
