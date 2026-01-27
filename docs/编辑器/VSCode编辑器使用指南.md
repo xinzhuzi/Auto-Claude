@@ -143,7 +143,32 @@ Auto-Claude 内置了完整的 VSCode 编辑器（基于 code-server），可以
    - 重新打开应用
    - 重新打开编辑器
 
-### Q6: 如何查看服务状态？
+### Q6: 打包后的应用编辑器无法启动？
+
+**A**: 这通常是 code-server 可执行文件缺少执行权限导致的。
+
+**检查方法**：
+```bash
+# 检查打包后的文件权限
+ls -la dist/mac-arm64/Auto-Claude.app/Contents/Resources/code-server/lib/code-server-4.108.0/bin/code-server
+ls -la dist/mac-arm64/Auto-Claude.app/Contents/Resources/code-server/lib/code-server-4.108.0/lib/node
+
+# 如果权限是 -rw-r--r--（没有 x），说明缺少执行权限
+```
+
+**解决方法**：
+```bash
+# 修复源文件权限（打包前）
+chmod +x apps/frontend/code-server-staged/lib/code-server-4.108.0/bin/code-server
+chmod +x apps/frontend/code-server-staged/lib/code-server-4.108.0/lib/node
+
+# 重新打包
+bash scripts/build-mac.sh
+```
+
+**根本原因**：从压缩包解压或 Git 克隆时可能丢失执行权限。
+
+### Q7: 如何查看服务状态？
 
 **A**:
 打开 Chrome DevTools（`Cmd+Option+I`），查看 Console 标签页：

@@ -517,11 +517,39 @@ pkill -f code-server
 # 打包 macOS 版本
 npm run package:mac
 
+# 或使用打包脚本
+bash scripts/build-mac.sh
+
 # 生成的文件
 apps/frontend/dist/
-├── Auto-Claude-2.7.4-darwin-arm64.dmg
-└── Auto-Claude-2.7.4-darwin-arm64.zip
+├── Auto-Claude-2.7.5-darwin-arm64.dmg
+└── Auto-Claude-2.7.5-darwin-arm64.zip
 ```
+
+#### ⚠️ 重要：code-server 文件权限
+
+打包前必须确保 `code-server-staged` 目录中的可执行文件有正确的权限，否则打包后的应用无法启动编辑器：
+
+```bash
+# 检查文件权限
+ls -la apps/frontend/code-server-staged/lib/code-server-4.108.0/bin/code-server
+ls -la apps/frontend/code-server-staged/lib/code-server-4.108.0/lib/node
+
+# 如果权限是 -rw-r--r--（没有 x），需要添加执行权限：
+chmod +x apps/frontend/code-server-staged/lib/code-server-4.108.0/bin/code-server
+chmod +x apps/frontend/code-server-staged/lib/code-server-4.108.0/lib/node
+
+# 正确的权限应该是 -rwxr-xr-x
+```
+
+**常见症状**：
+- 编辑器页面显示 "Failed to Start VSCode"
+- 控制台日志显示 "Permission denied" 或 "EACCES"
+- code-server 进程无法启动
+
+**根本原因**：
+- 从压缩包解压或 Git 克隆时可能丢失执行权限
+- macOS/Linux 需要可执行文件有 `+x` 权限才能运行
 
 ### 常见开发问题
 
