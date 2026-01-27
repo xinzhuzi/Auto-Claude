@@ -154,6 +154,33 @@ def _detect_base_branch(spec_dir: Path, project_dir: Path) -> str:
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 
+def _load_git_knowledge(filename: str) -> str:
+    """
+    Load a Git knowledge file from the prompts/knowledge/git/ directory.
+
+    Args:
+        filename: Git knowledge file name (e.g., "git-safety-rules.md")
+
+    Returns:
+        Content of the Git knowledge file, or empty string if file doesn't exist
+
+    Note:
+        Returns empty string instead of raising exception to allow graceful degradation
+        if knowledge files are missing. This prevents breaking existing functionality.
+    """
+    git_knowledge_dir = PROMPTS_DIR / "knowledge" / "git"
+    knowledge_file = git_knowledge_dir / filename
+
+    if not knowledge_file.exists():
+        return ""
+
+    try:
+        return knowledge_file.read_text()
+    except (OSError, UnicodeDecodeError):
+        # Return empty string on read errors to prevent breaking the prompt generation
+        return ""
+
+
 def get_planner_prompt(spec_dir: Path) -> str:
     """
     Load the planner agent prompt with spec path injected.

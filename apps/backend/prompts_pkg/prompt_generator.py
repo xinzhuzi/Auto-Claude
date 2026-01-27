@@ -16,6 +16,148 @@ import json
 from pathlib import Path
 
 
+def load_scoped_services(spec_dir: Path) -> list[str]:
+    """
+    Load scoped services from context.json.
+
+    This defines which directories the task is allowed to modify.
+    Used to limit git operations to only the relevant service paths.
+
+    Args:
+        spec_dir: Directory containing spec files
+
+    Returns:
+        List of service paths (e.g., ["Design/世界观小说/《道劫》/设定集"])
+        Returns empty list if context.json doesn't exist or has no scoped_services
+    """
+    context_file = spec_dir / "context.json"
+    if not context_file.exists():
+        return []
+
+    try:
+        context_data = json.loads(context_file.read_text())
+        return context_data.get("scoped_services", [])
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def get_git_add_paths(scoped_services: list[str]) -> str:
+    """
+    Generate git add command paths based on scoped services.
+
+    If scoped_services is provided, returns paths for only those services.
+    Otherwise, returns "-A" to add all changes from repository root.
+
+    Args:
+        scoped_services: List of service paths from context.json
+
+    Returns:
+        Git add path string suitable for command line
+    """
+    if not scoped_services:
+        # Use -A to add all changes from repository root, regardless of current directory
+        # This prevents git index corruption when agent changes directories
+        return "-A"
+
+    # Quote each path to handle spaces and special characters
+    quoted_paths = [f'"{service}"' for service in scoped_services]
+    return " ".join(quoted_paths)
+
+
+def generate_git_safety_rules() -> str:
+    """
+    Generate Git safety rules for AI agents.
+
+    These rules are injected into every subtask prompt to prevent catastrophic
+    Git operations like "rm .git/index" which can cause massive data loss.
+
+    Loads rules from prompts/knowledge/git/git-safety-rules.md if available,
+    otherwise falls back to hardcoded version.
+
+    Returns:
+        Markdown string with Git safety rules
+    """
+    from .prompts import _load_git_knowledge
+
+    # Try to load from knowledge base
+    safety_rules = _load_git_knowledge("git-safety-rules.md")
+
+    # If knowledge file exists and loaded successfully, use it
+    if safety_rules:
+        return safety_rules
+
+    # Fallback to hardcoded version if file doesn't exist
+    return """## 🚨 GIT SAFETY RULES - CRITICAL
+
+### NEVER Execute These Commands:
+```bash
+rm .git/index          # ❌ FORBIDDEN - Causes all files to be marked as deleted
+rm -f .git/index       # ❌ FORBIDDEN - Same catastrophic result
+rm -rf .git/           # ❌ FORBIDDEN - Destroys the entire repository
+```
+
+### If Git Index is Corrupted:
+**SAFE Recovery Steps:**
+```bash
+rm -f .git/index.lock      # Step 1: Remove lock (SAFE)
+git read-tree HEAD         # Step 2: Rebuild index (SAFE)
+git status                 # Step 3: Verify
+```
+
+**Why git read-tree HEAD is safe:**
+- ✅ Rebuilds index from current commit
+- ✅ Does NOT delete the index file
+- ✅ Preserves all file tracking information
+- ✅ Can be run multiple times safely
+- ✅ No data loss risk
+
+**Why rm .git/index is CATASTROPHIC:**
+- ❌ Deletes all file tracking information
+- ❌ Causes Git to mark ALL files as deleted
+- ❌ Can result in 200,000+ files being deleted on commit
+- ❌ Extremely difficult to recover from
+
+### Safe Git Practices:
+1. Always check your location: `pwd`
+2. Always verify changes before committing: `git status`
+3. Use `git read-tree HEAD` to fix index corruption
+4. NEVER delete .git/index or .git/ directory
+
+---
+
+"""
+
+
+def _needs_git_knowledge(subtask: dict) -> bool:
+    """
+    Detect if a subtask involves Git operations and needs Git knowledge injection.
+
+    Args:
+        subtask: The subtask dictionary containing description and other metadata
+
+    Returns:
+        True if Git knowledge should be injected, False otherwise
+    """
+    git_keywords = [
+        "git", "commit", "branch", "merge", "rebase", "push", "pull",
+        "checkout", "stash", "cherry-pick", "worktree", "repository",
+        "repo", "clone", "fetch", "remote", "tag", "log", "diff",
+        "reset", "revert", "index", ".git"
+    ]
+
+    # Check subtask description
+    description = subtask.get("description", "").lower()
+    if any(keyword in description for keyword in git_keywords):
+        return True
+
+    # Check subtask ID (e.g., "git-setup", "commit-changes")
+    subtask_id = subtask.get("id", "").lower()
+    if any(keyword in subtask_id for keyword in git_keywords):
+        return True
+
+    return False
+
+
 def get_relative_spec_path(spec_dir: Path, project_dir: Path) -> str:
     """
     Get the spec directory path relative to the project/working directory.
@@ -111,11 +253,47 @@ def generate_subtask_prompt(
     # Get relative spec path
     relative_spec = get_relative_spec_path(spec_dir, project_dir)
 
+    # Load scoped services to limit git operations
+    scoped_services = load_scoped_services(spec_dir)
+    git_add_paths = get_git_add_paths(scoped_services)
+
     # Build the prompt
     sections = []
 
     # Environment context first
     sections.append(generate_environment_context(project_dir, spec_dir))
+
+    # Git safety rules (CRITICAL - inject into every subtask)
+    sections.append(generate_git_safety_rules())
+
+    # Dynamic Git knowledge injection (only if subtask involves Git operations)
+    if _needs_git_knowledge(subtask):
+        from .prompts import _load_git_knowledge
+
+        # Always include common operations for Git-related tasks
+        common_ops = _load_git_knowledge("git-common-operations.md")
+        if common_ops:
+            sections.append(common_ops)
+
+        # Include worktree guide if worktree is mentioned
+        if "worktree" in description.lower() or "worktree" in subtask_id.lower():
+            worktree_guide = _load_git_knowledge("git-worktree-guide.md")
+            if worktree_guide:
+                sections.append(worktree_guide)
+
+        # Include error recovery if error/fix/recover/corrupt is mentioned
+        error_keywords = ["error", "fix", "recover", "corrupt", "broken", "failed"]
+        if any(keyword in description.lower() for keyword in error_keywords):
+            error_recovery = _load_git_knowledge("git-error-recovery.md")
+            if error_recovery:
+                sections.append(error_recovery)
+
+        # Include best practices for setup/init/configure tasks
+        setup_keywords = ["setup", "init", "configure", "install", "create"]
+        if any(keyword in description.lower() for keyword in setup_keywords):
+            best_practices = _load_git_knowledge("git-best-practices.md")
+            if best_practices:
+                sections.append(best_practices)
 
     # Header
     sections.append(f"""# Subtask Implementation Task
@@ -214,7 +392,7 @@ Verify:""")
 4. **Run verification** and fix any issues
 5. **Commit your changes:**
    ```bash
-   git add .
+   git add {git_add_paths}
    git commit -m "auto-claude: {subtask_id} - {description[:50]}"
    ```
 6. **Update the plan** - set this subtask's status to "completed" in implementation_plan.json
