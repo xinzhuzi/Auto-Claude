@@ -258,6 +258,7 @@ class SpecOrchestrator:
             run_agent_fn=self._run_agent,
             task_logger=task_logger,
             ui_module=ui,
+            auto_approve=auto_approve,
         )
 
         results = []

@@ -41,6 +41,7 @@ class PhaseExecutor(
         run_agent_fn: Callable,
         task_logger,
         ui_module,
+        auto_approve: bool = False,
     ):
         """
         Initialize the phase executor.
@@ -53,6 +54,7 @@ class PhaseExecutor(
             run_agent_fn: Async function to run agent with a prompt
             task_logger: Logger for task progress
             ui_module: UI module for status messages
+            auto_approve: Whether to skip human review checkpoint
         """
         self.project_dir = project_dir
         self.spec_dir = spec_dir
@@ -61,6 +63,7 @@ class PhaseExecutor(
         self.run_agent_fn = run_agent_fn
         self.task_logger = task_logger
         self.ui = ui_module
+        self.auto_approve = auto_approve
 
     def _run_script(self, script: str, args: list[str]) -> tuple[bool, str]:
         """
