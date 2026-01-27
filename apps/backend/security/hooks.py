@@ -4,6 +4,8 @@ Security Hooks
 
 Pre-tool-use hooks that validate bash commands for security.
 Main enforcement point for the security system.
+
+Also includes hooks to fix tool parameter issues (e.g., TodoWrite activeForm).
 """
 
 import os
@@ -12,6 +14,7 @@ from typing import Any
 
 from project_analyzer import BASE_COMMANDS, SecurityProfile, is_command_allowed
 
+from .bash_validators import validate_bash_command
 from .parser import extract_commands, get_command_for_validation, split_command_segments
 from .profile import get_security_profile
 from .validator import VALIDATORS
@@ -64,6 +67,15 @@ async def bash_security_hook(
     command = tool_input.get("command", "")
     if not command:
         return {}
+
+    # CRITICAL: Check for dangerous Git operations FIRST (highest priority)
+    # This prevents catastrophic data loss from commands like "rm .git/index"
+    is_valid, error_msg = validate_bash_command(command)
+    if not is_valid:
+        return {
+            "decision": "block",
+            "reason": error_msg,
+        }
 
     # Get the working directory from context or use current directory
     # Priority:
@@ -173,3 +185,111 @@ def validate_command(
                 return False, reason
 
     return True, ""
+
+
+async def todowrite_fix_hook(
+    input_data: dict[str, Any],
+    tool_use_id: str | None = None,
+    context: Any | None = None,
+) -> dict[str, Any]:
+    """
+    Pre-tool-use hook that fixes TodoWrite tool parameters.
+
+    Claude Code CLI requires 'activeForm' parameter for each todo item,
+    but Claude often omits it. This hook automatically adds activeForm
+    by copying the 'content' field value.
+
+    Args:
+        input_data: Dict containing tool_name and tool_input
+        tool_use_id: Optional tool use ID
+        context: Optional context
+
+    Returns:
+        Empty dict (always allows, just fixes parameters)
+    """
+    if input_data.get("tool_name") != "TodoWrite":
+        return {}
+
+    tool_input = input_data.get("tool_input")
+    if not tool_input or not isinstance(tool_input, dict):
+        return {}
+
+    todos = tool_input.get("todos")
+    if not todos or not isinstance(todos, list):
+        return {}
+
+    # Fix each todo item by adding activeForm if missing
+    modified = False
+    for todo in todos:
+        if isinstance(todo, dict) and "activeForm" not in todo:
+            # Use content as activeForm (this is what Claude Code expects)
+            content = todo.get("content", "")
+            todo["activeForm"] = content
+            modified = True
+
+    if modified:
+        # Update the tool_input in place
+        input_data["tool_input"]["todos"] = todos
+
+    return {}
+
+
+async def write_empty_param_hook(
+    input_data: dict[str, Any],
+    tool_use_id: str | None = None,
+    context: Any | None = None,
+) -> dict[str, Any]:
+    """
+    Pre-tool-use hook that detects empty Write tool parameters.
+
+    When Claude's output is truncated due to token limits, the Write tool
+    parameters (file_path, content) become empty. This hook detects this
+    condition and blocks the tool call with a helpful error message.
+
+    Args:
+        input_data: Dict containing tool_name and tool_input
+        tool_use_id: Optional tool use ID
+        context: Optional context
+
+    Returns:
+        Empty dict to allow, or {"decision": "block", "reason": "..."} to block
+    """
+    if input_data.get("tool_name") != "Write":
+        return {}
+
+    tool_input = input_data.get("tool_input")
+    if not tool_input or not isinstance(tool_input, dict):
+        return {}
+
+    file_path = tool_input.get("file_path", "")
+    content = tool_input.get("content", "")
+
+    # Detect empty parameters (sign of token truncation)
+    if not file_path and not content:
+        return {
+            "decision": "block",
+            "reason": (
+                "🚨 EMPTY WRITE PARAMETERS DETECTED\n\n"
+                "The Write tool was called with empty file_path and content.\n"
+                "This usually happens when Claude's output is truncated due to token limits.\n\n"
+                "WHAT TO DO:\n"
+                "1. The subtask may be too large - consider splitting it\n"
+                "2. Retry with a smaller scope\n"
+                "3. Use auto_split_subtask() to break down the task\n\n"
+                "This is NOT a bug - it's a sign the task needs to be smaller."
+            ),
+        }
+
+    if not file_path:
+        return {
+            "decision": "block",
+            "reason": (
+                "🚨 EMPTY FILE PATH DETECTED\n\n"
+                "The Write tool was called with an empty file_path.\n"
+                "This may indicate output truncation due to token limits.\n\n"
+                "Please specify the file path explicitly."
+            ),
+        }
+
+    return {}
+

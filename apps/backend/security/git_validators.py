@@ -5,12 +5,82 @@ Git Validators
 Validators for git operations:
 - Commit with secret scanning
 - Config protection (prevent setting test users)
+- Dangerous operations (prevent catastrophic data loss)
 """
 
+import re
 import shlex
 from pathlib import Path
 
 from .validation_models import ValidationResult
+
+# =============================================================================
+# DANGEROUS GIT OPERATIONS
+# =============================================================================
+
+# Regex patterns for dangerous Git operations that can cause catastrophic data loss
+# These patterns detect commands like "rm .git/index" which can mark all files as deleted
+DANGEROUS_GIT_PATTERNS = [
+    # Match: rm .git/index (but NOT .git/index.lock or .git/index.backup)
+    # This is the most dangerous command - it causes all files to be marked as deleted
+    r"\brm\s+(?:-[rf]+\s+)?\.git/index(?!\.(lock|backup))\b",
+
+    # Match: rm -rf .git/ or rm -rf .git
+    # Deleting the entire .git directory destroys the repository
+    r"\brm\s+-[rf]+\s+\.git/?(?:\s|$|;|&&|\|)",
+
+    # Match: git reset after deleting index (dangerous combination)
+    # This specific sequence was the cause of the 2025-01-13 incident
+    r"\brm\s+.*\.git/index.*(?:&&|\|\||;).*\bgit\s+reset\b",
+
+    # Match: direct deletion of .git directory
+    r"\brm\s+(?:-[rf]+\s+)?\.git(?:\s|$|;|&&|\|)",
+
+    # Match: git rm --cached -r . (removes all files from tracking)
+    # This can cause all files to be marked as deleted in the next commit
+    r"\bgit\s+rm\s+--cached\s+-r\s+\.",
+]
+
+
+def validate_dangerous_git_operations(command_string: str) -> ValidationResult:
+    """
+    Block dangerous Git operations that can cause catastrophic data loss.
+
+    This validator prevents commands like:
+    - rm .git/index (causes all files to be marked as deleted)
+    - rm -rf .git/ (destroys the repository)
+    - rm .git/index && git reset (the exact command from 2025-01-13 incident)
+
+    SAFE ALTERNATIVES:
+    - rm -f .git/index.lock (safe - only removes lock file)
+    - git read-tree HEAD (safe - rebuilds index from HEAD)
+
+    Args:
+        command_string: The full command string to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    for pattern in DANGEROUS_GIT_PATTERNS:
+        if re.search(pattern, command_string, re.IGNORECASE):
+            return False, (
+                f"🚨 BLOCKErous Git operation detected\n\n"
+                f"Command: {command_string}\n\n"
+                f"WHY: This command can cause CATASTROPHIC DATA LOSS by corrupting the Git index.\n"
+                f"Deleting .git/index causes Git to lose track of all files, marking them as deleted.\n\n"
+                f"SAFE ALTERNATIVES:\n"
+                f"  ✅ rm -f .git/index.lock    # Safe: Only removes lock file\n"
+                f"  ✅ git read-tree HEAD       # Safe: Rebuilds index from HEAD\n"
+                f"  ✅ git status               # Safe: Check repository state\n\n"
+                f"If you're trying to fix a corrupted index:\n"
+                f"  1. rm -f .git/index.lock   # Remove lock if it exists\n"
+                f"  2. git read-tree HEAD      # Safely rebuild index\n"
+                f"  3. git status              # Verify recovery\n\n"
+                f"NEVER use 'rm .git/index' - it will cause massive data loss!"
+            )
+
+    return True, ""
+
 
 # =============================================================================
 # BLOCKED GIT CONFIG PATTERNS
@@ -159,6 +229,7 @@ def validate_git_command(command_string: str) -> ValidationResult:
     Main git validator that checks all git security rules.
 
     Currently validates:
+    - Dangerous operations: Block catastrophic commands like rm .git/index
     - git -c: Block identity changes via inline config on ANY git command
     - git config: Block identity changes
     - git commit: Run secret scanning
@@ -169,6 +240,12 @@ def validate_git_command(command_string: str) -> ValidationResult:
     Returns:
         Tuple of (is_valid, error_message)
     """
+    # CRITICAL: Check for dangerous Git operations FIRST (highest priority)
+    # This prevents catastrophic data loss from commands like "rm .git/index"
+    is_valid, error_msg = validate_dangerous_git_operations(command_string)
+    if not is_valid:
+        return is_valid, error_msg
+
     try:
         tokens = shlex.split(command_string)
     except ValueError:
