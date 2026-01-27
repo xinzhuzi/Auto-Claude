@@ -2,6 +2,7 @@
   "refreshTasks": "刷新任务",
   "status": {
     "backlog": "待办",
+    "queue": "队列",
     "todo": "待做",
     "in_progress": "进行中",
     "review": "审查",
@@ -19,7 +20,8 @@
     "view": "查看详情",
     "viewPR": "查看 PR",
     "moveTo": "移动到",
-    "taskActions": "任务操作"
+    "taskActions": "任务操作",
+    "selectTask": "选择任务：{{title}}"
   },
   "labels": {
     "running": "运行中",
@@ -55,6 +57,7 @@
   "columns": {
     "error": "错误",
     "backlog": "规划中",
+    "queue": "队列",
     "in_progress": "进行中",
     "ai_review": "AI 审查",
     "human_review": "人工审查",
@@ -64,6 +67,8 @@
   "kanban": {
     "emptyBacklog": "没有计划的任务",
     "emptyBacklogHint": "添加一个任务以开始",
+    "emptyQueue": "队列为空",
+    "emptyQueueHint": "当达到并行任务限制时，任务将在此等待",
     "emptyInProgress": "没有正在运行的任务",
     "emptyInProgressHint": "从待办开始一个任务",
     "emptyAiReview": "没有审查中的任务",
@@ -78,6 +83,7 @@
     "dropHere": "放到这里",
     "showArchived": "显示已归档",
     "addTaskAriaLabel": "添加新任务到待办",
+    "queueAllAriaLabel": "将所有任务移至队列",
     "closeTaskDetailsAriaLabel": "关闭任务详情",
     "editTask": "编辑任务",
     "cannotEditWhileRunning": "任务运行时无法编辑",
@@ -86,7 +92,43 @@
     "worktreeCleanupNotStaged": "此任务有一个工作树，其更改尚未合并。删除工作树以标记为完成，或取消以先审查更改。",
     "keepWorktree": "保留工作树",
     "deleteWorktree": "删除工作树并标记为完成",
-    "refreshTasks": "刷新任务"
+    "refreshTasks": "刷新任务",
+    "queueSettings": "队列设置",
+    "orderSaveFailedTitle": "重新排序未保存",
+    "orderSaveFailedDescription": "您的任务顺序更改已应用，但无法保存到存储。刷新后将丢失。",
+    "selectAll": "全选",
+    "deselectAll": "取消全选",
+    "selectedCount": "已选择 {{count}} 个",
+    "selectedCountOne": "已选择 {{count}} 个任务",
+    "selectedCountOther": "已选择 {{count}} 个任务",
+    "createPRs": "创建 PR",
+    "clearSelection": "清除选择",
+    "collapseColumn": "折叠列",
+    "expandColumn": "展开列",
+    "resizeColumn": "调整列大小",
+    "lockColumn": "锁定列宽",
+    "unlockColumn": "解锁列宽",
+    "columnLocked": "列宽已锁定",
+    "expandAll": "展开所有列"
+  },
+  "queue": {
+    "limitReached": "已达到并行任务限制（{{current}}/{{max}}）。任务已移至队列。",
+    "movedToQueue": "任务已移至队列。",
+    "autoPromoted": "任务已从队列自动提升到进行中。",
+    "capacityAvailable": "进行中有 {{count}} 个空位。",
+    "queueAll": "全部添加到队列",
+    "queueAllSuccess": "已将 {{count}} 个任务移至队列。",
+    "settings": {
+      "title": "队列设置",
+      "description": "配置"进行中"看板中可以并行运行的最大任务数",
+      "maxParallelLabel": "最大并行任务数",
+      "minValueError": "至少为 1",
+      "maxValueError": "不能超过 10",
+      "hint": "达到此限制时，新任务将在队列中等待，然后再移至"进行中"",
+      "saved": "队列设置已保存",
+      "saveFailed": "保存队列设置失败",
+      "retry": "请重试"
+    }
   },
   "execution": {
     "phases": {
@@ -154,6 +196,8 @@
       "baseBranchLabel": "基础分支（可选）",
       "useProjectDefault": "使用项目默认值",
       "useProjectDefaultWithBranch": "使用项目默认值（{{branch}}）",
+      "searchBranches": "搜索分支...",
+      "noBranchesFound": "未找到分支",
       "helpText": "覆盖此任务工作树将创建自的分支。留空以使用项目配置的默认分支。",
       "useWorktreeLabel": "使用隔离的工作空间（推荐）",
       "useWorktreeDescription": "在单独的 git 工作树中创建更改，以便在合并前进行安全审查。禁用以直接在项目中构建（更快但有风险）。"
@@ -240,5 +284,31 @@
   },
   "subtasks": {
     "untitled": "无标题的子任务"
+  },
+  "bulkPR": {
+    "selectAllInColumn": "选择列中的所有任务",
+    "deselectAllInColumn": "取消选择所有任务",
+    "selectionMode": "选择模式已激活",
+    "exitSelectionMode": "退出选择模式",
+    "noTasksToSelect": "没有可选择的任务",
+    "confirmBulkAction": "确认对 {{count}} 个任务执行批量操作",
+    "processingTasks": "正在处理选定的任务..."
+  },
+  "screenshot": {
+    "title": "捕获截图",
+    "description": "选择屏幕或窗口以捕获为参考图片",
+    "capture": "捕获",
+    "capturing": "捕获中...",
+    "noSources": "未找到屏幕或窗口",
+    "errors": {
+      "getSources": "获取截图源失败",
+      "fetchSources": "获取截图源失败",
+      "capture": "捕获截图失败",
+      "captureFailed": "捕获截图失败"
+    }
+  },
+  "referenceImages": {
+    "title": "参考图片（可选）",
+    "description": "添加视觉参考，如截图或设计，以帮助 AI 理解您的需求。"
   }
 }
