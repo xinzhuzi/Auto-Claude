@@ -32,6 +32,29 @@ SPEC_SIZE_THRESHOLDS = {
 }
 
 
+def needs_chunking(estimated_size: int) -> tuple[bool, str, int]:
+    """
+    Determine if chunked creation is needed (standalone function).
+
+    This is a module-level function for use by standalone functions like
+    run_ai_complexity_assessment() that don't have access to class methods.
+
+    Args:
+        estimated_size: Estimated character count
+
+    Returns:
+        (needs_chunking, size_level, suggested_chunks)
+    """
+    if estimated_size <= SPEC_SIZE_THRESHOLDS["small"]:
+        return False, "small", 1
+    elif estimated_size <= SPEC_SIZE_THRESHOLDS["medium"]:
+        return True, "medium", max(2, estimated_size // 20000)
+    elif estimated_size <= SPEC_SIZE_THRESHOLDS["large"]:
+        return True, "large", max(3, estimated_size // 15000)
+    else:
+        return True, "huge", max(5, estimated_size // 30000)
+
+
 class Complexity(Enum):
     """Task complexity tiers that determine which phases to run."""
 
