@@ -1,5 +1,5 @@
 {
-  "name": "auto-claude-ui",
+  "name": "ai-staff",
   "version": "2.7.5",
   "type": "module",
   "description": "Desktop UI for AI员工 autonomous coding framework",
@@ -180,9 +180,7 @@
         "to": "code-server/lib",
         "filter": [
           "!**/.git",
-          "!**/.DS_Store",
-          "!**/code-server-*-win/**",
-          "!**/code-server-*-win"
+          "!**/.DS_Store"
         ]
       },
       {
@@ -230,9 +228,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "perMachine": false,
+      "perMachine": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     },
     "linux": {
       "icon": "resources/icons",
