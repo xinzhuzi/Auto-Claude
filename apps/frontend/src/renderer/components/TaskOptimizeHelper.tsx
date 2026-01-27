@@ -73,7 +73,14 @@ export function useTaskOptimize({
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
 
   const handleOptimize = useCallback(async () => {
-    if (!description.trim() || !projectPath) return;
+    if (!description.trim()) {
+      setOptimizeError('请先输入任务描述');
+      return;
+    }
+    if (!projectPath) {
+      setOptimizeError('项目路径未找到，请确保已选择项目');
+      return;
+    }
 
     setIsOptimizing(true);
     setOptimizeError(null);

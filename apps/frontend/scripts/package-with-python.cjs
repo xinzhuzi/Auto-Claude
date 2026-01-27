@@ -298,16 +298,29 @@ function stageCodeServer(frontendDir, platform) {
     stagedVersion = entry;
   }
 
-  // Optimize: Remove duplicate node_modules if node_modules.asar exists
+  // Handle node_modules vs node_modules.asar
+  // In source: node_modules.asar is a symlink to node_modules
+  // After dereference copy: both become full directories (duplicates)
+  // Node.js module resolution only looks in 'node_modules', not 'node_modules.asar'
+  // So we must keep node_modules and remove node_modules.asar
   if (stagedVersion) {
     const vscodeDir = path.join(codeServerDest, stagedVersion, 'lib', 'vscode');
     const nodeModulesDir = path.join(vscodeDir, 'node_modules');
     const nodeModulesAsar = path.join(vscodeDir, 'node_modules.asar');
     
-    if (fs.existsSync(nodeModulesDir) && fs.existsSync(nodeModulesAsar)) {
-      console.log('[package] Removing duplicate node_modules (keeping node_modules.asar)...');
-      fs.rmSync(nodeModulesDir, { recursive: true, force: true });
-      console.log('[package] Saved ~188MB by removing duplicate node_modules');
+    const hasNodeModules = fs.existsSync(nodeModulesDir);
+    const hasNodeModulesAsar = fs.existsSync(nodeModulesAsar);
+    
+    if (hasNodeModules && hasNodeModulesAsar) {
+      // Both exist after dereference copy - keep node_modules, remove node_modules.asar
+      // Node.js can only resolve modules from node_modules directory
+      console.log('[package] Removing duplicate node_modules.asar (keeping node_modules)...');
+      fs.rmSync(nodeModulesAsar, { recursive: true, force: true });
+      console.log('[package] Saved ~188MB by removing duplicate node_modules.asar');
+    } else if (!hasNodeModules && hasNodeModulesAsar) {
+      // Only node_modules.asar exists - rename it to node_modules for Node.js compatibility
+      console.log('[package] Renaming node_modules.asar to node_modules...');
+      fs.renameSync(nodeModulesAsar, nodeModulesDir);
     }
   }
 

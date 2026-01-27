@@ -13,7 +13,8 @@ import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { app } from 'electron';
 import { parsePythonCommand } from './python-detector';
-import { getConfiguredPythonPath } from './python-env-manager';
+import { getPathDelimiter } from './platform';
+import { getConfiguredPythonPath, pythonEnvManager } from './python-env-manager';
 import { getAPIProfileEnv } from './services/profile';
 import { getBestAvailableProfileEnv } from './rate-limit-detector';
 import { getOAuthModeClearVars } from './agent/env-utils';
@@ -165,6 +166,8 @@ export async function optimizeTaskDescription(
   const apiProfileEnv = await getAPIProfileEnv();
   const isApiProfileActive = Object.keys(apiProfileEnv).length > 0;
 
+  debug('API Profile active:', isApiProfileActive, 'apiProfileEnv:', apiProfileEnv);
+
   // Only get OAuth profile env if no API profile is active
   let profileEnv: Record<string, string> = {};
   if (!isApiProfileActive) {
@@ -183,6 +186,19 @@ export async function optimizeTaskDescription(
   // Get OAuth mode clearing vars
   const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
+  // Get Python environment from pythonEnvManager (includes bundled site-packages)
+  const pythonEnv = pythonEnvManager.getPythonEnv();
+
+  // Build PYTHONPATH: bundled site-packages (if any) + autoBuildSource for local imports
+  const pythonPathParts: string[] = [];
+  if (pythonEnv.PYTHONPATH) {
+    pythonPathParts.push(pythonEnv.PYTHONPATH);
+  }
+  if (autoBuildSource) {
+    pythonPathParts.push(autoBuildSource);
+  }
+  const combinedPythonPath = pythonPathParts.join(getPathDelimiter());
+
   const pythonPath = getConfiguredPythonPath();
 
   return new Promise((resolve) => {
@@ -191,10 +207,12 @@ export async function optimizeTaskDescription(
       cwd: autoBuildSource,
       env: {
         ...process.env,
+        ...pythonEnv,  // Include Python environment (PYTHONPATH for bundled packages)
         ...autoBuildEnv,
         ...profileEnv,
         ...apiProfileEnv,
         ...oauthModeClearVars,
+        PYTHONPATH: combinedPythonPath,
         PYTHONUNBUFFERED: '1',
         PYTHONIOENCODING: 'utf-8',
         PYTHONUTF8: '1'

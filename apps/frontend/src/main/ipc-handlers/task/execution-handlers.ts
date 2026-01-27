@@ -10,6 +10,7 @@ import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { initializeClaudeProfileManager, type ClaudeProfileManager } from '../../claude-profile-manager';
+import { getAPIProfileEnv } from '../../services/profile';
 import {
   getPlanPath,
   persistPlanStatus,
@@ -167,15 +168,22 @@ export function registerTaskExecutionHandlers(
       }
 
       // Check authentication - Claude requires valid auth to run tasks
-      if (!profileManager.hasValidAuth()) {
-        console.warn('[TASK_START] No valid authentication for active profile');
+      // Check both OAuth profiles and API profiles
+      const hasValidOAuth = profileManager.hasValidAuth();
+      const apiProfileEnv = await getAPIProfileEnv();
+      const hasValidAPIProfile = Object.keys(apiProfileEnv).length > 0;
+
+      if (!hasValidOAuth && !hasValidAPIProfile) {
+        console.warn('[TASK_START] No valid authentication found (no OAuth profile or API profile configured)');
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
           taskId,
-          'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or set an OAuth token.'
+          'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or configure an API Profile.'
         );
         return;
       }
+
+      console.warn('[TASK_START] Authentication found - OAuth:', hasValidOAuth, 'API Profile:', hasValidAPIProfile);
 
       console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'subtasks:', task.subtasks.length);
 
@@ -751,13 +759,18 @@ export function registerTaskExecutionHandlers(
             return { success: false, error: initResult.error };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
-            console.warn('[TASK_UPDATE_STATUS] No valid authentication for active profile');
+          // Check both OAuth profiles and API profiles for authentication
+          const hasValidOAuth = profileManager.hasValidAuth();
+          const apiProfileEnv = await getAPIProfileEnv();
+          const hasValidAPIProfile = Object.keys(apiProfileEnv).length > 0;
+
+          if (!hasValidOAuth && !hasValidAPIProfile) {
+            console.warn('[TASK_UPDATE_STATUS] No valid authentication found (no OAuth profile or API profile configured)');
             if (mainWindow) {
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_ERROR,
                 taskId,
-                'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or set an OAuth token.'
+                'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or configure an API Profile.'
               );
             }
             return { success: false, error: 'Claude authentication required' };
@@ -1116,7 +1129,12 @@ export function registerTaskExecutionHandlers(
             };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          // Check both OAuth profiles and API profiles for authentication
+          const hasValidOAuth = profileManager.hasValidAuth();
+          const apiProfileEnv = await getAPIProfileEnv();
+          const hasValidAPIProfile = Object.keys(apiProfileEnv).length > 0;
+
+          if (!hasValidOAuth && !hasValidAPIProfile) {
             console.warn('[Recovery] Auth check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without auth
             return {
@@ -1125,7 +1143,7 @@ export function registerTaskExecutionHandlers(
                 taskId,
                 recovered: true,
                 newStatus,
-                message: 'Task recovered but cannot restart: Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account.',
+                message: 'Task recovered but cannot restart: Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or configure an API Profile.',
                 autoRestarted: false
               }
             };

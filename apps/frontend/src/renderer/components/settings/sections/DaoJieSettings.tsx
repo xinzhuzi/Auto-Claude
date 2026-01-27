@@ -8,6 +8,16 @@
 import { useState, useEffect } from 'react';
 import { Wallet, Users, Gamepad2, Tv, QrCode } from 'lucide-react';
 
+// 使用 Vite 的显式资源导入，?url 后缀告诉 Vite 将其作为 URL 处理
+// 这样打包后会自动生成正确的哈希路径
+import wechatMoneyReceivingImg from '../../../../assets/daojie-images/wechat-money-receiving.jpg?url';
+import alipayMoneyReceivingImg from '../../../../assets/daojie-images/alipay-money-receiving.jpg?url';
+import wechatFriendImg from '../../../../assets/daojie-images/wechat-friend.jpg?url';
+import qqGroupImg from '../../../../assets/daojie-images/qq-group.jpg?url';
+import bilibiliFriendImg from '../../../../assets/daojie-images/bilibili-friend.jpg?url';
+import zhuzibaijiaImg from '../../../../assets/daojie-images/zhuzibaijia.jpg?url';
+import aiInfoImg from '../../../../assets/daojie-images/AI信息知识库.jpg?url';
+
 interface ContactCard {
   type: 'payment' | 'contact' | 'community' | 'social';
   title: string;
@@ -17,55 +27,37 @@ interface ContactCard {
   action?: string;
 }
 
-// 图片文件列表
-const IMAGE_FILES = [
-  'wechat-money-receiving.jpg',
-  'alipay-money-receiving.png',
-  'wechat-friend.jpg',
-  'qq-group.jpg',
-  'bilibili-friend.jpg',
-  'zhuzibaijia.jpg',
-  'AI信息知识库.jpg'
-];
-
-// 图片基础路径 - 使用 Vite 的静态资源处理
-const IMAGE_BASE_PATH = new URL('../../../../assets/daojie-images', import.meta.url).href;
+// 预加载的图片 URL 映射
+const PRELOADED_IMAGES: Record<string, string> = {
+  'wechat-money-receiving.jpg': wechatMoneyReceivingImg,
+  'alipay-money-receiving.png': alipayMoneyReceivingImg,
+  'wechat-friend.jpg': wechatFriendImg,
+  'qq-group.jpg': qqGroupImg,
+  'bilibili-friend.jpg': bilibiliFriendImg,
+  'zhuzibaijia.jpg': zhuzibaijiaImg,
+  'AI信息知识库.jpg': aiInfoImg,
+};
 
 export function DaoJieSettings() {
-  const [images, setImages] = useState<Record<string, string>>({});
   const [imagesLoaded, setImagesLoaded] = useState(false);
 
   useEffect(() => {
-    // 加载图片
-    const loadImages = async () => {
-      const loadedImages: Record<string, string> = {};
-
-      for (const file of IMAGE_FILES) {
-        try {
-          // 使用 Vite 的静态资源 URL
-          const imagePath = `${IMAGE_BASE_PATH}/${file}`;
-
-          // 验证图片可访问
+    // 预加载所有图片
+    const preloadImages = async () => {
+      const promises = Object.values(PRELOADED_IMAGES).map((src) => {
+        return new Promise<void>((resolve) => {
           const img = new Image();
-          img.src = imagePath;
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = reject;
-          });
+          img.onload = () => resolve();
+          img.onerror = () => resolve(); // 即使失败也继续
+          img.src = src;
+        });
+      });
 
-          loadedImages[file] = imagePath;
-        } catch (err) {
-          console.warn(`Failed to load image: ${file}`, err);
-          // 图片加载失败时使用占位符
-          loadedImages[file] = '';
-        }
-      }
-
-      setImages(loadedImages);
+      await Promise.all(promises);
       setImagesLoaded(true);
     };
 
-    loadImages();
+    preloadImages();
   }, []);
 
   // 联系卡片数据
@@ -74,7 +66,7 @@ export function DaoJieSettings() {
       type: 'payment',
       title: '支持',
       description: '微信支付 - 感谢您的赞助',
-      image: images['wechat-money-receiving.jpg'] || '',
+      image: PRELOADED_IMAGES['wechat-money-receiving.jpg'],
       icon: Wallet,
       action: '微信'
     },
@@ -82,7 +74,7 @@ export function DaoJieSettings() {
       type: 'payment',
       title: '支持',
       description: '支付宝 - 感谢您的赞助',
-      image: images['alipay-money-receiving.png'] || '',
+      image: PRELOADED_IMAGES['alipay-money-receiving.png'],
       icon: Wallet,
       action: '支付宝'
     },
@@ -90,7 +82,7 @@ export function DaoJieSettings() {
       type: 'contact',
       title: '联系作者',
       description: '竹海晨金 - 提需求、交流合作',
-      image: images['wechat-friend.jpg'] || '',
+      image: PRELOADED_IMAGES['wechat-friend.jpg'],
       icon: Users,
       action: '微信'
     },
@@ -98,7 +90,7 @@ export function DaoJieSettings() {
       type: 'community',
       title: 'QQ 群',
       description: '千年志*道劫 (1019763815)',
-      image: images['qq-group.jpg'] || '',
+      image: PRELOADED_IMAGES['qq-group.jpg'],
       icon: Users,
       action: '加入群聊'
     },
@@ -106,13 +98,13 @@ export function DaoJieSettings() {
       type: 'social',
       title: 'B 站',
       description: '诸子百家-谁的天下',
-      image: images['bilibili-friend.jpg'] || '',
+      image: PRELOADED_IMAGES['bilibili-friend.jpg'],
       icon: Tv,
       action: '关注'
     }
   ];
 
-  const backgroundImage = images['zhuzibaijia.jpg'] || '';
+  const backgroundImage = PRELOADED_IMAGES['zhuzibaijia.jpg'];
 
   return (
     <div
@@ -212,13 +204,16 @@ export function DaoJieSettings() {
             <h2 className="text-xl font-bold text-violet-100 mb-3 flex items-center justify-center gap-2">
               🤖 AI 信息知识库
             </h2>
-            <p className="text-violet-50 text-center mb-3">
+            <p className="text-violet-50 text-center mb-1">
               加入付费 AI 群，获取最新 AI 技术分享与资源
             </p>
-            {images['AI信息知识库.jpg'] && (
+            <p className="text-violet-200 text-xs text-center">
+              进群时标注推荐人更易获取机会
+            </p>
+            {PRELOADED_IMAGES['AI信息知识库.jpg'] && (
               <div className="flex justify-center">
                 <img
-                  src={images['AI信息知识库.jpg']}
+                  src={PRELOADED_IMAGES['AI信息知识库.jpg']}
                   alt="AI信息知识库"
                   className="rounded-lg max-w-xs w-auto"
                   style={{ maxHeight: '200px' }}
@@ -275,7 +270,18 @@ export function DaoJieSettings() {
               更新日志
             </h2>
             <p className="text-gray-400 text-sm mb-4">
-              基于 <a href="https://github.com/AndyMik90/Auto-Claude.git" className="text-blue-400 hover:underline">AndyMik90/Auto-Claude</a> 的修改
+              基于{' '}
+              <a
+                href="https://github.com/AndyMik90/Auto-Claude.git"
+                className="text-blue-400 hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.electronAPI.openExternal('https://github.com/AndyMik90/Auto-Claude.git');
+                }}
+              >
+                AndyMik90/Auto-Claude
+              </a>{' '}
+              的修改
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[

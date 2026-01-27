@@ -99,12 +99,24 @@ async def _call_claude_for_optimization(prompt: str) -> str:
 
     复用项目现有的 create_simple_client 模式
     """
+    import os
     from core.auth import ensure_claude_code_oauth_token, get_auth_token
     from core.model_config import get_utility_model_config
 
-    if not get_auth_token():
-        logger.warning("No authentication token found")
-        return ""
+    # Debug logging
+    logger.info(f"Environment check: ANTHROPIC_AUTH_TOKEN={bool(os.environ.get('ANTHROPIC_AUTH_TOKEN'))}, "
+                f"CLAUDE_CODE_OAUTH_TOKEN={bool(os.environ.get('CLAUDE_CODE_OAUTH_TOKEN'))}, "
+                f"ANTHROPIC_API_KEY={bool(os.environ.get('ANTHROPIC_API_KEY'))}")
+
+    # Check for both OAuth token and API key (from custom API profiles)
+    # Note: API profiles set ANTHROPIC_AUTH_TOKEN, not ANTHROPIC_API_KEY
+    has_oauth = bool(get_auth_token())
+    has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    has_auth_token = bool(os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+
+    if not has_oauth and not has_api_key and not has_auth_token:
+        logger.warning("No authentication token found (neither OAuth nor API key)")
+        raise ValueError("Claude authentication required. Please authenticate in Settings > Claude Profiles or configure an API Profile.")
 
     ensure_claude_code_oauth_token()
 

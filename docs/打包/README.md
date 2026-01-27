@@ -1,7 +1,7 @@
-# Auto-Claude 打包与开发指南
+# Auto-Claude 打包指南
 
-> **版本**: 2.0
-> **更新日期**: 2025-01-27
+> **版本**: 3.0  
+> **更新日期**: 2026-01-27  
 > **适用版本**: Auto-Claude v2.7.5+
 
 ---
@@ -9,11 +9,11 @@
 ## 目录
 
 1. [环境要求](#1-环境要求)
-2. [依赖安装](#2-依赖安装)
-3. [打包脚本使用](#3-打包脚本使用)
-4. [开发测试模式](#4-开发测试模式)
-5. [平台打包指南](#5-平台打包指南)
-6. [常见问题](#6-常见问题)
+2. [快速打包](#2-快速打包)
+3. [打包流程详解](#3-打包流程详解)
+4. [测试打包结果](#4-测试打包结果)
+5. [常见问题](#5-常见问题)
+6. [输出文件清单](#6-输出文件清单)
 
 ---
 
@@ -25,10 +25,10 @@
 |------|---------|---------|
 | **Node.js** | v24.0.0 | v24+ |
 | **npm** | 10.0.0 | 最新版 |
-| **Python** | 3.12.x (自动下载) | - |
+| **Python** | 3.12.x | 自动下载 |
 | **Git** | 2.30.0 | 最新版 |
 
-### 开发工具
+### 平台工具
 
 | 平台 | 必需工具 |
 |------|---------|
@@ -39,131 +39,167 @@
 ### 环境验证
 
 ```bash
-# 检查 Node.js 版本
-node --version  # 应该 >= 24.0.0
-
-# 检查 npm 版本
-npm --version   # 应该 >= 10.0.0
-
-# 检查 Git 版本
-git --version   # 应该 >= 2.30.0
+node --version  # >= 24.0.0
+npm --version   # >= 10.0.0
+git --version   # >= 2.30.0
 ```
 
 ### 安装依赖
 
 ```bash
-cd /Users/zhengbingjin/Project/Github/Auto-Claude
-
-# 安装根目录依赖
+# 根目录
 npm install
 
-# 安装 frontend 依赖
+# frontend
 cd apps/frontend
 npm install
-
-# 安装 backend 依赖 (可选，用于本地开发)
-cd ../backend
-pip install -r requirements.txt
-```
-
-### 环境配置（可选）
-
-创建 `apps/frontend/.env.local`:
-
-```bash
-# Anthropic API (可选，用于测试)
-ANTHROPIC_API_KEY=your_api_key_here
-
-# Sentry (可选，用于错误追踪)
-VITE_SENTRY_DSN=your_sentry_dsn_here
-
-# 开发模式
-DEBUG=false
 ```
 
 ---
 
-## 3. 打包脚本使用
+## 2. 快速打包
 
-### macOS 打包
-
-**脚本**: `scripts/build-mac.sh`
+### macOS
 
 ```bash
-cd /Users/zhengbingjin/Project/Github/Auto-Claude
-bash scripts/build-mac.sh
+# 方式一：使用脚本
+./scripts/build-mac.sh
+
+# 方式二：npm 命令
+cd apps/frontend
+npm run package:mac
 ```
 
-**执行步骤**:
-1. 检查环境（Node.js、npm版本）
-2. 下载 Python 运行时
-3. 构建 Electron 应用
-4. 检查签名证书
-5. 生成 DMG 和 ZIP 安装包
-
-**输出文件** (`apps/frontend/dist/`):
-- `Auto-Claude-{version}-darwin-arm64.dmg` (~314 MB)
-- `Auto-Claude-{version}-darwin-arm64.zip` (~311 MB)
-- `mac-arm64/Auto-Claude.app`
-
-### Windows 打包
-
-**脚本**: `scripts/build-win.bat`
-
-双击运行或：
+### Windows
 
 ```cmd
-cd scripts
-build-win.bat
+:: 方式一：双击脚本
+scripts\build-win.bat
+
+:: 方式二：npm 命令
+cd apps\frontend
+npm run package:win
 ```
 
-**执行步骤**:
-1. 检查 Node.js 安装
-2. 切换到 frontend 目录
-3. 运行 `npm run package:win`
-
-**输出文件**:
-- `Auto-Claude-{version}-win32-x64.exe` (NSIS 安装程序)
-- `Auto-Claude-{version}-win32-x64.zip`
-- `win-unpacked/Auto-Claude.exe` (便携版)
-
----
-
-## 2. 开发测试模式
-
-### 测试打包后的应用
-
-#### macOS
+### Linux
 
 ```bash
 cd apps/frontend
+npm run package:linux
+```
 
+---
+
+## 3. 打包流程详解
+
+### 核心脚本
+
+打包由 `apps/frontend/scripts/package-with-python.cjs` 统一处理，流程如下：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    package-with-python.cjs                   │
+├─────────────────────────────────────────────────────────────┤
+│  1. 解析命令行参数 (--mac/--win/--linux, --x64/--arm64)      │
+│                              ↓                               │
+│  2. downloadPython() - 下载对应平台的 Python 运行时           │
+│                              ↓                               │
+│  3. electron-vite build - 构建前端代码                       │
+│                              ↓                               │
+│  4. stageRuntimePackages() - 复制 node-pty 等原生模块        │
+│                              ↓                               │
+│  5. stageCodeServer() - 复制并优化 code-server               │
+│     ├── 只复制当前平台的 code-server                         │
+│     ├── 解析符号链接 (dereference: true)                     │
+│     └── 删除重复的 node_modules.asar                         │
+│                              ↓                               │
+│  6. electron-builder - 打包成安装程序                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### stageCodeServer 优化逻辑
+
+```javascript
+// 1. 平台感知：只复制当前平台的 code-server
+if (entry.includes('-win') && platform !== 'win') {
+  continue;  // Mac/Linux 打包时跳过 Windows 版本
+}
+
+// 2. 符号链接处理
+// 源目录: node_modules.asar -> node_modules (符号链接)
+// 复制后: 两者都变成完整目录 (重复)
+fs.cpSync(srcPath, destPath, { recursive: true, dereference: true });
+
+// 3. 去重：保留 node_modules，删除 node_modules.asar
+// Node.js 只能从 node_modules 目录加载模块
+if (hasNodeModules && hasNodeModulesAsar) {
+  fs.rmSync(nodeModulesAsar, { recursive: true, force: true });
+}
+```
+
+### electron-builder 配置
+
+`apps/frontend/package.json` 中的关键配置：
+
+```json
+{
+  "extraResources": [
+    {
+      "from": "code-server-staged/lib",
+      "to": "code-server/lib",
+      "filter": [
+        "!**/.git",
+        "!**/.DS_Store",
+        "!**/code-server-*-win/**",
+        "!**/code-server-*-win"
+      ]
+    }
+  ]
+}
+```
+
+### beforePack 钩子
+
+`apps/frontend/electron-builder.cjs` 作为最后一道防线：
+
+```javascript
+beforePack: async (context) => {
+  // 验证并清理不匹配平台的文件
+  if (entry.includes('-win') && platform !== 'win32') {
+    fs.rmSync(entryPath, { recursive: true, force: true });
+  }
+}
+```
+
+---
+
+## 4. 测试打包结果
+
+### macOS
+
+```bash
 # 运行打包后的应用
+open apps/frontend/dist/mac-arm64/Auto-Claude.app
+
+# 或使用 npm 脚本
+cd apps/frontend
 npm run start:packaged:mac
 ```
 
-或直接打开：
-```bash
-open dist/mac-arm64/Auto-Claude.app
-```
-
-#### Windows
+### Windows
 
 ```cmd
+:: 运行便携版
+apps\frontend\dist\win-unpacked\Auto-Claude.exe
+
+:: 或使用 npm 脚本
 cd apps\frontend
 npm run start:packaged:win
 ```
 
-或直接运行：
-```cmd
-dist\win-unpacked\Auto-Claude.exe
-```
-
-#### Linux
+### Linux
 
 ```bash
-cd apps/frontend
-
 # AppImage
 chmod +x dist/Auto-Claude-*-linux-x86_64.AppImage
 ./dist/Auto-Claude-*-linux-x86_64.AppImage
@@ -174,58 +210,29 @@ chmod +x dist/Auto-Claude-*-linux-x86_64.AppImage
 
 ---
 
-## 3. 平台打包指南
+## 5. 常见问题
 
-### 手动打包步骤
+### Cannot find package '@microsoft/1ds-core-js'
 
-#### macOS
+**原因**: `node_modules` 目录被错误删除
 
-```bash
-cd apps/frontend
+**解决**: 确保 `package.json` 的 `extraResources` 中没有排除 `node_modules`：
 
-# 1. 下载 Python 运行时
-npm run python:download
+```json
+// ❌ 错误配置
+"filter": [
+  "!**/vscode/node_modules/**",
+  "!**/vscode/node_modules"
+]
 
-# 2. 构建应用
-npm run build
-
-# 3. 打包
-npx electron-builder --mac --publish never
+// ✅ 正确配置
+"filter": [
+  "!**/.git",
+  "!**/.DS_Store",
+  "!**/code-server-*-win/**",
+  "!**/code-server-*-win"
+]
 ```
-
-#### Windows
-
-```bash
-cd apps/frontend
-
-# 1. 下载 Python 运行时
-npm run python:download
-
-# 2. 构建应用
-npm run build
-
-# 3. 打包
-npx electron-builder --win --publish never
-```
-
-#### Linux
-
-```bash
-cd apps/frontend
-
-# AppImage (推荐)
-npm run package:linux
-
-# Debian/Ubuntu
-npx electron-builder --linux deb --publish never
-
-# Flatpak
-npm run package:flatpak
-```
-
----
-
-## 4. 常见问题
 
 ### Python 运行时缺失
 
@@ -235,8 +242,7 @@ npm run package:flatpak
 ```bash
 cd apps/frontend
 npm run python:download
-npm run build
-npx electron-builder --mac --publish never
+npm run package:mac  # 或 package:win
 ```
 
 ### macOS 无法打开应用
@@ -245,11 +251,7 @@ npx electron-builder --mac --publish never
 
 **解决**:
 ```bash
-# 移除隔离属性
 sudo xattr -cr /Applications/Auto-Claude.app
-
-# 或在系统设置中允许
-# 系统设置 > 隐私与安全性 > 点击 "仍要打开"
 ```
 
 ### Electron dist 损坏
@@ -261,30 +263,20 @@ sudo xattr -cr /Applications/Auto-Claude.app
 cd apps/frontend
 rm -rf node_modules/.cache
 rm -rf dist
-npm run build
-npx electron-builder --mac --publish never
+npm run package:mac
 ```
-
-### 未签名警告
-
-**影响**:
-- ✅ 本机可以正常运行
-- ⚠️ 其他 Mac 首次打开需要右键 > 打开
-
-**解决** (可选):
-申请 Apple Developer ID 证书，证书名称包含 "Auto-Claude"
 
 ---
 
-## 输出文件清单
+## 6. 输出文件清单
 
 ### macOS
 
-| 文件 | 说明 |
-|------|------|
-| `*-darwin-arm64.dmg` | DMG 安装包 |
-| `*-darwin-arm64.zip` | ZIP 压缩包 |
-| `mac-arm64/Auto-Claude.app` | 应用程序 |
+| 文件 | 说明 | 大小 |
+|------|------|------|
+| `*-darwin-arm64.dmg` | DMG 安装包 | ~314 MB |
+| `*-darwin-arm64.zip` | ZIP 压缩包 | ~311 MB |
+| `mac-arm64/Auto-Claude.app` | 应用程序 | ~1.3 GB |
 
 ### Windows
 
@@ -292,7 +284,7 @@ npx electron-builder --mac --publish never
 |------|------|
 | `*-win32-x64.exe` | NSIS 安装程序 |
 | `*-win32-x64.zip` | ZIP 压缩包 |
-| `win-unpacked/Auto-Claude.exe` | 便携版可执行文件 |
+| `win-unpacked/Auto-Claude.exe` | 便携版 |
 
 ### Linux
 
@@ -301,6 +293,18 @@ npx electron-builder --mac --publish never
 | `*-linux-x86_64.AppImage` | AppImage 便携版 |
 | `*-linux-amd64.deb` | Debian/Ubuntu 包 |
 | `*-linux-x86_64.flatpak` | Flatpak 包 |
+
+---
+
+## 相关文件
+
+| 文件 | 说明 |
+|------|------|
+| `apps/frontend/scripts/package-with-python.cjs` | 核心打包脚本 |
+| `apps/frontend/electron-builder.cjs` | electron-builder 钩子 |
+| `apps/frontend/package.json` | 打包配置 |
+| `scripts/build-mac.sh` | Mac 打包入口脚本 |
+| `scripts/build-win.bat` | Windows 打包入口脚本 |
 
 ---
 

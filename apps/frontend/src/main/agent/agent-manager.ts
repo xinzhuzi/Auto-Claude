@@ -6,6 +6,7 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import { getAPIProfileEnv } from '../services/profile';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
@@ -118,7 +119,12 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
+    // Check both OAuth profiles and API profiles for authentication
+    const hasValidOAuth = profileManager.hasValidAuth();
+    const apiProfileEnv = await getAPIProfileEnv();
+    const hasValidAPIProfile = Object.keys(apiProfileEnv).length > 0;
+
+    if (!hasValidOAuth && !hasValidAPIProfile) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;
     }
@@ -211,7 +217,12 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
+    // Check both OAuth profiles and API profiles for authentication
+    const hasValidOAuth = profileManager.hasValidAuth();
+    const apiProfileEnv = await getAPIProfileEnv();
+    const hasValidAPIProfile = Object.keys(apiProfileEnv).length > 0;
+
+    if (!hasValidOAuth && !hasValidAPIProfile) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;
     }

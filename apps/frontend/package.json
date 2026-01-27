@@ -182,9 +182,7 @@
           "!**/.git",
           "!**/.DS_Store",
           "!**/code-server-*-win/**",
-          "!**/code-server-*-win",
-          "!**/vscode/node_modules/**",
-          "!**/vscode/node_modules"
+          "!**/code-server-*-win"
         ]
       },
       {

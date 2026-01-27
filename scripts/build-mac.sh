@@ -22,24 +22,14 @@ echo ""
 cd "$FRONTEND_DIR"
 
 # 检查环境
-echo "步骤 1/5: 检查环境..."
+echo "步骤 1/4: 检查环境..."
 echo "  当前目录: $(pwd)"
 echo "  Node: $(node --version)"
 echo "  npm: $(npm --version)"
 echo ""
 
-# 下载 Python 运行时
-echo "步骤 2/5: 下载 Python 运行时..."
-npm run python:download
-echo ""
-
-# 构建应用
-echo "步骤 3/5: 构建 Electron 应用..."
-npm run build
-echo ""
-
 # 检查是否有签名证书
-echo "步骤 4/5: 检查签名证书..."
+echo "步骤 2/4: 检查签名证书..."
 CERT_COUNT=$(security find-identity -v -p codesigning 2>/dev/null | grep -c "Auto-Claude" || echo "0")
 
 if [ "$CERT_COUNT" -gt 0 ]; then
@@ -52,12 +42,21 @@ else
 fi
 echo ""
 
-# 打包
-echo "步骤 5/5: 打包应用 $SIGN_FLAG..."
-npx electron-builder --mac --publish never
+# 使用 package-with-python.cjs 进行完整打包
+# 这个脚本会：
+# 1. 下载 Python 运行时
+# 2. 构建 Electron 应用
+# 3. 正确处理 code-server 的 node_modules（修复符号链接问题）
+# 4. 打包应用
+echo "步骤 3/4: 打包应用 $SIGN_FLAG..."
+echo "  使用 package-with-python.cjs 进行完整打包..."
+echo ""
+node scripts/package-with-python.cjs --mac
 echo ""
 
 # 显示结果
+echo "步骤 4/4: 检查输出..."
+echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  ✓ 打包完成！"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

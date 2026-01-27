@@ -13,7 +13,7 @@
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Combobox, type ComboboxOption } from './ui/combobox';
@@ -281,6 +281,8 @@ export function TaskCreationWizard({
     const cursorPos = textarea?.selectionStart || 0;
 
     setDescription(newValue);
+    // Clear optimize error when description changes
+    clearError?.();
 
     const mention = detectAtMention(newValue, cursorPos);
     if (mention && textarea) {
@@ -314,8 +316,10 @@ export function TaskCreationWizard({
   const {
     isOptimizing,
     worktreeRecommendation,
+    optimizeError,
     handleOptimize,
     clearRecommendation,
+    clearError,
   } = useTaskOptimize({
     description,
     projectPath,
@@ -662,7 +666,7 @@ export function TaskCreationWizard({
           descriptionLabelExtra={
             <OptimizeButton
               isOptimizing={isOptimizing}
-              disabled={isCreating || !description.trim()}
+              disabled={isCreating || !description.trim() || !projectPath}
               onClick={handleOptimize}
             />
           }
@@ -684,6 +688,24 @@ export function TaskCreationWizard({
           <WorktreeRecommendationBanner
             recommendation={worktreeRecommendation}
           />
+        )}
+
+        {/* Optimize error message */}
+        {optimizeError && (
+          <div className="flex items-start gap-2 p-3 rounded-md text-sm bg-destructive/10 text-destructive border border-destructive/20">
+            <span className="mt-0.5">⚠️</span>
+            <div className="flex-1">
+              <p className="font-medium">优化失败</p>
+              <p className="text-xs mt-1 opacity-80">{optimizeError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={clearError}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         )}
 
         {/* Git Options Toggle - unique to creation */}
