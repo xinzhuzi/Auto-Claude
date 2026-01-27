@@ -208,6 +208,7 @@
       "gatekeeperAssess": false,
       "entitlements": "resources/entitlements.mac.plist",
       "entitlementsInherit": "resources/entitlements.mac.plist",
+      "notarize": false,
       "target": [
         "dmg",
         "zip"

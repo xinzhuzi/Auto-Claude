@@ -1,9 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import {
-  Group,
-  Panel,
-  Separator,
-} from 'react-resizable-panels';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -20,8 +15,9 @@ import {
   horizontalListSortingStrategy,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Plus, Sparkles, Grid2X2, FolderTree, File, Folder, History, ChevronDown, Loader2, TerminalSquare, X } from 'lucide-react';
-import { SortableTerminalWrapper } from './SortableTerminalWrapper';
+import { Sparkles, Grid2X2, FolderTree, File, Folder, History, ChevronDown, Loader2, TerminalSquare, Plus } from 'lucide-react';
+import { Terminal } from './Terminal';
+import { TerminalTabBar } from './terminal/TerminalTabBar';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -35,7 +31,6 @@ import { cn } from '../lib/utils';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useTaskStore } from '../stores/task-store';
 import { useFileExplorerStore } from '../stores/file-explorer-store';
-import { TERMINAL_DOM_UPDATE_DELAY_MS } from '../../shared/constants';
 import type { SessionDateInfo } from '../../shared/types';
 
 interface TerminalGridProps {
@@ -75,17 +70,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   const [sessionDates, setSessionDates] = useState<SessionDateInfo[]>([]);
   const [isLoadingDates, setIsLoadingDates] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
-
-  // Expanded terminal state - when set, this terminal takes up the full grid space
-  const [expandedTerminalId, setExpandedTerminalId] = useState<string | null>(null);
-
-  // Tab scroll container ref
-  const tabScrollRef = useRef<HTMLDivElement>(null);
-
-  // Reset expanded terminal when project changes
-  useEffect(() => {
-    setExpandedTerminalId(null);
-  }, [projectPath]);
 
   // Fetch available session dates when project changes
   useEffect(() => {
@@ -152,17 +136,11 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       if (result.success && result.data) {
         console.warn(`[TerminalGrid] Main process restored ${result.data.restored} sessions from ${date}`);
 
-        // Sort sessions by displayOrder before restoring to preserve user's tab ordering
-        const sortedSessions = [...sessionsToRestore].sort((a, b) => {
-          const orderA = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
-          const orderB = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
-          return orderA - orderB;
-        });
-
         // Add each successfully restored session to the renderer's terminal store
         for (const sessionResult of result.data.sessions) {
           if (sessionResult.success) {
-            const fullSession = sortedSessions.find(s => s.id === sessionResult.id);
+            // Find the full session data
+            const fullSession = sessionsToRestore.find(s => s.id === sessionResult.id);
             if (fullSession) {
               console.warn(`[TerminalGrid] Adding restored terminal to store: ${fullSession.id}`);
               addRestoredTerminal(fullSession);
@@ -209,40 +187,59 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   const handleCloseTerminal = useCallback((id: string) => {
     window.electronAPI.destroyTerminal(id);
     removeTerminal(id);
-    // Clear expanded state if the closed terminal was expanded
-    if (expandedTerminalId === id) {
-      setExpandedTerminalId(null);
-    }
-  }, [removeTerminal, expandedTerminalId]);
+  }, [removeTerminal]);
 
   // Handle keyboard shortcut for new terminal (only when this view is active)
   useEffect(() => {
     if (!isActive) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.ctrlKey || e.metaKey;
+
       // Ctrl+T or Cmd+T for new terminal
-      if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+      if (isMod && e.key === 't') {
         e.preventDefault();
         if (canAddTerminal(projectPath)) {
           addTerminal(projectPath, projectPath);
         }
+        return;
       }
+
       // Ctrl+W or Cmd+W to close active terminal
-      if ((e.ctrlKey || e.metaKey) && e.key === 'w' && activeTerminalId) {
+      if (isMod && e.key === 'w' && activeTerminalId) {
         e.preventDefault();
         handleCloseTerminal(activeTerminalId);
+        return;
       }
-      // Cmd+F1-F12 (Mac) / Ctrl+F1-F12 (Win) to switch terminals
-      const fKeyMatch = e.code.match(/^F(\d+)$/);
-      if (fKeyMatch && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
-        const num = parseInt(fKeyMatch[1]);
-        if (num >= 1 && num <= 12 && num <= terminals.length) {
-          e.preventDefault();
-          const targetTerminal = terminals[num - 1];
-          if (targetTerminal) {
-            setActiveTerminal(targetTerminal.id);
-          }
+
+      // Ctrl/Cmd + Tab: 切换到下一个终端
+      if (isMod && e.key === 'Tab' && !e.shiftKey && terminals.length > 1) {
+        e.preventDefault();
+        const currentIndex = terminals.findIndex(t => t.id === activeTerminalId);
+        // If current terminal not found, start from first terminal
+        const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % terminals.length;
+        setActiveTerminal(terminals[nextIndex].id);
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + Tab: 切换到上一个终端
+      if (isMod && e.key === 'Tab' && e.shiftKey && terminals.length > 1) {
+        e.preventDefault();
+        const currentIndex = terminals.findIndex(t => t.id === activeTerminalId);
+        // If current terminal not found, start from last terminal
+        const prevIndex = currentIndex === -1 ? terminals.length - 1 : (currentIndex - 1 + terminals.length) % terminals.length;
+        setActiveTerminal(terminals[prevIndex].id);
+        return;
+      }
+
+      // Ctrl/Cmd + 1-9: 切换到指定终端
+      if (isMod && /^[1-9]$/.test(e.key)) {
+        e.preventDefault();
+        const index = parseInt(e.key) - 1;
+        if (index < terminals.length) {
+          setActiveTerminal(terminals[index].id);
         }
+        return;
       }
     };
 
@@ -255,11 +252,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       addTerminal(projectPath, projectPath);
     }
   }, [addTerminal, canAddTerminal, projectPath]);
-
-  // Toggle terminal expand state
-  const handleToggleExpand = useCallback((terminalId: string) => {
-    setExpandedTerminalId(prev => prev === terminalId ? null : terminalId);
-  }, []);
 
   const handleInvokeClaudeAll = useCallback(() => {
     terminals.forEach((terminal) => {
@@ -286,7 +278,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
         name: data.name,
         isDirectory: data.isDirectory ?? false
       });
-    } else if (data?.type === 'terminal-panel') {
+    } else if (data?.type === 'terminal-tab') {
       setDraggingTerminalId(event.active.id.toString());
     }
   }, []);
@@ -302,41 +294,13 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
 
     if (!over) return;
 
-    // Handle terminal reordering
-    if (activeData?.type === 'terminal-panel') {
+    // Handle terminal tab reordering
+    if (activeData?.type === 'terminal-tab') {
       const activeId = active.id.toString();
-      let overId = over.id.toString();
-
-      // Handle case where over is the file drop zone (terminal-xyz) instead of sortable item (xyz)
-      if (overId.startsWith('terminal-')) {
-        overId = overId.replace('terminal-', '');
-      }
+      const overId = over.id.toString();
 
       if (activeId !== overId && terminals.some(t => t.id === overId)) {
         reorderTerminals(activeId, overId);
-
-        // Persist the new order to disk so it survives app restarts
-        // Use a microtask to ensure the store has updated before we read the new order
-        if (projectPath) {
-          queueMicrotask(async () => {
-            const updatedTerminals = useTerminalStore.getState().terminals;
-            const orders = updatedTerminals
-              .filter(t => t.projectPath === projectPath || !t.projectPath)
-              .map(t => ({ terminalId: t.id, displayOrder: t.displayOrder ?? 0 }));
-            try {
-              const result = await window.electronAPI.updateTerminalDisplayOrders(projectPath, orders);
-              if (!result.success) {
-                console.warn('[TerminalGrid] Failed to persist terminal order:', result.error);
-              }
-            } catch (error) {
-              console.warn('[TerminalGrid] Failed to persist terminal order:', error);
-            }
-          });
-        }
-
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('terminal-refit-all'));
-        }, TERMINAL_DOM_UPDATE_DELAY_MS);
       }
       return;
     }
@@ -348,7 +312,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     if (overId.startsWith('terminal-')) {
       terminalId = overId.replace('terminal-', '');
     } else if (terminals.some(t => t.id === overId)) {
-      // closestCenter might return the sortable ID instead of droppable ID
       terminalId = overId;
     }
 
@@ -360,8 +323,11 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     }
   }, [reorderTerminals, terminals]);
 
-  // Terminal IDs for SortableContext
-  const terminalIds = useMemo(() => terminals.map(t => t.id), [terminals]);
+  // Handle terminal rename
+  const handleRenameTerminal = useCallback((id: string, newName: string) => {
+    const updateTerminal = useTerminalStore.getState().updateTerminal;
+    updateTerminal(id, { title: newName });
+  }, []);
 
   // Empty state
   if (terminals.length === 0) {
@@ -395,47 +361,34 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       onDragEnd={handleDragEnd}
     >
       <div className="flex h-full flex-col">
-        {/* Toolbar with horizontal tabs */}
-        <div className="flex h-10 items-center border-b border-border bg-card/30 px-2 gap-2">
-          {/* Terminal tabs - scrollable horizontal list */}
-          <div className="flex-1 flex items-center gap-1 min-w-0 overflow-hidden">
-            <div
-              ref={tabScrollRef}
-              className="flex items-center gap-1 overflow-x-auto scrollbar-none"
-              style={{ scrollBehavior: 'smooth' }}
-            >
-              <SortableContext items={terminalIds} strategy={horizontalListSortingStrategy}>
-                {terminals.map((terminal, index) => (
-                  <button
-                    key={terminal.id}
-                    onClick={() => setActiveTerminal(terminal.id)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors shrink-0",
-                      terminal.id === activeTerminalId
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <TerminalSquare className="h-3 w-3" />
-                    <span>{terminal.title || `Terminal ${index + 1}`}</span>
-                    <span className="text-[10px] opacity-60 ml-1">{navigator.platform.includes('Mac') ? '⌘' : '⌃'}F{index + 1}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCloseTerminal(terminal.id);
-                      }}
-                      className="ml-1 p-0.5 rounded hover:bg-background/50 transition-colors"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </button>
-                ))}
-              </SortableContext>
-            </div>
+        {/* Toolbar with tab bar */}
+        <div className="flex h-10 items-center border-b border-border bg-card/30">
+          {/* Left: Terminal tabs */}
+          <div className="flex-1 min-w-0">
+            <TerminalTabBar
+              terminals={terminals}
+              activeTerminalId={activeTerminalId}
+              onTabChange={setActiveTerminal}
+              onTabClose={handleCloseTerminal}
+              onTabRename={handleRenameTerminal}
+              onNewTerminal={handleAddTerminal}
+              canAddTerminal={canAddTerminal(projectPath)}
+            />
           </div>
 
-          {/* Right side buttons */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right: Action buttons */}
+          <div className="flex items-center gap-2 px-3 shrink-0">
+            {/* Terminal count indicator */}
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 text-xs text-muted-foreground">
+              <TerminalSquare className="h-3 w-3" />
+              <span className="font-medium">{terminals.length}</span>
+              {terminals.length > 1 && (
+                <span className="text-[10px] opacity-70">
+                  (⌘{activeTerminalId ? terminals.findIndex(t => t.id === activeTerminalId) + 1 : 1})
+                </span>
+              )}
+            </div>
+
             {/* Session history dropdown */}
             {projectPath && sessionDates.length > 0 && (
               <DropdownMenu>
@@ -486,19 +439,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                 Invoke Claude All
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5"
-              onClick={handleAddTerminal}
-              disabled={!canAddTerminal(projectPath)}
-            >
-              <Plus className="h-3 w-3" />
-              New Terminal
-              <kbd className="ml-1 text-[10px] text-muted-foreground">
-                {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+T
-              </kbd>
-            </Button>
             {/* File explorer toggle button */}
             {projectPath && (
               <Button
@@ -514,34 +454,34 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
           </div>
         </div>
 
-        {/* Main content area - single active terminal fills the space */}
+        {/* Main content area with terminal and file explorer sidebar */}
         <div className="flex flex-1 overflow-hidden">
+          {/* Single terminal display area */}
           <div className={cn(
-            "flex-1 overflow-hidden transition-all duration-300 ease-out",
+            "flex-1 overflow-hidden transition-all duration-300 ease-in-out",
             fileExplorerOpen && "pr-0"
           )}>
-            {/* Show only the active terminal, full size */}
-            {(() => {
-              const activeTerminal = terminals.find(t => t.id === activeTerminalId) || terminals[0];
-              if (!activeTerminal) return null;
-              return (
-                <div className="h-full">
-                  <SortableTerminalWrapper
-                    id={activeTerminal.id}
-                    cwd={activeTerminal.cwd || projectPath}
-                    projectPath={projectPath}
-                    isActive={true}
-                    onClose={() => handleCloseTerminal(activeTerminal.id)}
-                    onActivate={() => setActiveTerminal(activeTerminal.id)}
-                    tasks={tasks}
-                    onNewTaskClick={onNewTaskClick}
-                    terminalCount={1}
-                    isExpanded={true}
-                    onToggleExpand={() => {}}
-                  />
-                </div>
-              );
-            })()}
+            {terminals.map(terminal => (
+              <div
+                key={terminal.id}
+                className={cn(
+                  "h-full transition-opacity duration-200 ease-in-out",
+                  terminal.id === activeTerminalId ? "opacity-100 animate-in fade-in duration-200" : "hidden opacity-0"
+                )}
+              >
+                <Terminal
+                  id={terminal.id}
+                  cwd={terminal.cwd || projectPath}
+                  projectPath={projectPath}
+                  isActive={terminal.id === activeTerminalId}
+                  onClose={() => handleCloseTerminal(terminal.id)}
+                  onActivate={() => setActiveTerminal(terminal.id)}
+                  tasks={tasks}
+                  onNewTaskClick={onNewTaskClick}
+                  terminalCount={terminals.length}
+                />
+              </div>
+            ))}
           </div>
 
           {/* File explorer panel (slides from right, pushes content) */}

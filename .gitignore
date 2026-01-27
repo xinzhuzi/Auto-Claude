@@ -175,3 +175,8 @@ logs/security/
 Agents.md
 apps/code-server/lib/code-server-4.108.0/lib/node
 apps/code-server/lib/code-server-4.108.0/lib/vscode/out/vs/code/browser/workbench/workbench.js.map
+/backup
+.serena
+# Code Server (exclude large binaries)
+apps/code-server/lib/code-server-*/lib/node
+apps/code-server/lib/code-server-*/lib/vscode/node_modules
