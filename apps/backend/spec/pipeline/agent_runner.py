@@ -55,6 +55,7 @@ class AgentRunner:
         interactive: bool = False,
         thinking_budget: int | None = None,
         prior_phase_summaries: str | None = None,
+        phase_name: str | None = None,
     ) -> tuple[bool, str]:
         """Run an agent with the given prompt.
 
@@ -64,6 +65,7 @@ class AgentRunner:
             interactive: Whether to run in interactive mode
             thinking_budget: Token budget for extended thinking (None = disabled)
             prior_phase_summaries: Summaries from previous phases for context
+            phase_name: Name of the phase (for chunked mode detection)
 
         Returns:
             Tuple of (success, response_text)
