@@ -10,6 +10,7 @@
 import type React from 'react';
 import { useCallback, useState, useEffect } from 'react';
 import { Save, FileDown, Download, Loader2, FolderOpen } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useWorkflowStore } from '@frontend/src/renderer/stores/workflow-store';
 import { useCanvasStore } from '@frontend/src/renderer/stores/canvas-store';
 import { Button } from '@frontend/src/renderer/components/ui/button';
@@ -23,6 +24,7 @@ import { generateSlashCommandFile, nodeNameToFileName } from '../../services/exp
 const PROJECT_PATH_KEY = 'cc-wf-studio.projectPath';
 
 export const Toolbar: React.FC = () => {
+  const { t } = useTranslation('ccwfstudio');
   const {
     workflowName,
     setWorkflowName,
@@ -59,14 +61,14 @@ export const Toolbar: React.FC = () => {
         setProjectPath(result.data);
         localStorage.setItem(PROJECT_PATH_KEY, result.data);
         toast({
-          title: '项目已选择',
-          description: `当前项目: ${result.data}`,
+          title: t('toolbar.projectSelected'),
+          description: t('toolbar.currentProject', { path: result.data }),
         });
       }
     } catch (err) {
       toast({
-        title: '选择失败',
-        description: '无法选择项目目录',
+        title: t('toolbar.selectFailed'),
+        description: t('toolbar.cannotSelectDirectory'),
         variant: 'destructive',
       });
     }
@@ -80,7 +82,7 @@ export const Toolbar: React.FC = () => {
     (value: string) => {
       setWorkflowName(value);
       if (value && !WORKFLOW_NAME_PATTERN.test(value)) {
-        setError('只允许小写字母、数字、连字符和下划线');
+        setError(t('toolbar.namePatternError'));
       } else {
         setError(null);
       }
@@ -93,21 +95,21 @@ export const Toolbar: React.FC = () => {
     console.log('[Toolbar] handleSave called', { workflowName, projectPath, nodes: nodes.length, edges: edges.length });
 
     if (!workflowName.trim()) {
-      setError('工作流名称不能为空');
+      setError(t('workflowNameRequired'));
       console.log('[Toolbar] Save failed: workflow name is empty');
       return;
     }
 
     if (!WORKFLOW_NAME_PATTERN.test(workflowName)) {
-      setError('工作流名称格式无效');
+      setError(t('workflowNameInvalid'));
       console.log('[Toolbar] Save failed: invalid workflow name format');
       return;
     }
 
     if (!projectPath) {
       toast({
-        title: '请先选择项目',
-        description: '点击"选择项目"按钮选择一个项目目录',
+        title: t('toolbar.selectProjectFirst'),
+        description: t('toolbar.selectProjectButtonHint'),
         variant: 'destructive',
       });
       console.log('[Toolbar] Save failed: no project path');
@@ -133,7 +135,7 @@ export const Toolbar: React.FC = () => {
       if (!validation.valid) {
         setError(validation.errors.join('; '));
         toast({
-          title: '验证失败',
+          title: t('validationFailed'),
           description: validation.errors.join('; '),
           variant: 'destructive',
         });
@@ -147,18 +149,21 @@ export const Toolbar: React.FC = () => {
 
       if (result.success) {
         toast({
-          title: '保存成功',
-          description: `已保存到 ${projectPath}/.auto-claude/workflows/${workflowName}.json`,
+          title: t('saveSuccess'),
+          description: t('savedTo', { 
+            path: projectPath, 
+            name: workflowName 
+          }),
         });
       } else {
-        throw new Error(result.error || '保存失败');
+        throw new Error(result.error || t('saveFailed'));
       }
     } catch (err) {
       console.error('[Toolbar] Save error:', err);
-      const errorMessage = err instanceof Error ? err.message : '保存失败';
+      const errorMessage = err instanceof Error ? err.message : t('saveFailed');
       setError(errorMessage);
       toast({
-        title: '保存失败',
+        title: t('saveFailed'),
         description: errorMessage,
         variant: 'destructive',
       });
@@ -172,8 +177,8 @@ export const Toolbar: React.FC = () => {
     console.log('[Toolbar] handleLoadClick called', { projectPath });
     if (!projectPath) {
       toast({
-        title: '请先选择项目',
-        description: '点击"选择项目"按钮选择一个项目目录',
+        title: t('toolbar.selectProjectFirst'),
+        description: t('toolbar.selectProjectButtonHint'),
         variant: 'destructive',
       });
       return;
@@ -190,14 +195,14 @@ export const Toolbar: React.FC = () => {
   // 导出工作流 (Markdown 格式到项目 .claude/commands/)
   const handleExport = useCallback(async () => {
     if (!workflowName.trim()) {
-      setError('工作流名称不能为空');
+      setError(t('workflowNameRequired'));
       return;
     }
 
     if (!projectPath) {
       toast({
-        title: '请先选择项目',
-        description: '点击"选择项目"按钮选择一个项目目录',
+        title: t('toolbar.selectProjectFirst'),
+        description: t('toolbar.selectProjectButtonHint'),
         variant: 'destructive',
       });
       return;
@@ -219,7 +224,7 @@ export const Toolbar: React.FC = () => {
       if (!validation.valid) {
         setError(validation.errors.join('; '));
         toast({
-          title: '验证失败',
+          title: t('validationFailed'),
           description: validation.errors.join('; '),
           variant: 'destructive',
         });
@@ -235,17 +240,20 @@ export const Toolbar: React.FC = () => {
 
       if (result.success) {
         toast({
-          title: '导出成功',
-          description: `已导出到 ${projectPath}/.claude/commands/${fileName}.md`,
+          title: t('exportSuccess'),
+          description: t('exportedTo', { 
+            path: projectPath, 
+            name: fileName 
+          }),
         });
       } else {
-        throw new Error(result.error || '导出失败');
+        throw new Error(result.error || t('exportFailed'));
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '导出失败';
+      const errorMessage = err instanceof Error ? err.message : t('exportFailed');
       setError(errorMessage);
       toast({
-        title: '导出失败',
+        title: t('exportFailed'),
         description: errorMessage,
         variant: 'destructive',
       });
@@ -267,10 +275,10 @@ export const Toolbar: React.FC = () => {
           variant="ghost"
           size="sm"
           className="gap-2 shrink-0"
-          title={projectPath || '选择项目目录'}
+          title={projectPath || t('toolbar.selectProjectDir')}
         >
           <FolderOpen className="h-4 w-4" />
-          {projectName || '选择项目'}
+          {projectName || t('toolbar.selectProject')}
         </Button>
 
         {/* 工作流名称输入 */}
@@ -278,7 +286,7 @@ export const Toolbar: React.FC = () => {
           <EditableNameField
             value={workflowName}
             onChange={handleWorkflowNameChange}
-            placeholder="workflow-name"
+            placeholder={t('workflowNamePlaceholder')}
             error={error}
           />
         </div>
@@ -293,17 +301,17 @@ export const Toolbar: React.FC = () => {
           variant="default"
           size="sm"
           className="gap-2"
-          title={projectPath ? `保存到 ${projectPath}/.auto-claude/workflows/` : '请先选择项目'}
+          title={projectPath ? t('saveTooltip', { path: projectPath }) : t('toolbar.selectProjectFirstTooltip')}
         >
           {isSaving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              保存中...
+              {t('saving')}
             </>
           ) : (
             <>
               <Save className="h-4 w-4" />
-              保存
+              {t('save')}
             </>
           )}
         </Button>
@@ -315,17 +323,17 @@ export const Toolbar: React.FC = () => {
           variant="secondary"
           size="sm"
           className="gap-2"
-          title={projectPath ? `从 ${projectPath}/.auto-claude/workflows/ 加载` : '请先选择项目'}
+          title={projectPath ? t('loadTooltip', { path: projectPath }) : t('toolbar.selectProjectFirstTooltip')}
         >
           {isLoading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              加载中...
+              {t('loading')}
             </>
           ) : (
             <>
               <FileDown className="h-4 w-4" />
-              加载
+              {t('load')}
             </>
           )}
         </Button>
@@ -337,17 +345,17 @@ export const Toolbar: React.FC = () => {
           variant="outline"
           size="sm"
           className="gap-2"
-          title={projectPath ? `导出到 ${projectPath}/.claude/commands/` : '请先选择项目'}
+          title={projectPath ? t('exportTooltip', { path: projectPath }) : t('toolbar.selectProjectFirstTooltip')}
         >
           {isExporting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              导出中...
+              {t('exporting')}
             </>
           ) : (
             <>
               <Download className="h-4 w-4" />
-              导出 MD
+              {t('exportMd')}
             </>
           )}
         </Button>

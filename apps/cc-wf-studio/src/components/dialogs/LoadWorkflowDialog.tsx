@@ -6,6 +6,7 @@
 
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
   onLoad,
   projectPath,
 }) => {
+  const { t } = useTranslation('ccwfstudio');
   const { setActiveWorkflow, setWorkflowName } = useWorkflowStore();
   const { setNodes, setEdges } = useCanvasStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -51,11 +53,11 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
           if (result.success && result.data) {
             setWorkflows(result.data);
           } else {
-            setError(result.error || '加载工作流列表失败');
+            setError(result.error || t('loadDialog.loadFailed'));
           }
         })
         .catch((err) => {
-          setError(err instanceof Error ? err.message : '加载工作流列表失败');
+          setError(err instanceof Error ? err.message : t('loadDialog.loadFailed'));
         })
         .finally(() => {
           setIsLoading(false);
@@ -94,7 +96,7 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
       // 触发回调
       onLoad?.();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '加载失败';
+      const errorMessage = error instanceof Error ? error.message : t('loadDialog.loadError');
       setError(errorMessage);
       console.error('Failed to load workflow:', error);
     } finally {
@@ -106,17 +108,17 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>加载工作流</DialogTitle>
+          <DialogTitle>{t('loadDialog.title')}</DialogTitle>
           <DialogDescription>
             {projectPath
-              ? `从 ${projectPath}/.auto-claude/workflows/ 加载`
-              : '请先选择项目目录'}
+              ? t('loadDialog.description', { path: projectPath })
+              : t('loadDialog.selectProjectFirst')}
           </DialogDescription>
         </DialogHeader>
 
         {error && (
           <div className="bg-destructive/10 border border-destructive text-destructive px-4 py-3 rounded-lg mb-4">
-            <p className="text-sm font-medium">加载失败</p>
+            <p className="text-sm font-medium">{t('loadDialog.errorTitle')}</p>
             <p className="text-xs mt-1">{error}</p>
           </div>
         )}
@@ -125,22 +127,22 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <FileText className="h-12 w-12 mb-4 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              请先选择项目目录
+              {t('loadDialog.selectProjectFirst')}
             </p>
           </div>
         ) : isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-2">加载中...</span>
+            <span className="ml-2">{t('loadDialog.loading')}</span>
           </div>
         ) : workflows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <FileText className="h-12 w-12 mb-4 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              没有可用的工作流
+              {t('loadDialog.noWorkflows')}
             </p>
             <p className="text-xs text-muted-foreground">
-              保存一个工作流后再试
+              {t('loadDialog.saveFirst')}
             </p>
           </div>
         ) : (
@@ -168,7 +170,7 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
                         </div>
                       )}
                       <div className="text-xs text-muted-foreground mt-1">
-                        更新于{' '}
+                        {t('loadDialog.updatedAt')}{' '}
                         {new Date(workflow.updatedAt).toLocaleString('zh-CN')}
                       </div>
                     </div>
@@ -185,7 +187,7 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
-            取消
+            {t('loadDialog.cancel')}
           </Button>
         </DialogFooter>
       </DialogContent>
