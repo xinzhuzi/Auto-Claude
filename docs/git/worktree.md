@@ -104,3 +104,14 @@ class WorktreeManager:
 - `apps/backend/core/worktree.py` - 后端 worktree 管理器
 - `apps/frontend/src/renderer/components/TaskCreationWizard.tsx` - 前端任务创建向导
 - `apps/frontend/src/shared/i18n/locales/*/tasks.json` - 翻译文件
+
+## 功能路线图
+
+查看 [worktree-roadmap.md](./worktree-roadmap.md) 了解未实现功能的设计方案：
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 任务类型自动选择 | 📋 设计中 | 根据任务类型自动推荐 worktree/direct |
+| Unity 任务策略 | 📋 设计中 | Unity 项目的特殊处理 |
+| QA 合并流程 | 📋 设计中 | QA 时自动合并到 main 验证 |
+| 验证失败恢复 | 📋 设计中 | 失败后的回退和修复策略 |
