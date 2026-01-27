@@ -35,7 +35,7 @@
     "expandSidebar": "展开侧边栏 (⌘B)"
   },
   "messages": {
-    "initializeToCreateTasks": "初始化 Auto Claude 以创建任务"
+    "initializeToCreateTasks": "初始化 AI员工 以创建任务"
   },
   "claudeCode": {
     "checking": "正在检查 Claude Code...",

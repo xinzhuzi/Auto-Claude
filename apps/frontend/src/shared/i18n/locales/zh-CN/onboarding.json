@@ -1,11 +1,11 @@
 {
   "wizard": {
     "title": "设置向导",
-    "description": "通过几个简单步骤配置您的 Auto Claude 环境",
+    "description": "通过几个简单步骤配置您的 AI员工 环境",
     "helpText": "这个向导将帮助您在几步之内设置环境。您可以配置 Claude OAuth 令牌、设置记忆功能，并创建第一个任务。"
   },
   "welcome": {
-    "title": "欢迎使用 Auto Claude",
+    "title": "欢迎使用 AI员工",
     "subtitle": "使用 AI 驱动的代理自主构建软件",
     "getStarted": "开始使用",
     "skip": "跳过设置",
@@ -16,7 +16,7 @@
       },
       "specDriven": {
         "title": "规范驱动工作流",
-        "description": "通过清晰的规范定义任务，让 Auto Claude 处理实现"
+        "description": "通过清晰的规范定义任务，让 AI员工 处理实现"
       },
       "memory": {
         "title": "记忆与上下文",
@@ -79,7 +79,7 @@
   "memory": {
     "title": "记忆",
     "description": "为代理配置持久的跨会话记忆",
-    "contextDescription": "Auto Claude 记忆帮助在编码会话之间记住上下文",
+    "contextDescription": "AI员工 记忆帮助在编码会话之间记住上下文",
     "enableMemory": "启用记忆",
     "enableMemoryDescription": "使用 LadybugDB（嵌入式数据库）进行持久化跨会话记忆",
     "memoryDisabledInfo": "记忆已禁用。会话洞察仅存储在本地文件中。启用记忆以获得具有语义搜索的持久化跨会话上下文。",
@@ -117,13 +117,13 @@
   },
   "completion": {
     "title": "一切就绪！",
-    "subtitle": "Auto Claude 已准备好帮助您构建出色的软件",
+    "subtitle": "AI员工 已准备好帮助您构建出色的软件",
     "setupComplete": "设置完成",
     "setupCompleteDescription": "您的环境已配置并准备就绪。您可以立即开始创建任务，或按照自己的节奏探索应用程序。",
     "whatsNext": "接下来做什么？",
     "createTask": {
       "title": "创建任务",
-      "description": "从创建第一个任务开始，看看 Auto Claude 的实际效果。",
+      "description": "从创建第一个任务开始，看看 AI员工 的实际效果。",
       "action": "打开任务创建器"
     },
     "customizeSettings": {
@@ -149,7 +149,7 @@
     "done": "完成"
   },
   "privacy": {
-    "title": "帮助改进 Auto Claude",
+    "title": "帮助改进 AI员工",
     "subtitle": "匿名错误报告帮助我们更快地修复错误",
     "whatWeCollect": {
       "title": "我们收集的内容",
@@ -175,7 +175,7 @@
     "detecting": "正在检查 Claude Code 安装...",
     "info": {
       "title": "什么是 Claude Code？",
-      "description": "Claude Code 是 Anthropic 的官方 CLI，为 Auto Claude 的 AI 功能提供支持。它提供安全的身份验证和对 Claude 模型的直接访问。"
+      "description": "Claude Code 是 Anthropic 的官方 CLI，为 AI员工 的 AI 功能提供支持。它提供安全的身份验证和对 Claude 模型的直接访问。"
     },
     "status": {
       "installed": "已安装",
@@ -197,19 +197,19 @@
   },
   "devtools": {
     "title": "开发工具",
-    "description": "选择您喜欢的 IDE 和终端来处理 Auto Claude 工作树",
+    "description": "选择您喜欢的 IDE 和终端来处理 AI员工 工作树",
     "detecting": "正在检测已安装的工具...",
     "detectAgain": "再次检测",
     "whyConfigure": "为什么要配置这些？",
-    "whyConfigureDescription": "当 Auto Claude 在隔离的工作树中构建功能时，您可以直接在您喜欢的 IDE 或终端中打开它们以测试和审查更改。",
+    "whyConfigureDescription": "当 AI员工 在隔离的工作树中构建功能时，您可以直接在您喜欢的 IDE 或终端中打开它们以测试和审查更改。",
     "ide": {
       "label": "首选 IDE",
-      "description": "Auto Claude 将在此编辑器中打开工作树",
+      "description": "AI员工 将在此编辑器中打开工作树",
       "customPath": "自定义 IDE 路径"
     },
     "terminal": {
       "label": "首选终端",
-      "description": "Auto Claude 将在此处打开终端会话",
+      "description": "AI员工 将在此处打开终端会话",
       "customPath": "自定义终端路径"
     },
     "detectedSummary": "在您的系统上检测到：",

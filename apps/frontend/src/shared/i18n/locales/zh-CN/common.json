@@ -333,9 +333,9 @@
     "postCleanReview": "发布清洁审查",
     "postingCleanReview": "发布中...",
     "cleanReviewPosted": "已发布清洁审查",
-    "cleanReviewMessageTitle": "## ✅ Auto Claude PR 审查 - 通过",
+    "cleanReviewMessageTitle": "## ✅ AI员工 PR 审查 - 通过",
     "cleanReviewMessageStatus": "**状态：** 所有代码都很好",
-    "cleanReviewMessageFooter": "*此自动审查未发现问题。由 Auto Claude 生成。*",
+    "cleanReviewMessageFooter": "*此自动审查未发现问题。由 AI员工 生成。*",
     "failedPostCleanReview": "发布清洁审查失败",
     "viewErrorDetails": "查看详情",
     "hideErrorDetails": "隐藏详情"
