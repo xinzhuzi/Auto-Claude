@@ -654,6 +654,130 @@ class WorktreeManager:
             is_active=True,
         )
 
+    def create_worktree_optimized(
+        self,
+        spec_name: str,
+        sparse_patterns: list[str] | None = None,
+        use_sparse_checkout: bool = True,
+    ) -> WorktreeInfo:
+        """
+        Create an optimized worktree for large repositories.
+
+        This method creates a worktree with optimizations for large projects:
+        1. Sparse checkout - only checkout specified directories/files
+        2. Shared object storage - worktrees share .git/objects with main repo
+        3. No full clone - uses existing repo data
+
+        Git worktrees already share the object store by design, so the main
+        optimization here is sparse checkout for large monorepos.
+
+        Args:
+            spec_name: The spec folder name (e.g., "002-implement-memory")
+            sparse_patterns: List of paths to include in sparse checkout.
+                            If None, uses default patterns for common project structures.
+                            Example: ["src/", "package.json", "tsconfig.json"]
+            use_sparse_checkout: Whether to enable sparse checkout (default: True)
+
+        Returns:
+            WorktreeInfo for the created worktree
+
+        Raises:
+            WorktreeError: If worktree creation fails
+        """
+        # First create the worktree normally
+        info = self.create_worktree(spec_name)
+        worktree_path = info.path
+
+        if not use_sparse_checkout:
+            return info
+
+        # Enable sparse checkout in the worktree
+        result = self._run_git(
+            ["sparse-checkout", "init", "--cone"], cwd=worktree_path
+        )
+        if result.returncode != 0:
+            print(f"Warning: Could not enable sparse checkout: {result.stderr}")
+            return info
+
+        # Set sparse checkout patterns
+        if sparse_patterns is None:
+            # Default patterns for common project structures
+            # Include root config files and common source directories
+            sparse_patterns = self._detect_sparse_patterns(worktree_path)
+
+        if sparse_patterns:
+            result = self._run_git(
+                ["sparse-checkout", "set"] + sparse_patterns, cwd=worktree_path
+            )
+            if result.returncode != 0:
+                print(f"Warning: Could not set sparse patterns: {result.stderr}")
+            else:
+                print(f"Enabled sparse checkout with patterns: {sparse_patterns}")
+
+        return info
+
+    def _detect_sparse_patterns(self, worktree_path: Path) -> list[str]:
+        """
+        Auto-detect sparse checkout patterns based on project structure.
+
+        Returns a list of paths that should be included in sparse checkout.
+        """
+        patterns = []
+
+        # Always include root config files (they're small and often needed)
+        root_configs = [
+            "package.json",
+            "package-lock.json",
+            "pnpm-lock.yaml",
+            "yarn.lock",
+            "tsconfig.json",
+            "pyproject.toml",
+            "requirements.txt",
+            "Cargo.toml",
+            "go.mod",
+            ".gitignore",
+            "README.md",
+        ]
+
+        # Check which root configs exist and add them
+        for config in root_configs:
+            if (worktree_path / config).exists():
+                patterns.append(config)
+
+        # Common source directories
+        source_dirs = ["src", "lib", "app", "apps", "packages", "components"]
+        for src_dir in source_dirs:
+            if (worktree_path / src_dir).exists():
+                patterns.append(src_dir)
+
+        # If no patterns detected, don't use sparse checkout
+        if not patterns:
+            return []
+
+        return patterns
+
+    def disable_sparse_checkout(self, spec_name: str) -> bool:
+        """
+        Disable sparse checkout and restore full working tree.
+
+        Args:
+            spec_name: The spec folder name
+
+        Returns:
+            True if successful, False otherwise
+        """
+        worktree_path = self.get_worktree_path(spec_name)
+        if not worktree_path.exists():
+            return False
+
+        result = self._run_git(["sparse-checkout", "disable"], cwd=worktree_path)
+        if result.returncode == 0:
+            print(f"Disabled sparse checkout for {spec_name}")
+            return True
+        else:
+            print(f"Warning: Could not disable sparse checkout: {result.stderr}")
+            return False
+
     def get_or_create_worktree(self, spec_name: str) -> WorktreeInfo:
         """
         Get existing worktree or create a new one for a spec.

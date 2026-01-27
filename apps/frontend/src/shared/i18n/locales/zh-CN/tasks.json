@@ -180,7 +180,7 @@
   "wizard": {
     "createTitle": "创建新任务",
     "createDescription": "描述您想要构建的内容。AI 将分析您的请求并创建详细的规范。",
-    "descriptionPlaceholder": "描述您想要实现的功能、错误修复或改进。尽可能具体地说明需求、约束和预期行为。输入 @ 以引用文件。",
+    "descriptionPlaceholder": "描述您想要实现的功能、错误修复或改进。尽可能具体地说明需求、约束和预期行为。必须指定一个或多个目标文件夹路径，让 AI 针对这些目录进行操作。输入 @ 以引用文件。",
     "draftRestored": "草稿已恢复",
     "startFresh": "重新开始",
     "hideFiles": "隐藏文件",

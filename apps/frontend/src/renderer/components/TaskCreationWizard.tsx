@@ -12,7 +12,7 @@
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Info } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Combobox, type ComboboxOption } from './ui/combobox';
@@ -67,8 +67,8 @@ export function TaskCreationWizard({
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
-  // Worktree isolation - default to true for safety
-  const [useWorktree, setUseWorktree] = useState(true);
+  // Worktree isolation - default to false for faster workflow (direct mode)
+  const [useWorktree, setUseWorktree] = useState(false);
 
   // Get project path from project store
   const projects = useProjectStore((state) => state.projects);
@@ -178,7 +178,7 @@ export function TaskCreationWizard({
         setReferencedFiles([]);
         setRequireReviewBeforeCoding(false);
         setBaseBranch(PROJECT_DEFAULT_BRANCH);
-        setUseWorktree(true);
+        setUseWorktree(false);
         setIsDraftRestored(false);
         setShowClassification(false);
         setShowFileExplorer(false);
@@ -464,7 +464,7 @@ export function TaskCreationWizard({
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
-    setUseWorktree(true);
+    setUseWorktree(false);
     setError(null);
     setShowClassification(false);
     setShowFileExplorer(false);
@@ -595,19 +595,6 @@ export function TaskCreationWizard({
       }
     >
       <div className="space-y-6">
-        {/* Worktree isolation info banner */}
-        <div className="flex items-start gap-3 p-4 bg-info/10 border border-info/30 rounded-lg">
-          <Info className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-foreground mb-1">
-              {t('tasks:wizard.worktreeNotice.title')}
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              {t('tasks:wizard.worktreeNotice.description')}
-            </p>
-          </div>
-        </div>
-
         {/* Main form fields */}
         <TaskFormFields
           description={description}
@@ -694,6 +681,27 @@ export function TaskCreationWizard({
         {/* Git Options */}
         {showGitOptions && (
           <div id="git-options-section" className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+            {/* Use Worktree Checkbox */}
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="use-worktree"
+                checked={useWorktree}
+                onChange={(e) => setUseWorktree(e.target.checked)}
+                disabled={isCreating}
+                className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <div className="flex-1">
+                <Label htmlFor="use-worktree" className="text-sm font-medium text-foreground cursor-pointer">
+                  {t('tasks:wizard.gitOptions.useWorktreeLabel')}
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t('tasks:wizard.gitOptions.useWorktreeDescription')}
+                </p>
+              </div>
+            </div>
+
+            {/* Base Branch Selection */}
             <div className="space-y-2">
               <Label htmlFor="base-branch" className="text-sm font-medium text-foreground">
                 {t('tasks:wizard.gitOptions.baseBranchLabel')}
