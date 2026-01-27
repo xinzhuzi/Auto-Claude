@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { Button } from '../ui/button';
@@ -52,6 +53,7 @@ interface LogEntry {
 }
 
 export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => {
+  const { t } = useTranslation('workflowStudio');
   const activeWorkflow = useActiveWorkflow();
   const workflowName = useWorkflowStore((state) => state.workflowName);
 
@@ -435,7 +437,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
           <TabsList>
             <TabsTrigger value="monitor" className="gap-2">
               <Activity className="w-4 h-4" />
-              Monitor
+              {t('executionPanel.tabs.monitor')}
               {executionState.status !== 'idle' && (
                 <Badge variant={getStatusVariant(executionState.status)} className="ml-1">
                   {getStatusText(executionState.status)}
@@ -444,7 +446,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-2">
               <FileText className="w-4 h-4" />
-              Logs
+              {t('executionPanel.tabs.logs')}
               {logs.length > 0 && (
                 <Badge variant="secondary" className="ml-1">{logs.length}</Badge>
               )}
@@ -461,7 +463,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
               className="gap-2"
             >
               <Play className="h-4 w-4" />
-              {executionState.status === 'paused' ? 'Resume' : 'Run'}
+              {executionState.status === 'paused' ? t('executionPanel.resume') : t('executionPanel.run')}
             </Button>
 
             {/* Pause Button */}
@@ -473,7 +475,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
               className="gap-2"
             >
               <Pause className="h-4 w-4" />
-              Pause
+              {t('executionPanel.pause')}
             </Button>
 
             {/* Stop Button */}
@@ -485,7 +487,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
               className="gap-2"
             >
               <Square className="h-4 w-4" />
-              Stop
+              {t('executionPanel.stop')}
             </Button>
           </div>
         </div>
@@ -493,7 +495,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
         {/* Tab Content */}
         {!activeWorkflow ? (
           <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-            No workflow selected
+            {t('executionPanel.noWorkflowSelected')}
           </div>
         ) : (
           <>
@@ -510,7 +512,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
                     <>
                       <Progress value={executionState.progress} className="flex-1 h-2" />
                       <span className="text-sm text-muted-foreground">{executionState.progress}%</span>
-                      <span className="text-sm text-muted-foreground">{activeWorkflow.nodes?.length || 0} nodes</span>
+                      <span className="text-sm text-muted-foreground">{activeWorkflow.nodes?.length || 0} {t('executionPanel.nodes')}</span>
                     </>
                   )}
                 </div>
@@ -520,7 +522,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
               {executionState.error && (
                 <Alert variant="destructive" className="mb-2 shrink-0">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Execution Failed</AlertTitle>
+                  <AlertTitle>{t('executionPanel.executionFailed')}</AlertTitle>
                   <AlertDescription>{executionState.error}</AlertDescription>
                 </Alert>
               )}
@@ -529,12 +531,12 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
               {(executionState.status === 'running' || executionState.status === 'completed' || executionState.status === 'failed' || streamOutput) ? (
                 <div className="flex-1 border rounded-lg overflow-auto min-h-0">
                   <pre className="p-4 font-mono text-sm whitespace-pre-wrap bg-muted/50 min-h-full">
-                    {streamOutput || (executionState.status === 'running' ? 'Waiting for output...' : 'No output')}
+                    {streamOutput || (executionState.status === 'running' ? t('executionPanel.waitingForOutput') : t('executionPanel.noOutput'))}
                   </pre>
                 </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-                  Click Run to execute the workflow
+                  {t('executionPanel.clickRunToExecute')}
                 </div>
               )}
             </TabsContent>
@@ -546,7 +548,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search logs..."
+                    placeholder={t('executionPanel.searchLogs')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-8 h-10"
@@ -560,7 +562,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
                   className="h-10"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Clear
+                  {t('executionPanel.clear')}
                 </Button>
               </div>
 
@@ -569,7 +571,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
                 <div className="p-2 space-y-1 font-mono text-xs">
                   {filteredLogs.length === 0 ? (
                     <div className="text-muted-foreground text-center py-8">
-                      {logs.length === 0 ? 'No logs yet' : 'No matching logs'}
+                      {logs.length === 0 ? t('executionPanel.noLogsYet') : t('executionPanel.noMatchingLogs')}
                     </div>
                   ) : (
                     filteredLogs.map((log, index) => (

@@ -64,10 +64,71 @@
   "exampleList": "显示列表",
   "moreActions": "",
   "help": "多个分支（2-N向）",
-  "palette": {},
+  "palette": {
+    "title": "节点面板"
+  },
   "basicNodes": "基本节点",
+  "executionNodes": "执行节点",
   "controlFlow": "控制流程",
-  "quickStart": "💡 快速入门",
+  "quickStart": "💡 拖拽节点到画布上构建工作流",
+  "nodes": {
+    "start": {
+      "label": "开始",
+      "description": "工作流入口点"
+    },
+    "end": {
+      "label": "结束",
+      "description": "工作流出口点"
+    },
+    "prompt": {
+      "label": "提示词",
+      "description": "向 Claude 发送提示"
+    },
+    "skill": {
+      "label": "技能",
+      "description": "执行 Claude 技能"
+    },
+    "mcp": {
+      "label": "MCP 工具",
+      "description": "调用 MCP 工具"
+    },
+    "subAgent": {
+      "label": "子代理",
+      "description": "委托给子代理"
+    },
+    "ifElse": {
+      "label": "条件判断",
+      "description": "二元条件分支"
+    },
+    "switch": {
+      "label": "多路分支",
+      "description": "多路条件分支"
+    },
+    "askUser": {
+      "label": "询问用户",
+      "description": "运行时获取用户输入"
+    }
+  },
+  "executionPanel": {
+    "tabs": {
+      "monitor": "监控",
+      "logs": "日志"
+    },
+    "run": "运行",
+    "resume": "继续",
+    "pause": "暂停",
+    "stop": "停止",
+    "noWorkflowSelected": "未选择工作流",
+    "nodes": "个节点",
+    "executionFailed": "执行失败",
+    "waitingForOutput": "等待输出...",
+    "noOutput": "无输出",
+    "clickRunToExecute": "点击运行以执行工作流",
+    "searchLogs": "搜索日志...",
+    "clear": "清除",
+    "noLogsYet": "暂无日志",
+    "noMatchingLogs": "无匹配的日志"
+  },
   "subAgentFlow": {},
   "create": "新建",
   "delete": "删除",

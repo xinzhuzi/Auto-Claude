@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Play,
   Square,
@@ -25,9 +26,9 @@ interface NodePaletteProps {
 
 interface NodeType {
   type: string;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
-  description: string;
+  descriptionKey: string;
   category: 'basic' | 'execution' | 'control';
 }
 
@@ -35,80 +36,76 @@ const nodeTypes: NodeType[] = [
   // Basic Nodes
   {
     type: 'start',
-    label: 'Start',
+    labelKey: 'nodes.start.label',
     icon: <Play className="h-5 w-5" />,
-    description: 'Workflow entry point',
+    descriptionKey: 'nodes.start.description',
     category: 'basic',
   },
   {
     type: 'end',
-    label: 'End',
+    labelKey: 'nodes.end.label',
     icon: <Square className="h-5 w-5" />,
-    description: 'Workflow exit point',
+    descriptionKey: 'nodes.end.description',
     category: 'basic',
   },
   {
     type: 'prompt',
-    label: 'Prompt',
+    labelKey: 'nodes.prompt.label',
     icon: <MessageSquare className="h-5 w-5" />,
-    description: 'Send prompt to Claude',
+    descriptionKey: 'nodes.prompt.description',
     category: 'basic',
   },
 
   // Execution Nodes
   {
     type: 'skill',
-    label: 'Skill',
+    labelKey: 'nodes.skill.label',
     icon: <Zap className="h-5 w-5" />,
-    description: 'Execute Claude Skill',
+    descriptionKey: 'nodes.skill.description',
     category: 'execution',
   },
   {
     type: 'mcp',
-    label: 'MCP Tool',
+    labelKey: 'nodes.mcp.label',
     icon: <Plug className="h-5 w-5" />,
-    description: 'Call MCP tool',
+    descriptionKey: 'nodes.mcp.description',
     category: 'execution',
   },
   {
     type: 'subAgent',
-    label: 'Sub-Agent',
+    labelKey: 'nodes.subAgent.label',
     icon: <Bot className="h-5 w-5" />,
-    description: 'Delegate to sub-agent',
+    descriptionKey: 'nodes.subAgent.description',
     category: 'execution',
   },
 
   // Control Flow Nodes
   {
     type: 'ifElse',
-    label: 'If/Else',
+    labelKey: 'nodes.ifElse.label',
     icon: <GitBranch className="h-5 w-5" />,
-    description: 'Binary conditional branch',
+    descriptionKey: 'nodes.ifElse.description',
     category: 'control',
   },
   {
     type: 'switch',
-    label: 'Switch',
+    labelKey: 'nodes.switch.label',
     icon: <GitMerge className="h-5 w-5" />,
-    description: 'Multi-way branch',
+    descriptionKey: 'nodes.switch.description',
     category: 'control',
   },
   {
     type: 'askUserQuestion',
-    label: 'Ask User',
+    labelKey: 'nodes.askUser.label',
     icon: <HelpCircle className="h-5 w-5" />,
-    description: 'Get user input at runtime',
+    descriptionKey: 'nodes.askUser.description',
     category: 'control',
   },
 ];
 
-const categoryLabels = {
-  basic: 'Basic Nodes',
-  execution: 'Execution Nodes',
-  control: 'Control Flow',
-};
-
 export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
+  const { t } = useTranslation('workflowStudio');
+
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
@@ -123,9 +120,15 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
     return acc;
   }, {} as Record<string, NodeType[]>);
 
+  const categoryLabels = {
+    basic: t('basicNodes'),
+    execution: t('executionNodes'),
+    control: t('controlFlow'),
+  };
+
   return (
     <Card className={cn('w-64 p-4 overflow-y-auto border-r', className)}>
-      <h3 className="font-semibold mb-4 text-lg">Node Palette</h3>
+      <h3 className="font-semibold mb-4 text-lg">{t('palette.title')}</h3>
 
       <div className="space-y-6">
         {Object.entries(groupedNodes).map(([category, nodes]) => (
@@ -148,7 +151,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
                   )}
                   draggable
                   onDragStart={(e) => onDragStart(e, node.type)}
-                  title={node.description}
+                  title={t(node.descriptionKey)}
                 >
                   <div className="flex items-start gap-3">
                     {/* Icon */}
@@ -159,10 +162,10 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
                     {/* Label and Description */}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-foreground mb-0.5">
-                        {node.label}
+                        {t(node.labelKey)}
                       </div>
                       <div className="text-xs text-muted-foreground line-clamp-2">
-                        {node.description}
+                        {t(node.descriptionKey)}
                       </div>
                     </div>
                   </div>
@@ -185,7 +188,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
       {/* Quick Tips */}
       <div className="mt-6 p-3 bg-muted/50 rounded-lg">
         <p className="text-xs text-muted-foreground">
-          💡 <strong>Tip:</strong> Drag nodes onto the canvas to build your workflow
+          {t('quickStart')}
         </p>
       </div>
     </Card>

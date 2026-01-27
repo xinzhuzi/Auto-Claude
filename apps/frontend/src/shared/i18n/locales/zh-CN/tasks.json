@@ -120,11 +120,11 @@
     "queueAllSuccess": "已将 {{count}} 个任务移至队列。",
     "settings": {
       "title": "队列设置",
-      "description": "配置"进行中"看板中可以并行运行的最大任务数",
+      "description": "配置「进行中」看板中可以并行运行的最大任务数",
       "maxParallelLabel": "最大并行任务数",
       "minValueError": "至少为 1",
       "maxValueError": "不能超过 10",
-      "hint": "达到此限制时，新任务将在队列中等待，然后再移至"进行中"",
+      "hint": "达到此限制时，新任务将在队列中等待，然后再移至「进行中」",
       "saved": "队列设置已保存",
       "saveFailed": "保存队列设置失败",
       "retry": "请重试"

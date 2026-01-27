@@ -53,10 +53,71 @@
   "exampleList": "list all",
   "moreActions": "The ",
   "help": "Multiple branches (2-N way)",
-  "palette": {},
+  "palette": {
+    "title": "Node Palette"
+  },
   "basicNodes": "Basic Nodes",
+  "executionNodes": "Execution Nodes",
   "controlFlow": "Control Flow",
-  "quickStart": "💡 Quick Start",
+  "quickStart": "💡 Drag nodes onto the canvas to build your workflow",
+  "nodes": {
+    "start": {
+      "label": "Start",
+      "description": "Workflow entry point"
+    },
+    "end": {
+      "label": "End",
+      "description": "Workflow exit point"
+    },
+    "prompt": {
+      "label": "Prompt",
+      "description": "Send prompt to Claude"
+    },
+    "skill": {
+      "label": "Skill",
+      "description": "Execute Claude Skill"
+    },
+    "mcp": {
+      "label": "MCP Tool",
+      "description": "Call MCP tool"
+    },
+    "subAgent": {
+      "label": "Sub-Agent",
+      "description": "Delegate to sub-agent"
+    },
+    "ifElse": {
+      "label": "If/Else",
+      "description": "Binary conditional branch"
+    },
+    "switch": {
+      "label": "Switch",
+      "description": "Multi-way branch"
+    },
+    "askUser": {
+      "label": "Ask User",
+      "description": "Get user input at runtime"
+    }
+  },
+  "executionPanel": {
+    "tabs": {
+      "monitor": "Monitor",
+      "logs": "Logs"
+    },
+    "run": "Run",
+    "resume": "Resume",
+    "pause": "Pause",
+    "stop": "Stop",
+    "noWorkflowSelected": "No workflow selected",
+    "nodes": "nodes",
+    "executionFailed": "Execution Failed",
+    "waitingForOutput": "Waiting for output...",
+    "noOutput": "No output",
+    "clickRunToExecute": "Click Run to execute the workflow",
+    "searchLogs": "Search logs...",
+    "clear": "Clear",
+    "noLogsYet": "No logs yet",
+    "noMatchingLogs": "No matching logs"
+  },
   "subAgentFlow": {},
   "create": "New",
   "delete": "Delete",
