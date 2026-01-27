@@ -1132,17 +1132,24 @@ async def run_ai_complexity_assessment(
             # Extract flags
             flags = data.get("flags", {})
 
+            # Extract scope information for chunking calculation
+            scope_analysis = data.get("analysis", {}).get("scope", {})
+            ai_estimated_files = scope_analysis.get("estimated_files", 5)
+            ai_estimated_services = scope_analysis.get("estimated_services", 1)
+
+            # Calculate chunking for AI assessment
+            task_desc_for_chunking = task_description if task_description else ""
+            ai_base_length = len(task_desc_for_chunking) * 2
+            ai_estimated_size = ai_base_length + (ai_estimated_files * 2000) + (ai_estimated_services * 3000)
+            ai_needs_chunk, ai_size_level, ai_chunks = needs_chunking(ai_estimated_size)
+
             return ComplexityAssessment(
                 complexity=complexity,
                 confidence=data.get("confidence", 0.75),
                 reasoning=data.get("reasoning", "AI assessment"),
                 signals=data.get("analysis", {}),
-                estimated_files=data.get("analysis", {})
-                .get("scope", {})
-                .get("estimated_files", 5),
-                estimated_services=data.get("analysis", {})
-                .get("scope", {})
-                .get("estimated_services", 1),
+                estimated_files=ai_estimated_files,
+                estimated_services=ai_estimated_services,
                 external_integrations=data.get("analysis", {})
                 .get("integrations", {})
                 .get("external_services", []),
@@ -1152,6 +1159,11 @@ async def run_ai_complexity_assessment(
                 recommended_phases=data.get("recommended_phases", []),
                 needs_research=flags.get("needs_research", False),
                 needs_self_critique=flags.get("needs_self_critique", False),
+                # Chunfor AI assessment
+                estimated_spec_size=ai_estimated_size,
+                requires_chunking=ai_needs_chunk,
+                chunking_strategy=ai_size_level,
+                suggested_chunks=ai_chunks,
             )
 
         return None
