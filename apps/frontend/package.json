@@ -33,7 +33,7 @@
     "python:verify": "node scripts/verify-python-bundling.cjs",
     "package": "node scripts/package-with-python.cjs",
     "package:mac": "node scripts/package-with-python.cjs --mac",
-    "package:win": "node scripts/package-with-python.cjs --win",
+    "package:win": "node scripts/package-with-python.cjs --win --x64",
     "package:linux": "node scripts/package-with-python.cjs --linux",
     "package:flatpak": "node scripts/package-with-python.cjs --linux flatpak",
     "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
@@ -82,6 +82,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^16.6.1",
+    "driver.js": "^1.4.0",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.6.2",
     "i18next": "^25.7.3",
@@ -217,9 +218,19 @@
     "win": {
       "icon": "resources/icon.ico",
       "target": [
-        "nsis",
+        {
+          "target": "nsis",
+          "arch": "x64"
+        },
         "zip"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "linux": {
       "icon": "resources/icons",

@@ -76,15 +76,15 @@ main() {
     echo "USE AT YOUR OWN RISK!"
   fi
 
-  if [ "$major_node_version" -ne "${FORCE_NODE_VERSION:-22}" ]; then
-    echo "ERROR: code-server currently requires node v22."
-    if [ -n "$FORCE_NODE_VERSION" ]; then
-      echo "However, you have overrided the version check to use v$FORCE_NODE_VERSION."
-    fi
+  # Allow Node.js 22 or 24 (24 is tested and works)
+  if [ "$major_node_version" -lt 22 ]; then
+    echo "ERROR: code-server currently requires node v22 or higher."
     echo "We have detected that you are on node v$major_node_version"
-    echo "You can override this version check by setting \$FORCE_NODE_VERSION,"
-    echo "but configurations that do not use the same node version are unsupported."
     exit 1
+  fi
+
+  if [ "$major_node_version" -gt 24 ]; then
+    echo "WARNING: Node.js v$major_node_version is untested. Use v22 or v24 for best compatibility."
   fi
 
   # Under npm, if we are running as root, we need --unsafe-perm otherwise
