@@ -15,6 +15,35 @@ const fs = require('fs');
 const path = require('path');
 
 module.exports = {
+  /**
+   * beforePack hook - 最后一道防线，确保不需要的文件不会被打入包体
+   * 注意：主要优化已在 package-with-python.cjs 的 stageCodeServer 中完成
+   */
+  beforePack: async (context) => {
+    const codeServerDir = path.join(context.appOutDir, '..', '..', 'code-server-staged', 'lib');
+    const platform = context.electronPlatformName; // 'darwin', 'win32', 'linux'
+    
+    if (!fs.existsSync(codeServerDir)) {
+      return;
+    }
+    
+    console.log(`[beforePack] Verifying code-server for platform: ${platform}`);
+    
+    // Double-check: remove wrong platform's code-server if it somehow got included
+    const entries = fs.readdirSync(codeServerDir);
+    for (const entry of entries) {
+      const entryPath = path.join(codeServerDir, entry);
+      
+      if (entry.includes('-win') && platform !== 'win32') {
+        console.log(`[beforePack] Removing unexpected Windows code-server...`);
+        fs.rmSync(entryPath, { recursive: true, force: true });
+      } else if (entry.match(/^code-server-[\d.]+$/) && platform === 'win32') {
+        console.log(`[beforePack] Removing unexpected Mac/Linux code-server...`);
+        fs.rmSync(entryPath, { recursive: true, force: true });
+      }
+    }
+  },
+
   afterPack: async (context) => {
     // Only process macOS builds
     if (context.electronPlatformName !== 'darwin') {

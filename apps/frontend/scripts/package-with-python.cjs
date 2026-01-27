@@ -247,8 +247,11 @@ function stageRuntimePackages(frontendDir, platform, arch) {
 /**
  * Stage code-server with resolved symlinks for packaging.
  * electron-builder doesn't handle symlinks well, so we copy with dereference.
+ * 
+ * @param {string} frontendDir - Frontend directory path
+ * @param {string} platform - Target platform ('mac', 'win', 'linux')
  */
-function stageCodeServer(frontendDir) {
+function stageCodeServer(frontendDir, platform) {
   const codeServerSrc = path.join(frontendDir, '..', 'code-server', 'lib');
   const codeServerDest = path.join(frontendDir, 'code-server-staged', 'lib');
 
@@ -257,17 +260,56 @@ function stageCodeServer(frontendDir) {
     return;
   }
 
-  console.log('[package] Staging code-server with resolved symlinks...');
+  console.log(`[package] Staging code-server for platform: ${platform}...`);
 
   // Clean up previous staged directory
   if (fs.existsSync(codeServerDest)) {
     fs.rmSync(codeServerDest, { recursive: true, force: true });
   }
 
-  fs.mkdirSync(path.dirname(codeServerDest), { recursive: true });
+  fs.mkdirSync(codeServerDest, { recursive: true });
 
-  // Copy with dereference to resolve symlinks
-  fs.cpSync(codeServerSrc, codeServerDest, { recursive: true, dereference: true });
+  // Determine which code-server version to copy based on platform
+  const entries = fs.readdirSync(codeServerSrc);
+  let stagedVersion = null;
+  
+  for (const entry of entries) {
+    const srcPath = path.join(codeServerSrc, entry);
+    const destPath = path.join(codeServerDest, entry);
+    
+    // Skip platform-specific directories that don't match target platform
+    if (entry.includes('-win')) {
+      // Windows-specific directory
+      if (platform !== 'win') {
+        console.log(`[package] Skipping Windows code-server for ${platform} build`);
+        continue;
+      }
+    } else if (entry.match(/^code-server-[\d.]+$/)) {
+      // Mac/Linux directory (no platform suffix)
+      if (platform === 'win') {
+        console.log(`[package] Skipping Mac/Linux code-server for ${platform} build`);
+        continue;
+      }
+    }
+    
+    // Copy with dereference to resolve symlinks
+    fs.cpSync(srcPath, destPath, { recursive: true, dereference: true });
+    console.log(`[package] Staged: ${entry}`);
+    stagedVersion = entry;
+  }
+
+  // Optimize: Remove duplicate node_modules if node_modules.asar exists
+  if (stagedVersion) {
+    const vscodeDir = path.join(codeServerDest, stagedVersion, 'lib', 'vscode');
+    const nodeModulesDir = path.join(vscodeDir, 'node_modules');
+    const nodeModulesAsar = path.join(vscodeDir, 'node_modules.asar');
+    
+    if (fs.existsSync(nodeModulesDir) && fs.existsSync(nodeModulesAsar)) {
+      console.log('[package] Removing duplicate node_modules (keeping node_modules.asar)...');
+      fs.rmSync(nodeModulesDir, { recursive: true, force: true });
+      console.log('[package] Saved ~188MB by removing duplicate node_modules');
+    }
+  }
 
   console.log('[package] code-server staged successfully');
 }
@@ -293,16 +335,40 @@ async function main() {
     }
   }
 
-  // Stage code-server with resolved symlinks
-  stageCodeServer(frontendDir);
+  // Stage code-server for each platform separately
+  // Note: If building for multiple platforms, we need to build them one at a time
+  // because code-server-staged can only contain one platform's files at a time
+  for (const platform of platforms) {
+    // Stage code-server with platform-specific files
+    stageCodeServer(frontendDir, platform);
 
-  const builderArgs = [...args];
-  const hasPublishFlag = builderArgs.some((arg) => arg === '--publish' || arg.startsWith('--publish='));
-  if (!hasPublishFlag) {
-    builderArgs.push('--publish', 'never');
+    // Build for this platform
+    const platformFlag = platform === 'mac' ? '--mac' : platform === 'win' ? '--win' : '--linux';
+    const builderArgs = [platformFlag];
+    
+    // Add architecture flags
+    for (const arch of archs) {
+      if (arch === 'x64') builderArgs.push('--x64');
+      else if (arch === 'arm64') builderArgs.push('--arm64');
+    }
+    
+    // Add publish flag
+    const hasPublishFlag = args.some((arg) => arg === '--publish' || arg.startsWith('--publish='));
+    if (!hasPublishFlag) {
+      builderArgs.push('--publish', 'never');
+    } else {
+      // Copy publish flag from original args
+      const publishArg = args.find((arg) => arg === '--publish' || arg.startsWith('--publish='));
+      if (publishArg) builderArgs.push(publishArg);
+      const publishValueIndex = args.indexOf('--publish');
+      if (publishValueIndex !== -1 && args[publishValueIndex + 1]) {
+        builderArgs.push(args[publishValueIndex + 1]);
+      }
+    }
+
+    console.log(`[package] Building for ${platform}...`);
+    runCommand('electron-builder', builderArgs, frontendDir, env);
   }
-
-  runCommand('electron-builder', builderArgs, frontendDir, env);
 }
 
 // Run main() only when this file is executed directly (not when imported for testing)

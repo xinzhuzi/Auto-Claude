@@ -180,7 +180,11 @@
         "to": "code-server/lib",
         "filter": [
           "!**/.git",
-          "!**/.DS_Store"
+          "!**/.DS_Store",
+          "!**/code-server-*-win/**",
+          "!**/code-server-*-win",
+          "!**/vscode/node_modules/**",
+          "!**/vscode/node_modules"
         ]
       },
       {

@@ -51,6 +51,10 @@ REM Run the Windows packaging
 echo [INFO] Starting Windows packaging...
 echo This may take several minutes...
 echo.
+echo Note: Package optimization is handled automatically by package-with-python.cjs
+echo       - Only Windows code-server will be included
+echo       - Duplicate node_modules will be removed
+echo.
 call npm run package:win
 
 REM Check exit code
