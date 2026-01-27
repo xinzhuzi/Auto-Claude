@@ -37,6 +37,11 @@ __all__ = [
     "find_subtask_in_plan",
     "find_phase_for_subtask",
     "sync_spec_to_source",
+    # Subtask Validator
+    "is_subtask_oversized",
+    "validate_implementation_plan",
+    "auto_split_subtask",
+    "detect_empty_param_error",
     # Constants
     "AUTO_CONTINUE_DELAY_SECONDS",
     "HUMAN_INTERVENTION_FILE",
@@ -90,6 +95,20 @@ def __getattr__(name):
             get_latest_commit,
             load_implementation_plan,
             sync_spec_to_source,
+        )
+
+        return locals()[name]
+    elif name in (
+        "is_subtask_oversized",
+        "validate_implementation_plan",
+        "auto_split_subtask",
+        "detect_empty_param_error",
+    ):
+        from .subtask_validator import (
+            is_subtask_oversized,
+            validate_implementation_plan,
+            auto_split_subtask,
+            detect_empty_param_error,
         )
 
         return locals()[name]
