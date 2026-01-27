@@ -10,3 +10,4 @@ export { GeneralSettings } from './GeneralSettings';
 export { AdvancedSettings } from './AdvancedSettings';
 export { SettingsSection } from './SettingsSection';
 export { useSettings } from './hooks/useSettings';
+export { DaoJieSettings } from './sections/DaoJieSettings';

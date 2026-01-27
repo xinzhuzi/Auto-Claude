@@ -33,6 +33,9 @@ export class AgentManager extends EventEmitter {
     baseBranch?: string;
     swapCount: number;
   }> = new Map();
+  // Track pending exit cleanup promises to coordinate with restart
+  private pendingExitCleanup: Map<string, Promise<void>> = new Map();
+  private exitCleanupResolvers: Map<string, () => void> = new Map();
 
   constructor() {
     super();
@@ -52,28 +55,38 @@ export class AgentManager extends EventEmitter {
 
     // Listen for task completion to clean up context (prevent memory leak)
     this.on('exit', (taskId: string, code: number | null) => {
+      // Create a promise that resolves when cleanup is complete
+      // This allows restart logic to wait for cleanup before proceeding
+      const cleanupPromise = new Promise<void>((resolve) => {
+        this.exitCleanupResolvers.set(taskId, resolve);
+      });
+      this.pendingExitCleanup.set(taskId, cleanupPromise);
+
       // Clean up context when:
       // 1. Task completed successfully (code === 0), or
       // 2. Task failed and won't be restarted (handled by auto-swap logic)
 
-      // Note: Auto-swap restart happens BEFORE this exit event is processed,
-      // so we need a small delay to allow restart to preserve context
+      // Use a shorter delay since restart now waits for cleanup
       setTimeout(() => {
         const context = this.taskExecutionContext.get(taskId);
-        if (!context) return; // Already cleaned up or restarted
+        const resolver = this.exitCleanupResolvers.get(taskId);
 
         // If task completed successfully, always clean up
         if (code === 0) {
           this.taskExecutionContext.delete(taskId);
-          return;
-        }
-
-        // If task failed and hit max retries, clean up
-        if (context.swapCount >= 2) {
+        } else if (context && context.swapCount >= 2) {
+          // If task failed and hit max retries, clean up
           this.taskExecutionContext.delete(taskId);
         }
         // Otherwise keep context for potential restart
-      }, 1000); // Delay to allow restart logic to run first
+
+        // Signal that cleanup is complete
+        if (resolver) {
+          resolver();
+          this.exitCleanupResolvers.delete(taskId);
+        }
+        this.pendingExitCleanup.delete(taskId);
+      }, 100); // Reduced delay since restart now properly waits
     });
   }
 
@@ -452,9 +465,18 @@ export class AgentManager extends EventEmitter {
     console.log('[AgentManager] Killing current process for task:', taskId);
     this.killTask(taskId);
 
-    // Wait for cleanup, then restart
-    console.log('[AgentManager] Scheduling task restart in 500ms');
-    setTimeout(() => {
+    // Wait for exit cleanup to complete before restarting
+    // This prevents race condition between exit handler and restart
+    const pendingCleanup = this.pendingExitCleanup.get(taskId);
+    const doRestart = async () => {
+      if (pendingCleanup) {
+        console.log('[AgentManager] Waiting for exit cleanup to complete');
+        await pendingCleanup;
+      }
+
+      // Small additional delay for process cleanup
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       console.log('[AgentManager] Restarting task now:', taskId);
       if (context.isSpecCreation) {
         console.log('[AgentManager] Restarting as spec creation');
@@ -475,7 +497,12 @@ export class AgentManager extends EventEmitter {
           context.options
         );
       }
-    }, 500);
+    };
+
+    console.log('[AgentManager] Scheduling task restart');
+    doRestart().catch(err => {
+      console.error('[AgentManager] Error during task restart:', err);
+    });
 
     return true;
   }

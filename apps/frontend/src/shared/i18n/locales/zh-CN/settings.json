@@ -2,7 +2,8 @@
   "title": "设置",
   "tabs": {
     "app": "应用设置",
-    "project": "项目设置"
+    "project": "项目设置",
+    "support": "支持"
   },
   "sections": {
     "appearance": {
@@ -350,6 +351,12 @@
       "integrationTitle": "记忆",
       "integrationDescription": "为 Agent 配置持久化的跨会话记忆",
       "syncDescription": "配置持久化记忆"
+    }
+  },
+  "supportSections": {
+    "daojie": {
+      "title": "道劫",
+      "description": "千年志 · 道劫"
     }
   },
   "agentProfile": {

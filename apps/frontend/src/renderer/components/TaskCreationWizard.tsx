@@ -9,6 +9,7 @@
  * - @ mention autocomplete for file references
  * - File explorer drawer sidebar
  * - Git branch selection options
+ * - AI-powered task description optimization
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +22,11 @@ import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
+import {
+  useTaskOptimize,
+  OptimizeButton,
+  WorktreeRecommendationBanner,
+} from './TaskOptimizeHelper';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
@@ -304,6 +310,21 @@ export function TaskCreationWizard({
     }
   }, [detectAtMention, autocomplete?.show]);
 
+  // Task optimization hook
+  const {
+    isOptimizing,
+    worktreeRecommendation,
+    handleOptimize,
+    clearRecommendation,
+  } = useTaskOptimize({
+    description,
+    projectPath,
+    referencedFiles,
+    onDescriptionChange: handleDescriptionChange,
+    onWorktreeChange: setUseWorktree,
+    onShowGitOptions: () => setShowGitOptions(true),
+  });
+
   /**
    * Handle autocomplete selection
    */
@@ -470,6 +491,7 @@ export function TaskCreationWizard({
     setShowFileExplorer(false);
     setShowGitOptions(false);
     setIsDraftRestored(false);
+    clearRecommendation();
   };
 
   const handleClose = () => {
@@ -637,6 +659,13 @@ export function TaskCreationWizard({
           onError={setError}
           onFileReferenceDrop={handleFileReferenceDrop}
           idPrefix="create"
+          descriptionLabelExtra={
+            <OptimizeButton
+              isOptimizing={isOptimizing}
+              disabled={isCreating || !description.trim()}
+              onClick={handleOptimize}
+            />
+          }
         >
           {/* File autocomplete popup - positioned relative to TaskFormFields */}
           {autocomplete?.show && projectPath && (
@@ -649,6 +678,13 @@ export function TaskCreationWizard({
             />
           )}
         </TaskFormFields>
+
+        {/* Worktree recommendation banner */}
+        {worktreeRecommendation && (
+          <WorktreeRecommendationBanner
+            recommendation={worktreeRecommendation}
+          />
+        )}
 
         {/* Git Options Toggle - unique to creation */}
         <button

@@ -185,6 +185,12 @@
     "browseFiles": "Browse Files",
     "creating": "Creating...",
     "createTask": "Create Task",
+    "optimizeDescription": "AI Optimize",
+    "optimizing": "Optimizing...",
+    "worktreeRecommended": "Recommend using isolated workspace (Worktree)",
+    "directModeRecommended": "Recommend using direct mode",
+    "optimizeSuccess": "Task description optimized",
+    "optimizeFailed": "Optimization failed, please retry",
     "worktreeNotice": {
       "title": "Isolated Workspace",
       "description": "This task runs in an isolated git worktree. Your main branch stays safe until you choose to merge."

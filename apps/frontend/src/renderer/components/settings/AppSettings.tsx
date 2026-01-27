@@ -18,7 +18,8 @@ import {
   Globe,
   Code,
   Bug,
-  Users
+  Users,
+  Gamepad2
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
@@ -55,6 +56,7 @@ import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
 import type { UseProjectSettingsReturn } from '../project-settings/hooks/useProjectSettings';
+import { DaoJieSettings } from './sections/DaoJieSettings';
 
 interface AppSettingsDialogProps {
   open: boolean;
@@ -66,6 +68,9 @@ interface AppSettingsDialogProps {
 
 // App-level settings sections
 export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'accounts' | 'updates' | 'notifications' | 'debug';
+
+// Support-level sections
+export type SupportSection = 'daojie';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -83,6 +88,10 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'updates', icon: Package },
   { id: 'notifications', icon: Bell },
   { id: 'debug', icon: Bug }
+];
+
+const supportNavItemsConfig: NavItemConfig<SupportSection>[] = [
+  { id: 'daojie', icon: Gamepad2 }
 ];
 
 const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
@@ -103,9 +112,10 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
   const [version, setVersion] = useState<string>('');
 
   // Track which top-level section is active
-  const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project'>('app');
+  const [activeTopLevel, setActiveTopLevel] = useState<'app' | 'project' | 'support'>('app');
   const [appSection, setAppSection] = useState<AppSection>(initialSection || 'appearance');
   const [projectSection, setProjectSection] = useState<ProjectSettingsSection>('general');
+  const [supportSection, setSupportSection] = useState<SupportSection>('daojie');
 
   // Navigate to initial section when dialog opens with a specific section
   useEffect(() => {
@@ -202,9 +212,21 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }
   };
 
+  const renderSupportSection = () => {
+    switch (supportSection) {
+      case 'daojie':
+        return <DaoJieSettings />;
+      default:
+        return null;
+    }
+  };
+
   const renderContent = () => {
     if (activeTopLevel === 'app') {
       return renderAppSection();
+    }
+    if (activeTopLevel === 'support') {
+      return renderSupportSection();
     }
     return (
       <ProjectSettingsContent
@@ -235,7 +257,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {t('title')}
           </FullScreenDialogTitle>
           <FullScreenDialogDescription>
-            {t('tabs.app')} & {t('tabs.project')}
+            {t('tabs.app')}, {t('tabs.project')} & {t('tabs.support')}
           </FullScreenDialogDescription>
         </FullScreenDialogHeader>
 
@@ -346,6 +368,40 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                       })}
                     </div>
                   </div>
+
+                  {/* SUPPORT Section */}
+                  <div>
+                    <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      支持
+                    </h3>
+                    <div className="space-y-1">
+                      {supportNavItemsConfig.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeTopLevel === 'support' && supportSection === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setActiveTopLevel('support');
+                              setSupportSection(item.id);
+                            }}
+                            className={cn(
+                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              isActive
+                                ? 'bg-accent text-accent-foreground'
+                                : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            <Icon className="h-5 w-5 mt-0.5 shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm">{t(`supportSections.${item.id}.title`)}</div>
+                              <div className="text-xs text-muted-foreground truncate">{t(`supportSections.${item.id}.description`)}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Version at bottom */}
@@ -362,7 +418,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Main content */}
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-full">
-                <div className="p-8 max-w-2xl">
+                <div className={activeTopLevel === 'support' ? 'p-8' : 'p-8 max-w-2xl'}>
                   {renderContent()}
                 </div>
               </ScrollArea>

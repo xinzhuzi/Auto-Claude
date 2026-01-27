@@ -31,6 +31,15 @@ GIT_ENV_VARS_TO_CLEAR = [
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
     "GIT_COMMITTER_DATE",
+    # Config variables that could override repository settings
+    "GIT_CONFIG",
+    "GIT_CONFIG_GLOBAL",
+    "GIT_CONFIG_SYSTEM",
+    "GIT_CONFIG_NOSYSTEM",
+    # Additional variables that could affect git behavior
+    "GIT_EXEC_PATH",
+    "GIT_TEMPLATE_DIR",
+    "GIT_CEILING_DIRECTORIES",
 ]
 
 _cached_git_path: str | None = None
@@ -124,20 +133,21 @@ def _find_git_executable() -> str:
             except OSError:
                 continue
 
-        # 4. Try 'where' command with shell=True (more reliable on Windows)
+        # 4. Try 'where' command without shell=True (safer approach)
+        # Note: Using list form to avoid shell injection vulnerabilities
         try:
             result = subprocess.run(
-                "where git",
+                ["where", "git"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                shell=True,
+                shell=False,
             )
             if result.returncode == 0 and result.stdout.strip():
                 found_path = result.stdout.strip().split("\n")[0].strip()
                 if found_path and os.path.isfile(found_path):
                     return found_path
-        except (subprocess.TimeoutExpired, OSError):
+        except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
             pass  # 'where' command failed - fall through to default
 
     # Default fallback - let subprocess handle it (may fail)

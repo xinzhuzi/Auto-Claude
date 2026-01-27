@@ -338,14 +338,16 @@ class ServiceOrchestrator:
                 try:
                     # Use shlex.split() for safe parsing of shell-like syntax
                     # shell=False prevents shell injection vulnerabilities
+                    # Use DEVNULL for stdout/stderr to prevent buffer deadlock
+                    # when child process outputs large amounts of data
                     proc = subprocess.Popen(
                         shlex.split(service.startup_command),
                         shell=False,
                         cwd=self.project_dir / service.path
                         if service.path
                         else self.project_dir,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                     )
                     self._processes[service.name] = proc
                     result.services_started.append(service.name)

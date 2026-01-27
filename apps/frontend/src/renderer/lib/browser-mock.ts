@@ -18,7 +18,8 @@ import {
   changelogMock,
   insightsMock,
   infrastructureMock,
-  settingsMock
+  settingsMock,
+  taskOptimizeMock
 } from './mocks';
 
 // Check if we're in a browser (not Electron)
@@ -46,6 +47,9 @@ const browserMockAPI: ElectronAPI = {
 
   // Settings
   ...settingsMock,
+
+  // Task Optimization (AI-powered)
+  ...taskOptimizeMock,
 
   // Roadmap Operations
   getRoadmap: async () => ({

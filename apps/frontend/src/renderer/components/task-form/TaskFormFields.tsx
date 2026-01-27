@@ -94,6 +94,9 @@ interface TaskFormFieldsProps {
 
   /** Callback when a file reference is dropped (from FileTreeItem drag) */
   onFileReferenceDrop?: (reference: string, data: FileReferenceData) => void;
+
+  /** 描述标签行右侧的额外内容（如 AI 优化按钮） */
+  descriptionLabelExtra?: ReactNode;
 }
 
 export function TaskFormFields({
@@ -133,7 +136,8 @@ export function TaskFormFields({
   onError,
   idPrefix = '',
   children,
-  onFileReferenceDrop
+  onFileReferenceDrop,
+  descriptionLabelExtra
 }: TaskFormFieldsProps) {
   const { t } = useTranslation(['tasks', 'common']);
   // Use external ref if provided (for @ mention autocomplete), otherwise use internal ref
@@ -219,9 +223,12 @@ export function TaskFormFields({
       <div className="space-y-6">
         {/* Description (Primary - Required) */}
         <div className="space-y-2">
-          <Label htmlFor={`${prefix}description`} className="text-sm font-medium text-foreground">
-            {t('tasks:form.description')} <span className="text-destructive">*</span>
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor={`${prefix}description`} className="text-sm font-medium text-foreground">
+              {t('tasks:form.description')} <span className="text-destructive">*</span>
+            </Label>
+            {descriptionLabelExtra}
+          </div>
           <div className="relative">
             {/* Optional overlay (e.g., @ mention highlighting) */}
             {descriptionOverlay}

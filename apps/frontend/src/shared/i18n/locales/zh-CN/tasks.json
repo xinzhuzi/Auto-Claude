@@ -187,6 +187,12 @@
     "browseFiles": "浏览文件",
     "creating": "创建中...",
     "createTask": "创建任务",
+    "optimizeDescription": "AI 优化描述",
+    "optimizing": "优化中...",
+    "worktreeRecommended": "建议使用隔离工作空间 (Worktree)",
+    "directModeRecommended": "建议使用直接模式",
+    "optimizeSuccess": "任务描述已优化",
+    "optimizeFailed": "优化失败，请重试",
     "worktreeNotice": {
       "title": "隔离的工作空间",
       "description": "此任务在隔离的 git 工作树中运行。您的主分支在您选择合并之前保持安全。"

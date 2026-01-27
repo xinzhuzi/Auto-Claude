@@ -2,7 +2,8 @@
   "title": "Settings",
   "tabs": {
     "app": "App Settings",
-    "project": "Project Settings"
+    "project": "Project Settings",
+    "support": "Support"
   },
   "sections": {
     "appearance": {
@@ -350,6 +351,12 @@
       "integrationTitle": "Memory",
       "integrationDescription": "Configure persistent cross-session memory for agents",
       "syncDescription": "Configure persistent memory"
+    }
+  },
+  "supportSections": {
+    "daojie": {
+      "title": "DaoJie",
+      "description": "Millennium Ambition · DaoJie"
     }
   },
   "agentProfile": {

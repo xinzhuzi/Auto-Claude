@@ -46,6 +46,10 @@ import type {
   ImageAttachment
 } from './task';
 import type {
+  OptimizeTaskRequest,
+  OptimizeTaskResponse,
+} from './task-optimize';
+import type {
   TerminalCreateOptions,
   TerminalSession,
   TerminalRestoreResult,
@@ -168,6 +172,9 @@ export interface ElectronAPI {
   updateTaskStatus: (taskId: string, status: TaskStatus, options?: { forceCleanup?: boolean }) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+
+  // Task optimization (AI-powered)
+  optimizeTaskDescription: (request: OptimizeTaskRequest) => Promise<IPCResult<OptimizeTaskResponse>>;
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/

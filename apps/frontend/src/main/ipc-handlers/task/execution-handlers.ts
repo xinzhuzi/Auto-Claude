@@ -848,6 +848,17 @@ export function registerTaskExecutionHandlers(
   );
 
   /**
+   * Optimize task description using AI
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_OPTIMIZE_DESCRIPTION,
+    async (_, request: import('../../../shared/types/task-optimize').OptimizeTaskRequest): Promise<IPCResult<import('../../../shared/types/task-optimize').OptimizeTaskResponse>> => {
+      const { optimizeTaskDescription } = await import('../../task-optimize-helper');
+      return optimizeTaskDescription(request);
+    }
+  );
+
+  /**
    * Recover a stuck task (status says in_progress but no process running)
    */
   ipcMain.handle(
