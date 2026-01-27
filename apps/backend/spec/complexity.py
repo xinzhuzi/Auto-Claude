@@ -915,7 +915,17 @@ class ComplexityAnalyzer:
 
     def _estimate_files(self, task_lower: str, requirements: dict | None) -> int:
         """Estimate number of files to be modified."""
-        # Base estimate from task description
+        # 尝试目录扫描（更准确）
+        from .directory_scanner import estimate_from_paths
+
+        project_dir = getattr(self, "project_dir", None)
+        task_desc = getattr(self, "task_description", task_lower)
+        scan_result = estimate_from_paths(task_desc, project_dir)
+        if scan_result:
+            file_count, _ = scan_result
+            return file_count
+
+        # 回退到原有逻辑：基于关键词估算
         if any(
             kw in task_lower
             for kw in ["single", "one file", "one component", "this file"]
