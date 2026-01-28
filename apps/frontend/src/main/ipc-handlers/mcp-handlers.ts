@@ -104,7 +104,7 @@ async function checkHttpHealth(server: CustomMcpServer, startTime: number): Prom
     const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
     const headers: Record<string, string> = {
-      'Accept': 'application/json',
+      'Accept': 'application/json, text/event-stream',
     };
 
     // Add custom headers if configured
@@ -284,7 +284,7 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      'Accept': 'application/json, text/event-stream',
     };
 
     if (server.headers) {
@@ -316,6 +316,8 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
     clearTimeout(timeout);
     const responseTime = Date.now() - startTime;
 
+    const contentType = response.headers.get('content-type') || '';
+
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         return {
@@ -335,7 +337,36 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
       };
     }
 
-    const data = await response.json();
+    // Parse response - handle both JSON and SSE (text/event-stream) formats
+    let data;
+    if (contentType.includes('text/event-stream')) {
+      // SSE format: extract data from lines like "data: {...}"
+      const text = await response.text();
+      const dataLine = text.split('\n').find(line => line.startsWith('data:'));
+      if (dataLine) {
+        const jsonStr = dataLine.substring(5).trim(); // Remove "data:" prefix
+        try {
+          data = JSON.parse(jsonStr);
+        } catch {
+          return {
+            serverId: server.id,
+            success: false,
+            message: 'Failed to parse SSE response',
+            responseTime,
+          };
+        }
+      } else {
+        return {
+          serverId: server.id,
+          success: false,
+          message: 'No data in SSE response',
+          responseTime,
+        };
+      }
+    } else {
+      // Regular JSON response
+      data = await response.json();
+    }
 
     if (data.error) {
       return {
@@ -363,8 +394,24 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
 
     let tools: string[] = [];
     if (toolsResponse.ok) {
-      const toolsData = await toolsResponse.json();
-      if (toolsData.result?.tools) {
+      const toolsContentType = toolsResponse.headers.get('content-type') || '';
+      let toolsData;
+      if (toolsContentType.includes('text/event-stream')) {
+        // Parse SSE format
+        const text = await toolsResponse.text();
+        const dataLine = text.split('\n').find(line => line.startsWith('data:'));
+        if (dataLine) {
+          const jsonStr = dataLine.substring(5).trim();
+          try {
+            toolsData = JSON.parse(jsonStr);
+          } catch {
+            // Failed to parse, skip
+          }
+        }
+      } else {
+        toolsData = await toolsResponse.json();
+      }
+      if (toolsData?.result?.tools) {
         tools = toolsData.result.tools.map((t: { name: string }) => t.name);
       }
     }

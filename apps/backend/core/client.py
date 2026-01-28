@@ -272,6 +272,16 @@ def _validate_custom_mcp_server(server: dict) -> bool:
                         f"Interpreter code execution flags are not allowed."
                     )
                     return False
+
+        # Validate env is a dict of strings if present
+        if "env" in server:
+            if not isinstance(server["env"], dict):
+                return False
+            if not all(
+                isinstance(k, str) and isinstance(v, str)
+                for k, v in server["env"].items()
+            ):
+                return False
     elif server["type"] == "http":
         if not isinstance(server.get("url"), str) or not server["url"]:
             logger.warning("HTTP-type MCP server missing 'url' field")
@@ -300,6 +310,7 @@ def _validate_custom_mcp_server(server: dict) -> bool:
         "url",
         "headers",
         "description",
+        "env",  # Environment variables for command-type MCP servers
     }
     unexpected_fields = set(server.keys()) - allowed_fields
     if unexpected_fields:
@@ -758,10 +769,14 @@ def create_client(
             continue
         server_type = custom.get("type", "command")
         if server_type == "command":
-            mcp_servers[server_id] = {
+            server_config = {
                 "command": custom.get("command", "npx"),
                 "args": custom.get("args", []),
             }
+            # Add environment variables if present
+            if custom.get("env"):
+                server_config["env"] = custom["env"]
+            mcp_servers[server_id] = server_config
         elif server_type == "http":
             server_config = {
                 "type": "http",
