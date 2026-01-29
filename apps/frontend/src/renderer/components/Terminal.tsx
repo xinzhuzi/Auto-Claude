@@ -394,14 +394,14 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
     <div
       ref={setDropRef}
       className={cn(
-        'flex h-full flex-col rounded-lg border bg-[#0B0B0F] overflow-hidden transition-all relative',
+        'flex h-full flex-col rounded-lg border bg-[#282C34] overflow-hidden transition-all relative shadow-lg',
         // Default border states
-        isActive ? 'border-primary ring-1 ring-primary/20' : 'border-border',
+        isActive ? 'border-white/10 ring-1 ring-white/5' : 'border-white/5',
         // File drop overlay
         showFileDropOverlay && 'ring-2 ring-info border-info',
         // Claude busy state indicator (subtle colored border when in Claude mode)
-        showClaudeBusyIndicator && isClaudeBusy && 'border-red-500/60 ring-1 ring-red-500/20',
-        showClaudeBusyIndicator && !isClaudeBusy && 'border-green-500/60 ring-1 ring-green-500/20'
+        showClaudeBusyIndicator && isClaudeBusy && 'border-orange-500/40 ring-1 ring-orange-500/15',
+        showClaudeBusyIndicator && !isClaudeBusy && 'border-emerald-500/40 ring-1 ring-emerald-500/15'
       )}
       onClick={handleClick}
       onDragOver={handleNativeDragOver}

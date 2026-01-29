@@ -69,7 +69,7 @@ export function TerminalHeader({
   const backlogTasks = tasks.filter((t) => t.status === 'backlog');
 
   return (
-    <div className="electron-no-drag group/header flex h-9 items-center justify-between border-b border-border/50 bg-card/30 px-2">
+    <div className="electron-no-drag group/header flex h-9 items-center justify-between border-b border-white/5 bg-gradient-to-r from-[#313842] to-[#2C313A] px-2">
       <div className="flex items-center gap-2">
         {/* Drag handle - visible on hover */}
         {dragHandleListeners && (

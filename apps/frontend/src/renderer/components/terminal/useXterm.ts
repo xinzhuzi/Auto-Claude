@@ -54,10 +54,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       lineHeight: 1.2,
       letterSpacing: 0,
       theme: {
-        background: '#0B0B0F',
-        foreground: '#E8E6E3',
+        background: '#282C34',
+        foreground: '#ABB2BF',
         cursor: '#D6D876',
-        cursorAccent: '#0B0B0F',
+        cursorAccent: '#282C34',
         selectionBackground: '#D6D87640',
         selectionForeground: '#E8E6E3',
         black: '#1A1A1F',
