@@ -36,6 +36,7 @@ import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerCodeServerHandlers } from './code-server-handlers';
 import { registerWorkflowHandlers } from './workflow';
+import { registerSkillHandlers } from './skill-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -130,6 +131,9 @@ export function setupIpcHandlers(
   // Workflow handlers (workflow studio)
   registerWorkflowHandlers();
 
+  // Skill handlers (Claude Code Skills browsing)
+  registerSkillHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -159,5 +163,6 @@ export {
   registerProfileHandlers,
   registerScreenshotHandlers,
   registerCodeServerHandlers,
-  registerWorkflowHandlers
+  registerWorkflowHandlers,
+  registerSkillHandlers
 };

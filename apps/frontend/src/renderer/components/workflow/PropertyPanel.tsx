@@ -437,8 +437,8 @@ function renderNodeProperties(
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="user">{t('properties.scopeUser', 'User')}</SelectItem>
+                <SelectItem value="project">{t('properties.scopeProject', 'Project')}</SelectItem>
                 <SelectItem value="local">{t('properties.scopeLocal', 'Local')}</SelectItem>
-                <SelectItem value="global">{t('properties.scopeGlobal', 'Global')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

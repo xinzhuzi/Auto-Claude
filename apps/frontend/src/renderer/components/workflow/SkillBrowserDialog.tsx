@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, Search, RefreshCw, Plus, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useProjectStore } from '../../stores/project-store';
+import { SkillCreationDialog } from './SkillCreationDialog';
 
 interface SkillReference {
   name: string;
@@ -45,6 +48,7 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
   onOpenChange,
   onSelectSkill,
 }) => {
+  const { t } = useTranslation('workflowStudio');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,13 +58,18 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
   const [selectedSkill, setSelectedSkill] = useState<SkillReference | null>(null);
   const [activeTab, setActiveTab] = useState<'user' | 'project' | 'local'>('user');
   const [filterText, setFilterText] = useState('');
+  const [isCreationDialogOpen, setIsCreationDialogOpen] = useState(false);
+
+  // Get active project path
+  const activeProject = useProjectStore((state) => state.getActiveProject());
+  const projectPath = activeProject?.path;
 
   // Load skills when dialog opens
   useEffect(() => {
     if (open) {
       loadSkills();
     }
-  }, [open]);
+  }, [open, projectPath]);
 
   const loadSkills = async () => {
     setLoading(true);
@@ -68,47 +77,17 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
     setSelectedSkill(null);
 
     try {
-      // TODO: Call IPC to get skills
-      // For now, use mock data
-      const mockSkills: SkillReference[] = [
-        {
-          name: 'code-review',
-          description: 'Review code for bugs and improvements',
-          skillPath: '~/.claude/skills/code-review',
-          scope: 'user',
-          validationStatus: 'valid',
-          allowedTools: 'Read, Grep, Bash',
-        },
-        {
-          name: 'test-generator',
-          description: 'Generate unit tests for code',
-          skillPath: '~/.claude/skills/test-generator',
-          scope: 'user',
-          validationStatus: 'valid',
-          allowedTools: 'Read, Write, Bash',
-        },
-        {
-          name: 'refactor-helper',
-          description: 'Help refactor code for better structure',
-          skillPath: './.c/skills/refactor-helper',
-          scope: 'project',
-          validationStatus: 'valid',
-          allowedTools: 'Read, Edit, Grep',
-          source: 'claude',
-        },
-        {
-          name: 'api-documenter',
-          description: 'Generate API documentation',
-          skillPath: './skills/api-documenter',
-          scope: 'local',
-          validationStatus: 'valid',
-          allowedTools: 'Read, Write',
-        },
-      ];
+      // Call IPC to get real skills from local directories
+      // Pass projectPath to scan project-specific skills
+      const result = await window.electronAPI.browseSkills(projectPath);
 
-      const user = mockSkills.filter((s) => s.scope === 'user');
-      const project = mockSkills.filter((s) => s.scope === 'project');
-      const local = mockSkills.filter((s) => s.scope === 'local');
+      if (!result.success) {
+        throw new Error(result.error || t('action.loadFailed'));
+      }
+
+      const user = result.data?.user || [];
+      const project = result.data?.project || [];
+      const local = result.data?.local || [];
 
       setUserSkills(user);
       setProjectSkills(project);
@@ -123,7 +102,7 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load skills');
+      setError(err instanceof Error ? err.message : t('action.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -137,7 +116,7 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
 
   const handleAddSkill = () => {
     if (!selectedSkill) {
-      setError('Please select a skill');
+      setError(t('action.noSelection'));
       return;
     }
 
@@ -163,13 +142,6 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
   const filteredLocalSkills = filterLower
     ? localSkills.filter((skill) => skill.name.toLowerCase().includes(filterLower))
     : localSkills;
-
-  const currentSkills =
-    activeTab === 'user'
-      ? filteredUserSkills
-      : activeTab === 'project'
-        ? filteredProjectSkills
-        : filteredLocalSkills;
 
   const getValidationIcon = (status: string) => {
     switch (status) {
@@ -197,13 +169,26 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
     }
   };
 
+  const getScopeLabel = (scope: string) => {
+    switch (scope) {
+      case 'user':
+        return t('browser.userTab');
+      case 'project':
+        return t('browser.projectTab');
+      case 'local':
+        return t('browser.localTab');
+      default:
+        return scope;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl h-[600px] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Browse Skills</DialogTitle>
+          <DialogTitle>{t('nodes.skill.label')}</DialogTitle>
           <DialogDescription>
-            Select a Claude Code Skill to add to your workflow
+            {t('nodes.skill.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -213,7 +198,7 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search skills..."
+                placeholder={t('browser.filterPlaceholder')}
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
                 className="pl-9"
@@ -224,6 +209,7 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
               size="icon"
               onClick={handleRefresh}
               disabled={refreshing || loading}
+              title={t('action.refresh')}
             >
               <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
             </Button>
@@ -233,22 +219,22 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="user">
-                User ({filteredUserSkills.length})
+                {t('browser.userTab')} ({filteredUserSkills.length})
               </TabsTrigger>
               <TabsTrigger value="project">
-                Project ({filteredProjectSkills.length})
+                {t('browser.projectTab')} ({filteredProjectSkills.length})
               </TabsTrigger>
               <TabsTrigger value="local">
-                Local ({filteredLocalSkills.length})
+                {t('browser.localTab')} ({filteredLocalSkills.length})
               </TabsTrigger>
-          </TabsList>
+            </TabsList>
 
             {/* Scope Description */}
             <Alert className="mt-2">
               <AlertDescription className="text-xs">
-                {activeTab === 'user' && 'User skills are stored in your home directory and available across all projects'}
-                {activeTab === 'project' && 'Project skills are stored in the project .claude directory and shared with team'}
-                {activeTab === 'local' && 'Local skills are stored in the project but not committed to version control'}
+                {activeTab === 'user' && t('browser.userDescription')}
+                {activeTab === 'project' && t('browser.projectDescription')}
+                {activeTab === 'local' && t('browser.localDescription')}
               </AlertDescription>
             </Alert>
 
@@ -276,6 +262,8 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
                     onSelectSkill={setSelectedSkill}
                     getValidationIcon={getValidationIcon}
                     getScopeBadgeColor={getScopeBadgeColor}
+                    getScopeLabel={getScopeLabel}
+                    noSkillsText={t('browser.noSkills')}
                   />
                 </TabsContent>
                 <TabsContent value="project" className="flex-1 mt-2 min-h-0">
@@ -285,6 +273,8 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
                     onSelectSkill={setSelectedSkill}
                     getValidationIcon={getValidationIcon}
                     getScopeBadgeColor={getScopeBadgeColor}
+                    getScopeLabel={getScopeLabel}
+                    noSkillsText={t('browser.noSkills')}
                   />
                 </TabsContent>
                 <TabsContent value="local" className="flex-1 mt-2 min-h-0">
@@ -294,6 +284,8 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
                     onSelectSkill={setSelectedSkill}
                     getValidationIcon={getValidationIcon}
                     getScopeBadgeColor={getScopeBadgeColor}
+                    getScopeLabel={getScopeLabel}
+                    noSkillsText={t('browser.noSkills')}
                   />
                 </TabsContent>
               </>
@@ -302,20 +294,27 @@ export const SkillBrowserDialog: React.FC<SkillBrowserDialogProps> = ({
         </div>
 
         <DialogFooter className="flex-row justify-between">
-          <Button variant="outline" onClick={() => {}}>
+          <Button variant="outline" onClick={() => setIsCreationDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Create New Skill
+            {t('creation.createButton')}
           </Button>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleClose}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button onClick={handleAddSkill} disabled={!selectedSkill || loading}>
-              Add Skill
+              {t('browser.selectButton')}
             </Button>
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Skill Creation Dialog */}
+      <SkillCreationDialog
+        open={isCreationDialogOpen}
+        onOpenChange={setIsCreationDialogOpen}
+        onSuccess={loadSkills}
+      />
     </Dialog>
   );
 };
@@ -327,6 +326,8 @@ interface SkillsListProps {
   onSelectSkill: (skill: SkillReference) => void;
   getValidationIcon: (status: string) => React.ReactNode;
   getScopeBadgeColor: (scope: string) => string;
+  getScopeLabel: (scope: string) => string;
+  noSkillsText: string;
 }
 
 const SkillsList: React.FC<SkillsListProps> = ({
@@ -335,11 +336,13 @@ const SkillsList: React.FC<SkillsListProps> = ({
   onSelectSkill,
   getValidationIcon,
   getScopeBadgeColor,
+  getScopeLabel,
+  noSkillsText,
 }) => {
   if (skills.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
-        No skills found
+        {noSkillsText}
       </div>
     );
   }
@@ -361,7 +364,7 @@ const SkillsList: React.FC<SkillsListProps> = ({
               <div className="flex items-center gap-2">
                 <span className="font-medium">{skill.name}</span>
                 <Badge className={cn('text-xs', getScopeBadgeColor(skill.scope))}>
-                  {skill.scope}
+                  {getScopeLabel(skill.scope)}
                 </Badge>
                 {skill.source && (
                   <Badge variant="outline" className="text-xs">
@@ -374,7 +377,7 @@ const SkillsList: React.FC<SkillsListProps> = ({
             <p className="text-sm text-muted-foreground mb-2">{skill.description}</p>
             {skill.allowedTools && (
               <p className="text-xs text-muted-foreground">
-                Tools: {skill.allowedTools}
+                {skill.allowedTools}
               </p>
             )}
           </button>

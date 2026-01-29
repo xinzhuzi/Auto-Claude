@@ -161,6 +161,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
       return {
         workflows: updatedWorkflows,
+        activeWorkflow: updatedWorkflow,  // Also update activeWorkflow for cc-wf-studio compatibility
       };
     }),
 
@@ -221,11 +222,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const result = await window.electronAPI.workflow.saveWorkflow(workflow);
 
       if (result.success) {
-        // Optimistic update
+        // Optimistic update - also update activeWorkflow for immediate UI sync
         set((state) => ({
           workflows: state.workflows.map((w) =>
             w.id === workflow.id ? workflow : w
           ),
+          activeWorkflow: state.activeWorkflowId === workflow.id ? workflow : state.activeWorkflow,
           isLoading: false,
         }));
       } else {

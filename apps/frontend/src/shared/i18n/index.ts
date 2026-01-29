@@ -13,8 +13,7 @@ import enGitlab from './locales/en/gitlab.json';
 import enTaskReview from './locales/en/taskReview.json';
 import enTerminal from './locales/en/terminal.json';
 import enErrors from './locales/en/errors.json';
-// CC-WF-Studio translations (from cc-wf-studio package)
-import enWorkflowStudio from '../../../../cc-wf-studio/src/i18n/locales/en/workflowStudio.json';
+import enWorkflowStudio from './locales/en/workflowStudio.json';
 
 // Import French translation resources
 import frCommon from './locales/fr/common.json';
@@ -28,7 +27,7 @@ import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 import frErrors from './locales/fr/errors.json';
-import frWorkflowStudio from '../../../../cc-wf-studio/src/i18n/locales/fr/workflowStudio.json';
+import frWorkflowStudio from './locales/fr/workflowStudio.json';
 
 // Import Chinese (Simplified) translation resources
 import zhCnCommon from './locales/zh-CN/common.json';
@@ -42,7 +41,16 @@ import zhCnGitlab from './locales/zh-CN/gitlab.json';
 import zhCnTaskReview from './locales/zh-CN/taskReview.json';
 import zhCnTerminal from './locales/zh-CN/terminal.json';
 import zhCnErrors from './locales/zh-CN/errors.json';
-import zhCnWorkflowStudio from '../../../../cc-wf-studio/src/i18n/locales/zh-CN/workflowStudio.json';
+import zhCnWorkflowStudio from './locales/zh-CN/workflowStudio.json';
+
+// Import Japanese translation resources (workflowStudio only)
+import jaWorkflowStudio from './locales/ja/workflowStudio.json';
+
+// Import Korean translation resources (workflowStudio only)
+import koWorkflowStudio from './locales/ko/workflowStudio.json';
+
+// Import Chinese (Traditional) translation resources (workflowStudio only)
+import zhTwWorkflowStudio from './locales/zh-TW/workflowStudio.json';
 
 export const defaultNS = 'common';
 
@@ -88,6 +96,15 @@ export const resources = {
     terminal: zhCnTerminal,
     errors: zhCnErrors,
     workflowStudio: zhCnWorkflowStudio
+  },
+  ja: {
+    workflowStudio: jaWorkflowStudio
+  },
+  ko: {
+    workflowStudio: koWorkflowStudio
+  },
+  'zh-TW': {
+    workflowStudio: zhTwWorkflowStudio
   }
 } as const;
 

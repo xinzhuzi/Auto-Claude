@@ -870,6 +870,17 @@ export interface ElectronAPI {
 
   // Queue Routing API (rate limit recovery)
   queue: import('../../preload/api/queue-api').QueueAPI;
+
+  // Skill operations
+  browseSkills: (projectPath?: string) => Promise<IPCResult<import('./skill').SkillScanResult>>;
+  createSkill: (payload: {
+    name: string;
+    description: string;
+    instructions: string;
+    allowedTools?: string;
+    scope: 'user' | 'project' | '';
+    projectPath?: string;
+  }) => Promise<IPCResult<{ skillPath: string }>>;
 }
 
 declare global {
