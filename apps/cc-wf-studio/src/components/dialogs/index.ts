@@ -5,3 +5,4 @@
 export { AlertDialog } from './AlertDialog';
 export { ConfirmDialog } from './ConfirmDialog';
 export { LoadWorkflowDialog } from './LoadWorkflowDialog';
+export { TermsOfUseDialog } from './TermsOfUseDialog';

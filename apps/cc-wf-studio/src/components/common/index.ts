@@ -2,6 +2,7 @@
  * 通用组件导出
  */
 
+export { AiGenerateButton } from './AiGenerateButton';
 export { Checkbox } from './Checkbox';
 export { ColorPicker, SUB_AGENT_COLORS } from './ColorPicker';
 export type { SubAgentColor, ColorPickerProps } from './ColorPicker';
