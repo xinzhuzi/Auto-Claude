@@ -1,20 +1,15 @@
 /**
- * Canvas Components Export
+ * 画布组件导出
  *
- * Central export point for all workflow canvas components
- * Part of cc-wf-studio integration into Auto-Claude
+ * 所有工作流画布组件的中央导出点
  */
 
-import WorkflowCanvas from './WorkflowCanvas';
-import NodePalette from './NodePalette';
-import PropertyPanel from './PropertyPanel';
-import ExecutionPanel from './ExecutionPanel';
-
-export { WorkflowCanvas, NodePalette, PropertyPanel, ExecutionPanel };
-
-export default {
-  WorkflowCanvas,
-  NodePalette,
-  PropertyPanel,
-  ExecutionPanel,
-};
+export { ErrorNotification } from './ErrorNotification';
+export type { ErrorPayload } from './ErrorNotification';
+export { ExecutionPanel } from './ExecutionPanel';
+export { InteractionModeToggle } from './InteractionModeToggle';
+export type { InteractionMode } from './InteractionModeToggle';
+export { MinimapContainer } from './MinimapContainer';
+export { NodePalette } from './NodePalette';
+export { PropertyPanel } from './PropertyPanel';
+export { WorkflowCanvas } from './WorkflowCanvas';
