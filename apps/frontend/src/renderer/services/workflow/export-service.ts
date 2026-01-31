@@ -350,7 +350,7 @@ export function generateExecutionInstructions(workflow: Workflow): string {
     for (const node of subAgentNodes) {
       const nodeId = sanitizeNodeId(node.id);
       const agentName = node.data?.description || node.name || 'Sub-Agent';
-      const agentType = node.data?.agentType || 'general-purpose';
+      const agentType = node.data?.agentId || 'general-purpose';
       sections.push(`#### ${nodeId}(${agentName})`);
       sections.push('');
       if (node.data?.prompt) {

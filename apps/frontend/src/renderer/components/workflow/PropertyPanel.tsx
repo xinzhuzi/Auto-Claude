@@ -166,7 +166,7 @@ function renderNodeProperties(
           </div>
           <div className="space-y-2">
             <Label htmlFor="model">{t('properties.model', 'Model')}</Label>
-            <Select
+<Select
               value={node.data.model || 'inherit'}
               onValueChange={(value) => handleUpdate({ model: value as any })}
             >
