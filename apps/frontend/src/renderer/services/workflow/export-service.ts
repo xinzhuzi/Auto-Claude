@@ -5,7 +5,7 @@
  * 基于原始 cc-wf-studio 的 export-service.ts
  */
 
-import type { Workflow, WorkflowNode } from '@frontend/src/shared/types/workflow';
+import type { Workflow, WorkflowNode } from '@shared/types/workflow';
 
 /**
  * 节点名称转文件名

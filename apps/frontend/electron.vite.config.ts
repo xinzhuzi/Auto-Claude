@@ -84,8 +84,7 @@ export default defineConfig({
         '@features': resolve(__dirname, 'src/renderer/features'),
         '@components': resolve(__dirname, 'src/renderer/shared/components'),
         '@hooks': resolve(__dirname, 'src/renderer/shared/hooks'),
-        '@lib': resolve(__dirname, 'src/renderer/shared/lib'),
-        '@cc-wf-studio': resolve(__dirname, '../cc-wf-studio/src')
+        '@lib': resolve(__dirname, 'src/renderer/shared/lib')
       }
     },
     server: {

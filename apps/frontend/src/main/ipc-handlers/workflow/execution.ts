@@ -10,7 +10,12 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { getConfiguredPythonPath } from '../../python-env-manager';
 import { logger } from '../../lib/logger';
-import type { Workflow, ExecutionConfig } from '../../../../shared/types';
+import type { Workflow } from '../../../shared/types/workflow';
+
+interface ExecutionConfig {
+  projectPath: string;
+  timeout?: number;
+}
 
 /**
  * Execute a workflow on Python backend.
@@ -109,7 +114,7 @@ asyncio.run(main())
       }
     });
 
-    let executionId: string | null = null;
+    let executionId: string = '';
     let outputBuffer = '';
 
     // Collect execution ID from output

@@ -110,7 +110,7 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
 
     try {
       // Import serialization functions dynamically
-      const { serializeWorkflow, validateWorkflow } = await import('@cc-wf-studio/services/workflow-service');
+      const { serializeWorkflow, validateWorkflow } = await import('../services/workflow');
 
       // Convert workflow nodes to ReactFlow format for serialization
       const reactFlowNodes = nodes.map((node: any) => ({
@@ -229,8 +229,8 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
 
     try {
       // Import functions dynamically
-      const { serializeWorkflow, validateWorkflow } = await import('@cc-wf-studio/services/workflow-service');
-      const { generateSlashCommandFile, nodeNameToFileName } = await import('@cc-wf-studio/services/export-service');
+      const { serializeWorkflow, validateWorkflow } = await import('../services/workflow');
+      const { generateSlashCommandFile, nodeNameToFileName } = await import('../services/workflow');
 
       // Convert workflow nodes to ReactFlow format for serialization
       const reactFlowNodes = nodes.map((node: any) => ({

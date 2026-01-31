@@ -378,7 +378,43 @@ const browserMockAPI: ElectronAPI = {
   createSkill: async () => ({
     success: false,
     error: 'Skill creation not available in browser mode'
-  })
+  }),
+
+  // Code-server API
+  codeServer: {
+    getStatus: async () => ({ success: true, data: { running: false, url: null } }),
+    start: async () => ({ success: false, error: 'Not available in browser mode' }),
+    stop: async () => ({ success: false, error: 'Not available in browser mode' }),
+    openFile: async () => ({ success: false, error: 'Not available in browser mode' }),
+  },
+
+  // Workflow API
+  workflow: {
+    save: async () => ({ success: false, error: 'Not available in browser mode' }),
+    load: async () => ({ success: false, error: 'Not available in browser mode' }),
+    list: async () => ({ success: true, data: [] }),
+    delete: async () => ({ success: false, error: 'Not available in browser mode' }),
+    execute: async () => ({ success: false, error: 'Not available in browser mode' }),
+    aiGenerate: async () => ({ success: false, error: 'Not available in browser mode' }),
+    aiOptimize: async () => ({ success: false, error: 'Not available in browser mode' }),
+    aiAnalyze: async () => ({ success: false, error: 'Not available in browser mode' }),
+    aiSuggest: async () => ({ success: false, error: 'Not available in browser mode' }),
+    aiGenerateSkill: async () => ({ success: false, error: 'Not available in browser mode' }),
+    aiGenerateName: async () => ({ success: false, error: 'Not available in browser mode' }),
+    onExecutionProgress: () => () => {},
+    onExecutionComplete: () => () => {},
+    onExecutionError: () => () => {},
+  },
+
+  // MCP API
+  mcp: {
+    listServers: async () => ({ success: true, data: { servers: [] } }),
+    getTools: async () => ({ success: true, data: { tools: [] } }),
+    getToolSchema: async () => ({ success: true, data: { schema: undefined } }),
+    refreshCache: async () => ({ success: true, data: undefined }),
+    checkMcpHealth: async () => ({ success: true, data: { serverId: '', status: 'unknown' as const, message: '', checkedAt: '' } }),
+    testMcpConnection: async () => ({ success: true, data: { serverId: '', success: false, message: '' } }),
+  }
 };
 
 /**

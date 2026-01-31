@@ -542,6 +542,12 @@ export const IPC_CHANNELS = {
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
 
+  // MCP Workflow Studio operations (for workflow editor)
+  MCP_LIST_SERVERS: 'mcp:listServers',           // List all configured MCP servers
+  MCP_GET_TOOLS: 'mcp:getTools',                 // Get tools from a specific server
+  MCP_GET_TOOL_SCHEMA: 'mcp:getToolSchema',      // Get detailed schema for a tool
+  MCP_REFRESH_CACHE: 'mcp:refreshCache',         // Refresh MCP cache
+
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
@@ -603,6 +609,7 @@ export const IPC_CHANNELS = {
 
   // Workflow AI generation
   WORKFLOW_AI_GENERATE: 'workflow:ai:generate',
+  WORKFLOW_AI_GENERATE_NAME: 'workflow:ai:generateName',
   WORKFLOW_AI_GENERATE_SKILL: 'workflow:ai:generateSkill',
   WORKFLOW_AI_OPTIMIZE: 'workflow:ai:optimize',
   WORKFLOW_AI_SUGGEST: 'workflow:ai:suggest',

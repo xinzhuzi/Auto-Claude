@@ -231,8 +231,8 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
       // 1. First export the workflow to .claude/commands/
       addLog('info', 'Exporting workflow to .claude/commands/...');
 
-      const { generateSlashCommandFile, nodeNameToFileName } = await import('@cc-wf-studio/services/export-service');
-      const { serializeWorkflow } = await import('@cc-wf-studio/services/workflow-service');
+      const { generateSlashCommandFile, nodeNameToFileName } = await import('../../services/workflow');
+      const { serializeWorkflow } = await import('../../services/workflow');
 
       const nodes = activeWorkflow.nodes || [];
       const connections = activeWorkflow.connections || [];

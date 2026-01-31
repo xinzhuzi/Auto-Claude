@@ -311,7 +311,7 @@ export function registerAIGenerationHandlers() {
    * Generate workflow name from nodes and connections.
    */
   ipcMain.handle(
-    IPC_CHANNELS.WORKFLOW_GENERATE_NAME,
+    IPC_CHANNELS.WORKFLOW_AI_GENERATE_NAME,
     async (event, { nodes, connections }: { nodes: any[]; connections: any[] }) => {
       try {
         logger.info('[AINameGeneration] Generating workflow name');

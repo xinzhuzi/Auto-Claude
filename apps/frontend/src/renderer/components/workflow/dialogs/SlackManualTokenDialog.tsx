@@ -138,7 +138,7 @@ export const SlackManualTokenDialog: React.FC<SlackManualTokenDialogProps> = ({
             Cancel
           </Button>
           <Button
-            onClick={handleSubmit}
+            onClick={handleSuhandleSubmit}
             disabled={isSuhandleSubmitting || !token.trim()}
             className="gap-2"
           >

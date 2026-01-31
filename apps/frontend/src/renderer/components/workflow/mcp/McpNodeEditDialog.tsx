@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,7 @@ export const McpNodeEditDialog: React.FC<McpNodeEditDialogProps> = ({
   nodeData,
   onSave,
 }) => {
+  const { t } = useTranslation('workflowStudio');
   const [mode, setMode] = useState<'manualParameterConfig' | 'aiParameterConfig' | 'aiToolSelection'>(
     nodeData.mode || 'manualParameterConfig'
   );
@@ -142,36 +144,38 @@ export const McpNodeEditDialog: React.FC<McpNodeEditDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Configure MCP Tool</DialogTitle>
+          <DialogTitle>{t('mcpEditDialog.title', '配置 MCP 工具')}</DialogTitle>
           <DialogDescription>
-            {nodeData.serverId} : {nodeData.toolName}
+            {nodeData.serverId && nodeData.toolName
+              ? `${nodeData.serverId}:${nodeData.toolName}`
+              : t('mcpEditDialog.selectToolFirst', '请先选择 MCP 工具')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4">
           {/* Mode Selection */}
           <div className="space-y-2">
-            <Label htmlFor="mode">Configuration Mode</Label>
+            <Label htmlFor="mode">{t('mcpEditDialog.configMode', '配置模式')}</Label>
             <Select value={mode} onValueChange={(value: any) => setMode(value)}>
               <SelectTrigger id="mode">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="manualParameterConfig">
-                  Manual Parameter Config
+                  {t('mcpEditDialog.manualMode', '手动配置参数')}
                 </SelectItem>
                 <SelectItem value="aiParameterConfig">
-                  AI Parameter Config
+                  {t('mcpEditDialog.aiParamMode', 'AI 参数配置')}
                 </SelectItem>
                 <SelectItem value="aiToolSelection">
-                  AI Tool Selection
+                  {t('mcpEditDialog.aiToolMode', 'AI 工具选择')}
                 </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {mode === 'manualParameterConfig' && 'Manually configure all parameters'}
-              {mode === 'aiParameterConfig' && 'Let AI determine parameter values from description'}
-              {mode === 'aiToolSelection' && 'Let AI select the best tool for the task'}
+              {mode === 'manualParameterConfig' && t('mcpEditDialog.manualModeDesc', '手动配置所有参数')}
+              {mode === 'aiParameterConfig' && t('mcpEditDialog.aiParamModeDesc', '让 AI 根据描述确定参数值')}
+              {mode === 'aiToolSelection' && t('mcpEditDialog.aiToolModeDesc', '让 AI 为任务选择最合适的工具')}
             </p>
           </div>
 
@@ -179,9 +183,9 @@ export const McpNodeEditDialog: React.FC<McpNodeEditDialogProps> = ({
           {mode === 'manualParameterConfig' && (
             <div className="space-y-4">
               <div>
-                <h4 className="text-sm font-medium mb-3">Parameters</h4>
+                <h4 className="text-sm font-medium mb-3">{t('mcpEditDialog.parameters', '参数')}</h4>
                 {getParameterSchema().length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No parameters required</p>
+                  <p className="text-sm text-muted-foreground">{t('mcpEditDialog.noParams', '无需参数')}</p>
                 ) : (
                   <ParameterFormGenerator
                     schema={getParameterSchema()}
@@ -196,12 +200,12 @@ export const McpNodeEditDialog: React.FC<McpNodeEditDialogProps> = ({
 
           {mode === 'aiParameterConfig' && (
             <div className="space-y-2">
-              <Label htmlFor="aiDescription">Parameter Description</Label>
+              <Label htmlFor="aiDescription">{t('mcpEditDialog.paramDescription', '参数描述')}</Label>
               <Textarea
                 id="aiDescription"
                 value={aiParameterDescription}
                 onChange={(e) => setAiParameterDescription(e.target.value)}
-                placeholder="Describe what values the parameters should have..."
+                placeholder={t('mcpEditDialog.paramDescPlaceholder', '描述参数应该具有什么值...')}
                 rows={6}
                 className={cn(errors.aiDescription && 'border-destructive')}
               />
@@ -209,19 +213,19 @@ export const McpNodeEditDialog: React.FC<McpNodeEditDialogProps> = ({
                 <p className="text-xs text-destructive">{errors.aiDescription}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                AI will determine the parameter values based on this description
+                {t('mcpEditDialog.aiParamHint', 'AI 将根据此描述确定参数值')}
               </p>
             </div>
           )}
 
           {mode === 'aiToolSelection' && (
             <div className="space-y-2">
-              <Label htmlFor="aiTask">Task Description</Label>
+              <Label htmlFor="aiTask">{t('mcpEditDialog.taskDescription', '任务描述')}</Label>
               <Textarea
                 id="aiTask"
                 value={aiTaskDescription}
                 onChange={(e) => setAiTaskDescription(e.target.value)}
-                placeholder="Describe the task you want to accomplish..."
+                placeholder={t('mcpEditDialog.taskDescPlaceholder', '描述您想要完成的任务...')}
                 rows={6}
                 className={cn(errors.aiTask && 'border-destructive')}
               />
@@ -229,7 +233,7 @@ export const McpNodeEditDialog: React.FC<McpNodeEditDialogProps> = ({
                 <p className="text-xs text-destructive">{errors.aiTask}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                AI will select the most appropriate tool from this server
+                {t('mcpEditDialog.aiToolHint', 'AI 将从此服务器选择最合适的工具')}
               </p>
             </div>
           )}
@@ -237,10 +241,10 @@ export const McpNodeEditDialog: React.FC<McpNodeEditDialogProps> = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('cancel', '取消')}
           </Button>
           <Button onClick={handleSave}>
-            Save Configuration
+            {t('mcpEditDialog.saveConfig', '保存配置')}
           </Button>
         </DialogFooter>
       </DialogContent>

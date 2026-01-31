@@ -32,7 +32,6 @@ export interface ElectronAPI extends
   GitLabAPI,
   DebugAPI,
   ClaudeCodeAPI,
-  McpAPI,
   ProfileAPI,
   ScreenshotAPI,
   SkillAPI {
@@ -43,6 +42,8 @@ export interface ElectronAPI extends
   codeServer: CodeServerAPI;
   /** Workflow API for workflow operations */
   workflow: WorkflowAPI;
+  /** MCP API for MCP server operations */
+  mcp: McpAPI;
 }
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -55,14 +56,14 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createAppUpdateAPI(),
   ...createDebugAPI(),
   ...createClaudeCodeAPI(),
-  ...createMcpAPI(),
   ...createProfileAPI(),
   ...createScreenshotAPI(),
   ...createSkillAPI(),
   github: createGitHubAPI(),
   queue: createQueueAPI(),  // Queue routing for rate limit recovery
   codeServer: createCodeServerAPI(),  // Code-server for VSCode editor
-  workflow: createWorkflowAPI()  // Workflow operations
+  workflow: createWorkflowAPI(),  // Workflow operations
+  mcp: createMcpAPI(),  // MCP server operations
 });
 
 // Export individual API creators for potential use in tests or specialized contexts

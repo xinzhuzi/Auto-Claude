@@ -77,7 +77,7 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
 
     try {
       // Import deserialization functions dynamically
-      const { deserializeWorkflow, unwrapExportedWorkflow } = await import('@cc-wf-studio/services/workflow-service');
+      const { deserializeWorkflow, unwrapExportedWorkflow } = await import('../../../services/workflow');
 
       // 解包可能的导出格式
       const unwrappedWorkflow = unwrapExportedWorkflow(workflow);

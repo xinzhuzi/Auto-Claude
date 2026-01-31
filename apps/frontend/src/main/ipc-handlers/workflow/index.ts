@@ -483,11 +483,11 @@ export function registerWorkflowHandlers(): void {
             workflow,
             config,
             projectPath,
-            (progress) => {
+            (progress: { progress: number; status?: string; current_node?: string }) => {
             // Log progress to execution record
             const logMessage = `[${progress.progress}%] Node: ${progress.current_node || 'unknown'} - ${progress.status || 'running'}`;
             executionRecord.logs?.push(`[${new Date().toISOString()}] ${logMessage}`);
-            
+
             // Send progress update to renderer
             if (mainWindow) {
               mainWindow.webContents.send(IPC_CHANNELS.WORKFLOW_EXECUTION_PROGRESS, {

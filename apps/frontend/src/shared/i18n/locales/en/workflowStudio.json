@@ -458,5 +458,40 @@
   "mode": {},
   "detailed": {},
   "naturalLanguageParam": {},
-  "fullNaturalLanguage": {}
+  "fullNaturalLanguage": {},
+  "mcpDialog": {
+    "title": "Select MCP Tool",
+    "description": "Choose an MCP server and tool to add to your workflow",
+    "servers": "MCP Servers",
+    "noServers": "No MCP servers found. Check your MCP configuration files.",
+    "notConnected": "Not connected",
+    "searchTools": "Search tools...",
+    "loadingTools": "Loading tools...",
+    "noMatchingTools": "No matching tools found",
+    "noToolsAvailable": "No tools available",
+    "required": "Required",
+    "configHint": "MCP config locations: ~/.mcp.json or <project>/.mcp.json"
+  },
+  "mcpEditDialog": {
+    "title": "Configure MCP Tool",
+    "configMode": "Configuration Mode",
+    "manualMode": "Manual Parameter Config",
+    "aiParamMode": "AI Parameter Config",
+    "aiToolMode": "AI Tool Selection",
+    "manualModeDesc": "Manually configure all parameters",
+    "aiParamModeDesc": "Let AI determine parameter values from description",
+    "aiToolModeDesc": "Let AI select the best tool for the task",
+    "parameters": "Parameters",
+    "noParams": "No parameters required",
+    "paramDescription": "Parameter Description",
+    "paramDescPlaceholder": "Describe what values the parameters should have...",
+    "aiParamHint": "AI will determine the parameter values based on this description",
+    "taskDescription": "Task Description",
+    "taskDescPlaceholder": "Describe the task you want to accomplish...",
+    "aiToolHint": "AI will select the most appropriate tool from this server",
+    "saveConfig": "Save Configuration",
+    "paramRequired": "{{name}} is required",
+    "paramDescRequired": "Parameter description is required",
+    "taskDescRequired": "Task description is required"
+  }
 }

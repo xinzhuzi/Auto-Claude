@@ -871,6 +871,15 @@ export interface ElectronAPI {
   // Queue Routing API (rate limit recovery)
   queue: import('../../preload/api/queue-api').QueueAPI;
 
+  // Code-server API for VSCode editor
+  codeServer: import('../../preload/api/code-server-api').CodeServerAPI;
+
+  // Workflow API for workflow operations
+  workflow: import('../../preload/api/workflow-api').WorkflowAPI;
+
+  // MCP API for MCP server operations
+  mcp: import('../../preload/api/modules/mcp-api').McpAPI;
+
   // Skill operations
   browseSkills: (projectPath?: string) => Promise<IPCResult<import('./skill').SkillScanResult>>;
   createSkill: (payload: {

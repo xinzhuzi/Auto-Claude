@@ -482,5 +482,40 @@
   "mode": {},
   "detailed": {},
   "naturalLanguageParam": {},
-  "fullNaturalLanguage": {}
+  "fullNaturalLanguage": {},
+  "mcpDialog": {
+    "title": "选择 MCP 工具",
+    "description": "选择 MCP 服务器和工具添加到工作流",
+    "servers": "MCP 服务器",
+    "noServers": "未找到 MCP 服务器。请检查 MCP 配置文件。",
+    "notConnected": "未连接",
+    "searchTools": "搜索工具...",
+    "loadingTools": "正在加载工具...",
+    "noMatchingTools": "未找到匹配的工具",
+    "noToolsAvailable": "没有可用的工具",
+    "required": "必填",
+    "configHint": "MCP 配置文件位置：~/.mcp.json 或 项目目录/.mcp.json"
+  },
+  "mcpEditDialog": {
+    "title": "配置 MCP 工具",
+    "configMode": "配置模式",
+    "manualMode": "手动配置参数",
+    "aiParamMode": "AI 参数配置",
+    "aiToolMode": "AI 工具选择",
+    "manualModeDesc": "手动配置所有参数",
+    "aiParamModeDesc": "让 AI 根据描述确定参数值",
+    "aiToolModeDesc": "让 AI 为任务选择最合适的工具",
+    "parameters": "参数",
+    "noParams": "无需参数",
+    "paramDescription": "参数描述",
+    "paramDescPlaceholder": "描述参数应该具有什么值...",
+    "aiParamHint": "AI 将根据此描述确定参数值",
+    "taskDescription": "任务描述",
+    "taskDescPlaceholder": "描述您想要完成的任务...",
+    "aiToolHint": "AI 将从此服务器选择最合适的工具",
+    "saveConfig": "保存配置",
+    "paramRequired": "{{name}} 是必填项",
+    "paramDescRequired": "参数描述是必填项",
+    "taskDescRequired": "任务描述是必填项"
+  }
 }

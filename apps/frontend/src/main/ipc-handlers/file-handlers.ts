@@ -12,7 +12,7 @@ const MAX_FILE_SIZE = 1024 * 1024;
  * Validates and normalizes a file path for safe reading.
  * Returns the normalized path if valid, or an error message.
  */
-function validatePath(filePath: string): { valid: true; path: string } | { valid: false; error: string } {
+export function validatePath(filePath: string): { valid: true; path: string } | { valid: false; error: string } {
   // Resolve to absolute path (handles .., ., etc.)
   const resolvedPath = path.resolve(filePath);
 

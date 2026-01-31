@@ -11,6 +11,7 @@ import { Label } from '../../ui/label';
 import { cn } from '../../../lib/utils';
 
 interface CheckboxProps {
+  id?: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   label?: string;
@@ -20,6 +21,7 @@ interface CheckboxProps {
 }
 
 export const Checkbox: React.FC<CheckboxProps> = ({
+  id,
   checked,
   onCheckedChange,
   label,
@@ -27,10 +29,11 @@ export const Checkbox: React.FC<CheckboxProps> = ({
   disabled = false,
   className,
 }) => {
+  const checkboxId = id || 'checkbox';
   return (
     <div className={cn('flex items-start space-x-2', className)}>
       <UICheckbox
-        id="checkbox"
+        id={checkboxId}
         checked={checked}
         onCheckedChange={onCheckedChange}
         disabled={disabled}
@@ -39,7 +42,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
       {(label || description) && (
         <div className="flex-1 space-y-0.5">
           {label && (
-            <Label htmlFor="checkbox" className="text-sm font-medium cursor-pointer">
+            <Label htmlFor={checkboxId} className="text-sm font-medium cursor-pointer">
               {label}
             </Label>
           )}

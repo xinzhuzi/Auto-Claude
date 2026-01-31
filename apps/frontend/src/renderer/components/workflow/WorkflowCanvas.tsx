@@ -5,7 +5,7 @@
  * Part of cc-wf-studio integration
  */
 
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -25,6 +25,7 @@ import { useWorkflowStore, useActiveWorkflow } from '../../stores/workflow-store
 import { cn } from '../../lib/utils';
 import nodeTypes from './node-types';
 import { getNodeDefaults, generateNodeId } from './node-defaults';
+import { McpNodeDialog, McpNodeEditDialog } from './mcp';
 
 interface WorkflowCanvasProps {
   className?: string;
@@ -36,6 +37,11 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
   const saveWorkflow = useWorkflowStore((state) => state.saveWorkflow);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+
+  // Dialog states
+  const [mcpDialogOpen, setMcpDialogOpen] = useState(false);
+  const [mcpEditDialogOpen, setMcpEditDialogOpen] = useState(false);
+  const [editingNodeData, setEditingNodeData] = useState<any>(null);
 
   // Convert workflow nodes and edges to ReactFlow format
   const initialNodes: Node[] = useMemo(() => {
@@ -96,6 +102,106 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
     [setSelectedNode]
   );
 
+  // Handle node double click - open MCP dialog
+  const onNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (node.type === 'mcp') {
+        setEditingNodeData({
+          nodeId: node.id,
+          ...node.data,
+        });
+        setMcpDialogOpen(true);
+      }
+    },
+    []
+  );
+
+  // Handle MCP tool selection from dialog (for new nodes or updating existing)
+  const handleMcpToolSelect = useCallback(
+    (serverId: string, toolName: string, config: any) => {
+      if (!activeWorkflow) return;
+
+      // Check if we're editing an existing node
+      if (editingNodeData?.nodeId) {
+        const updatedNodes = activeWorkflow.nodes.map((node) => {
+          if (node.id === editingNodeData.nodeId) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                serverId,
+                toolName,
+                ...config,
+                validationStatus: 'valid',
+              },
+            };
+          }
+          return node;
+        });
+
+        const updatedWorkflow = {
+          ...activeWorkflow,
+          nodes: updatedNodes,
+        };
+        saveWorkflow(updatedWorkflow);
+        setEditingNodeData(null);
+        return;
+      }
+
+      // Create new node
+      const position = { x: 250, y: 150 };
+      const newNodeId = generateNodeId('mcp');
+      const newNode: any = {
+        id: newNodeId,
+        name: `mcp-${Date.now()}`,
+        type: 'mcp',
+        position,
+        data: {
+          serverId,
+          toolName,
+          ...config,
+          validationStatus: 'valid',
+        },
+      };
+
+      const updatedWorkflow = {
+        ...activeWorkflow,
+        nodes: [...activeWorkflow.nodes, newNode],
+      };
+      saveWorkflow(updatedWorkflow);
+    },
+    [activeWorkflow, saveWorkflow]
+  );
+
+  // Handle MCP node edit save
+  const handleMcpEditSave = useCallback(
+    (data: any) => {
+      if (!activeWorkflow || !editingNodeData) return;
+
+      const updatedNodes = activeWorkflow.nodes.map((node) => {
+        if (node.id === editingNodeData.nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              ...data,
+            },
+          };
+        }
+        return node;
+      });
+
+      const updatedWorkflow = {
+        ...activeWorkflow,
+        nodes: updatedNodes,
+      };
+      saveWorkflow(updatedWorkflow);
+      setMcpEditDialogOpen(false);
+      setEditingNodeData(null);
+    },
+    [activeWorkflow, editingNodeData, saveWorkflow]
+  );
+
   // Handle drag over
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -149,6 +255,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onDragOver={onDragOver}
         onDrop={onDrop}
         nodeTypes={nodeTypes}
@@ -159,6 +266,23 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         <MiniMap />
         <Background variant={BackgroundVariant.Dots} gap={16} />
       </ReactFlow>
+
+      {/* MCP Tool Selection Dialog */}
+      <McpNodeDialog
+        open={mcpDialogOpen}
+        onOpenChange={setMcpDialogOpen}
+        onSelect={handleMcpToolSelect}
+      />
+
+      {/* MCP Node Edit Dialog */}
+      {editingNodeData && (
+        <McpNodeEditDialog
+          open={mcpEditDialogOpen}
+          onOpenChange={setMcpEditDialogOpen}
+          nodeData={editingNodeData}
+          onSave={handleMcpEditSave}
+        />
+      )}
     </div>
   );
 };

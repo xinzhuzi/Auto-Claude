@@ -31,6 +31,7 @@ import { registerAppUpdateHandlers } from './app-update-handlers';
 import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
+import { registerMcpWorkflowHandlers } from './mcp-workflow-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
@@ -118,6 +119,9 @@ export function setupIpcHandlers(
 
   // MCP server health check handlers
   registerMcpHandlers();
+
+  // MCP workflow studio handlers (list servers, get tools, etc.)
+  registerMcpWorkflowHandlers();
 
   // API Profile handlers (custom Anthropic-compatible endpoints)
   registerProfileHandlers();
