@@ -296,22 +296,43 @@ function getAllMcpServers(projectPath?: string): McpServer[] {
             command?: string;
             args?: string[];
           }>;
-          
+
           for (const customServer of customServers) {
             if (seenIds.has(customServer.id)) continue;
             seenIds.add(customServer.id);
-            
-            servers.push({
-              id: customServer.id,
-              name: customServer.name || customServer.id,
-              type: customServer.type,
-              url: customServer.url,
-              command: customServer.command,
-              args: customServer.args,
-              scope: 'user',
-              source: 'claude',
-            });
-            logger.info(`[MCP] Adde server from .env: ${customServer.name || customServer.id}`);
+
+            // Unity MCP: convert HTTP to command type (uvx mcp-proxy)
+            const isUnityMcp = customServer.id.toLowerCase().includes('unity') ||
+                               customServer.name?.toLowerCase().includes('unity') ||
+                               customServer.url?.includes(':6400') ||
+                               customServer.url?.includes(':6401') ||
+                               customServer.url?.includes(':6402');
+
+            if (isUnityMcp && customServer.type === 'http' && customServer.url) {
+              // Convert Unity MCP HTTP to command type
+              servers.push({
+                id: customServer.id,
+                name: customServer.name || customServer.id,
+                type: 'command',
+                command: 'uvx',
+                args: ['mcp-proxy', '--transport', 'streamablehttp', customServer.url],
+                scope: 'user',
+                source: 'claude',
+              });
+              logger.info(`[MCP] Converted Unity MCP to command type: ${customServer.name || customServer.id}`);
+            } else {
+              servers.push({
+                id: customServer.id,
+                name: customServer.name || customServer.id,
+                type: customServer.type,
+                url: customServer.url,
+                command: customServer.command,
+                args: customServer.args,
+                scope: 'user',
+                source: 'claude',
+              });
+              logger.info(`[MCP] Added server from .env: ${customServer.name || customServer.id}`);
+            }
           }
         }
       }

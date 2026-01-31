@@ -303,9 +303,6 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
       <DialogContent className="max-w-5xl h-[700px] flex flex-col">
         <DialogHeader>
           <DialogTitle>{t('mcpDialog.title', '配置 MCP 节点')}</DialogTitle>
-          <DialogDescription>
-            {t('mcpDialog.description', '选择配置模式，然后根据需要选择工具和填写参数')}
-          </DialogDescription>
         </DialogHeader>
 
         {/* Error Message */}
@@ -434,15 +431,30 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
               </div>
 
               {/* Right Panel - Server Details & Parameter Description */}
-              <div className="flex-1 space-y-3 border-l pl-4 min-w-0 overflow-hidden">
+              <div className="flex-1 flex flex-col space-y-3 border-l pl-4 min-w-0 overflow-hidden">
                 {!selectedTool ? (
                   <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
                     {t('mcpDialog.selectServer', '← 请先选择一个服务器')}
                   </div>
                 ) : (
                   <>
-                    {/* Server Capabilities Description */}
+                    {/* Task Description */}
                     <div className="space-y-2">
+                      <h4 className="text-sm font-medium">{t('mcpEditDialog.taskDescription', '任务描述')} <span className="text-destructive">*</span></h4>
+                      <Textarea
+                        value={aiParameterDescription}
+                        onChange={(e) => setAiParameterDescription(e.target.value)}
+                        placeholder={t('mcpEditDialog.paramDescPlaceholder', '例如：读取 /path/to/file.txt 文件内容')}
+                        rows={4}
+                        className="text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {t('mcpEditDialog.aiParamHint', '描述您想要完成的任务，AI 会自动选择合适的方法并填写参数')}
+                      </p>
+                    </div>
+
+                    {/* Server Capabilities Description */}
+                    <div className="flex-1 flex flex-col space-y-2 min-h-0">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium">{selectedTool.name} {t('mcpDialog.toolDescription', '详情')}</h4>
                         <Button
@@ -456,7 +468,7 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
                           <RefreshCw className={cn("h-3 w-3", translating && "animate-spin")} />
                         </Button>
                       </div>
-                      <ScrollArea className="h-40 border rounded-md p-3 bg-muted/30">
+                      <ScrollArea className="flex-1 border rounded-md p-3 bg-muted/30">
                         {loadingTools ? (
                           <div className="text-xs text-muted-foreground text-center py-2">{t('loading', '加载中...')}</div>
                         ) : serverTools.length === 0 ? (
@@ -473,21 +485,6 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
                         )}
                       </ScrollArea>
                     </div>
-
-                    {/* Task Description */}
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium">{t('mcpEditDialog.taskDescription', '任务描述')} <span className="text-destructive">*</span></h4>
-                      <Textarea
-                        value={aiParameterDescription}
-                        onChange={(e) => setAiParameterDescription(e.target.value)}
-                        placeholder={t('mcpEditDialog.paramDescPlaceholder', '例如：读取 /path/to/file.txt 文件内容')}
-                        rows={4}
-                        className="text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {t('mcpEditDialog.aiParamHint', '描述您想要完成的任务，AI 会自动选择合适的方法并填写参数')}
-                      </p>
-                    </div>
                   </>
                 )}
               </div>
@@ -496,14 +493,13 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
 
           {/* AI Auto Mode - Task Description */}
           {mode === 'aiToolSelection' && (
-            <div className="flex-1 border-l pl-4 space-y-3">
+            <div className="flex-1 border-l pl-4 flex flex-col space-y-3">
               <h4 className="text-sm font-medium">{t('mcpEditDialog.taskDescription', '任务描述')}</h4>
               <Textarea
                 value={aiTaskDescription}
                 onChange={(e) => setAiTaskDescription(e.target.value)}
                 placeholder={t('mcpEditDialog.taskDescPlaceholder', '描述您想要完成的任务...')}
-                rows={12}
-                className="text-sm"
+                className="flex-1 text-sm resize-none"
               />
               <p className="text-xs text-muted-foreground">
                 {t('mcpEditDialog.aiToolHint', 'AI 会根据任务描述自动选择合适的 MCP 服务器、工具，并填写相应的参数')}

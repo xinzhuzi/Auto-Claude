@@ -151,7 +151,9 @@ class TestProjectMCPConfig:
         # Create .auto-claude/.env with custom servers
         auto_claude_dir = tmp_path / ".auto-claude"
         auto_claude_dir.mkdir()
-        env_file = auto_claude_dir / ".en      servers = [
+        env_file = auto_claude_dir / ".env"
+
+        servers = [
             {
                 "id": "metamcp",
                 "name": "MetaMCP",
@@ -163,8 +165,9 @@ class TestProjectMCPConfig:
             {
                 "id": "unitymcp",
                 "name": "UnityMCP",
-                "type": "http",
-                "url": "http://localhost:6400/mcp",
+                "type": "command",
+                "command": "uvx",
+                "args": ["mcp-proxy", "--transport", "streamablehttp", "http://localhost:6400/mcp"],
                 "description": "Unity MCP server",
             },
         ]
@@ -180,8 +183,8 @@ class TestProjectMCPConfig:
 
     def test_load_invalid_json_servers(self, tmp_path):
         """Test handling of invalid JSON in CUSTOM_MCP_SERVERS."""
-        auto_claude_dir = tmp_pat".auto-claude"
-        auto_claude_.mkdir()
+        auto_claude_dir = tmp_path / ".auto-claude"
+        auto_claude_dir.mkdir()
         env_file = auto_claude_dir / ".env"
 
         env_content = "CUSTOM_MCP_SERVERS=[invalid json]\n"
@@ -244,13 +247,14 @@ class TestMCPServerIntegration:
         }
         assert _validate_custom_mcp_server(server) is True
 
-    def test_unitymcp_http_configuration(self):
-        """Test UnityMCP HTTP server configuration."""
+    def test_unitymcp_command_configuration(self):
+        """Test UnityMCP command server configuration using uvx mcp-proxy."""
         server = {
             "id": "unitymcp",
             "name": "UnityMCP",
-            "type": "http",
-            "url": "http://localhost:6400/mcp",
+            "type": "command",
+            "command": "uvx",
+            "args": ["mcp-proxy", "--transport", "streamablehttp", "http://localhost:6400/mcp"],
             "description": "Unity MCP server for Unity asset management",
         }
         assert _validate_custom_mcp_server(server) is True

@@ -13,7 +13,7 @@ import { createLogger } from '../lib/logger';
 const logger = createLogger('MCP');
 import { isWindows } from '../platform';
 // Import custom MetaMCP handler (won't be overwritten by upstream merges)
-import { isMetaMcpServer, testMetaMcpConnection, checkMetaMcpHealth, isUnityMcpServer, checkUnityMcpHealth } from '../custom/metamcp-handler';
+import { isMetaMcpServer, testMetaMcpConnection, checkMetaMcpHealth } from '../custom/metamcp-handler';
 // Import tool description translator
 import { toolDescriptionTranslator } from '../tool-description-translator';
 
@@ -83,11 +83,6 @@ async function checkMcpHealth(server: CustomMcpServer): Promise<McpHealthCheckRe
     if (isMetaMcpServer(server)) {
       logger.info('[MCP] Detected MetaMCP server for health check, using custom handler');
       return checkMetaMcpHealth(server);
-    }
-    // Check if this is a Unity MCP server and use custom handler
-    if (isUnityMcpServer(server)) {
-      logger.info('[MCP] Detected Unity MCP server for health check, using custom handler');
-      return checkUnityMcpHealth(server);
     }
     return checkHttpHealth(server, startTime);
   } else {
@@ -678,7 +673,6 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
 
 /**
  * Test command-based MCP server connection by spawning the process and trying to communicate.
- * For servers that may already be running (like Unity MCP), also tries HTTP connection.
  */
 async function testCommandConnection(server: CustomMcpServer, startTime: number): Promise<McpTestConnectionResult> {
   if (!server.command) {
@@ -687,34 +681,6 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
       success: false,
       message: 'No command configured',
     };
-  }
-
-  // Special handling for Unity MCP - it runs inside Unity Editor and exposes HTTP
-  // Check if it's already running on the default port
-  if (server.id === 'unitymcp' || server.name?.toLowerCase().includes('unity')) {
-    const unityMcpPorts = [6400, 6401, 6402]; // Common Unity MCP ports
-    logger.info(`[MCP] Unity MCP detected, trying ports: ${unityMcpPorts.join(', ')}`);
-    for (const port of unityMcpPorts) {
-      try {
-        logger.info(`[MCP] Testing Unity MCP on port ${port}...`);
-        const httpResult = await testHttpConnectionWithUrl(
-          server.id,
-          `http://localhost:${port}/mcp`,
-          startTime
-        );
-        logger.info(`[MCP] Unity MCP port ${port} result: success=${httpResult.success}, message=${httpResult.message}, error=${httpResult.error || 'none'}`);
-        if (httpResult.success) {
-          return {
-            ...httpResult,
-            message: `Unity MCP running on port ${port}`,
-          };
-        }
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.warn(`[MCP] Unity MCP port ${port} failed: ${errorMsg}`);
-      }
-    }
-    logger.warn(`[MCP] Unity MCP not found on any port. Make sure Unity Editor is running with MCP package installed.`);
   }
 
   return new Promise((resolve) => {
