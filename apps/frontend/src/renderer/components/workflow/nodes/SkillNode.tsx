@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, type NodeProps, Position } from 'reactflow';
 import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -37,20 +38,6 @@ function getValidationIcon(status: 'valid' | 'missing' | 'invalid') {
 }
 
 /**
- * Get validation tooltip message
- */
-function getValidationTooltip(status: 'valid' | 'missing' | 'invalid'): string {
-  switch (status) {
-    case 'valid':
-      return 'Skill is valid and ready to use';
-    case 'missing':
-      return 'Skill not found';
-    case 'invalid':
-      return 'Skill configuration is invalid';
-  }
-}
-
-/**
  * SkillNode Component
  */
 export const SkillNode: React.FC<NodeProps<SkillNodeData>> = ({
@@ -58,8 +45,33 @@ export const SkillNode: React.FC<NodeProps<SkillNodeData>> = ({
   data,
   selected,
 }) => {
+  const { t } = useTranslation('workflowStudio');
   const [isSkillBrowserOpen, setIsSkillBrowserOpen] = useState(false);
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
+
+  const getValidationTooltip = (status: 'valid' | 'missing' | 'invalid'): string => {
+    switch (status) {
+      case 'valid':
+        return t('valid');
+      case 'missing':
+        return t('missing');
+      case 'invalid':
+        return t('invalid');
+    }
+  };
+
+  const getScopeLabel = (scope: string): string => {
+    switch (scope) {
+      case 'user':
+        return t('user');
+      case 'local':
+        return t('local');
+      case 'project':
+        return t('project');
+      default:
+        return scope;
+    }
+  };
 
   // Handle double click to open skill browser
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -94,7 +106,7 @@ export const SkillNode: React.FC<NodeProps<SkillNodeData>> = ({
       >
         <div className="flex items-center gap-1.5 mb-2">
           <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-            Skill
+            {t('nodes.skill.label')}
           </div>
           <div title={getValidationTooltip(data.validationStatus)}>
             {getValidationIcon(data.validationStatus)}
@@ -102,7 +114,7 @@ export const SkillNode: React.FC<NodeProps<SkillNodeData>> = ({
         </div>
 
         <div className="text-[13px] text-foreground mb-2 font-medium">
-          {data.name || 'Untitled Skill'}
+          {data.name || t('nodes.skill.label')}
         </div>
 
         {data.description && (
@@ -119,13 +131,13 @@ export const SkillNode: React.FC<NodeProps<SkillNodeData>> = ({
             data.scope === 'project' && 'bg-secondary text-secondary-foreground'
           )}
         >
-          {data.scope}
+          {getScopeLabel(data.scope)}
         </div>
 
         {data.allowedTools && (
           <div
             className="text-[9px] text-muted-foreground mt-1 truncate"
-            title={`Allowed Tools: ${data.allowedTools}`}
+            title={`${t('allowedTools')}: ${data.allowedTools}`}
           >
             🔧 {data.allowedTools}
           </div>

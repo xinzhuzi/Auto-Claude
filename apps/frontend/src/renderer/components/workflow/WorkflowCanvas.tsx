@@ -23,11 +23,13 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useWorkflowStore, useActiveWorkflow } from '../../stores/workflow-store';
+import { useProjectStore } from '../../stores/project-store';
 import { cn } from '../../lib/utils';
 import nodeTypesConfig from './node-types';
 import { getNodeDefaults, generateNodeId } from './node-defaults';
 import { McpNodeDialog, McpNodeEditDialog } from './mcp';
 import { SubAgentDialog } from './SubAgentDialog';
+import { CommandBrowserDialog } from './CommandBrowserDialog';
 import { NodeContextMenu } from './NodeContextMenu';
 
 // Memoize nodeTypes at module level to prevent React Flow warning #002
@@ -40,9 +42,28 @@ interface WorkflowCanvasProps {
 export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => {
   const activeWorkflow = useActiveWorkflow();
   const setSelectedNode = useWorkflowStore((state) => state.setSelectedNode);
-  const saveWorkflow = useWorkflowStore((state) => state.saveWorkflow);
+  const saveWorkflowToStore = useWorkflowStore((state) => state.saveWorkflow);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+
+  // Get project path
+  const activeProject = useProjectStore((state) => state.getActiveProject());
+  const projectPath = activeProject?.path || null;
+
+  // Save workflow to both store and project directory
+  const saveWorkflow = useCallback(async (workflow: any) => {
+    // Save to store
+    await saveWorkflowToStore(workflow);
+
+    // Also save to project directory if available
+    if (projectPath) {
+      try {
+        await window.electronAPI.workflow.saveWorkflowToProject(workflow, projectPath);
+      } catch (error) {
+        console.error('Failed to save workflow to project:', error);
+      }
+    }
+  }, [saveWorkflowToStore, projectPath]);
 
   // Track if we're doing an internal update to avoid re-sync loop
   const isInternalUpdate = useRef(false);
@@ -55,6 +76,8 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
   const [editingNodeData, setEditingNodeData] = useState<any>(null);
   const [subAgentDialogOpen, setSubAgentDialogOpen] = useState(false);
   const [editingSubAgentData, setEditingSubAgentData] = useState<any>(null);
+  const [commandDialogOpen, setCommandDialogOpen] = useState(false);
+  const [editingCommandData, setEditingCommandData] = useState<any>(null);
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -116,27 +139,63 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
 
       // Handle position changes (only when dragging ends)
       const positionChanges = changes.filter(
-        (c) => c.type === 'position' && c.dragging === false && c.position
+        (c) => c.type === 'position' && c.dragging === false
       );
       if (positionChanges.length > 0) {
-        const updatedNodes = activeWorkflow.nodes.map((node) => {
-          const change = positionChanges.find((c) => c.id === node.id);
-          if (change && change.type === 'position' && change.position) {
-            return { ...node, position: change.position };
-          }
-          return node;
-        });
-        isInternalUpdate.current = true;
-        saveWorkflow({
-          ...activeWorkflow,
-          nodes: updatedNodes,
+        // Get current positions from React Flow state
+        setNodes((currentNodes) => {
+          const updatedWorkflowNodes = activeWorkflow.nodes.map((node) => {
+            const currentNode = currentNodes.find((n) => n.id === node.id);
+            if (currentNode && currentNode.position) {
+              return { ...node, position: currentNode.position };
+            }
+            return node;
+          });
+
+          // Save with updated positions
+          isInternalUpdate.current = true;
+          saveWorkflow({
+            ...activeWorkflow,
+            nodes: updatedWorkflowNodes,
+          });
+
+          return currentNodes; // Don't modify React Flow state
         });
       }
     },
     [onNodesChange, activeWorkflow, saveWorkflow]
   );
 
-  // Sync with workflow updates - only when workflow changes externally
+  // Handle edge changes including deletion
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      // First apply changes to local state
+      onEdgesChange(changes);
+
+      if (!activeWorkflow) return;
+
+      // Handle deletions
+      const removeChanges = changes.filter((c) => c.type === 'remove');
+      if (removeChanges.length > 0) {
+        const removedIds = removeChanges.map((c) => c.id);
+        const updatedConnections = activeWorkflow.connections.filter(
+          (conn) => !removedIds.includes(conn.id)
+        );
+
+        isInternalUpdate.current = true;
+        saveWorkflow({
+          ...activeWorkflow,
+          connections: updatedConnections,
+        });
+      }
+    },
+    [onEdgesChange, activeWorkflow, saveWorkflow]
+  );
+
+  // Track the last workflow version to detect full reloads
+  const lastWorkflowVersion = useRef<string | null>(null);
+
+  // Sync with workflow updates - when workflow changes or node data updates
   React.useEffect(() => {
     if (activeWorkflow) {
       // Skip if this is an internal update
@@ -145,11 +204,16 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         return;
       }
 
-      // Always sync when workflow ID changes (switching workflows)
+      // Create a version string to detect any workflow changes
+      const currentVersion = `${activeWorkflow.id}-${activeWorkflow.updatedAt}-${activeWorkflow.nodes.length}-${activeWorkflow.connections.length}`;
       const workflowChanged = lastWorkflowId.current !== activeWorkflow.id;
-      lastWorkflowId.current = activeWorkflow.id;
+      const versionChanged = lastWorkflowVersion.current !== currentVersion;
 
-      if (workflowChanged) {
+      lastWorkflowId.current = activeWorkflow.id;
+      lastWorkflowVersion.current = currentVersion;
+
+      // Full sync when workflow ID changes or version changes (reload)
+      if (workflowChanged || versionChanged) {
         const newNodes = activeWorkflow.nodes.map(node => ({
           id: node.id,
           type: node.type || 'default',
@@ -167,13 +231,35 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWorkflow?.id]);
+  }, [activeWorkflow]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (!activeWorkflow || !connection.source || !connection.target) return;
+
+      // Add to local React Flow state
       setEdges((eds) => addEdge(connection, eds));
+
+      // Create new connection for store
+      const newConnection = {
+        id: `edge-${Date.now()}`,
+        from: connection.source,
+        to: connection.target,
+        fromPort: connection.sourceHandle || 'output',
+        toPort: connection.targetHandle || 'input',
+      };
+
+      // Mark as internal update
+      isInternalUpdate.current = true;
+
+      // Save to store
+      const updatedWorkflow = {
+        ...activeWorkflow,
+        connections: [...activeWorkflow.connections, newConnection],
+      };
+      saveWorkflow(updatedWorkflow);
     },
-    [setEdges]
+    [activeWorkflow, saveWorkflow, setEdges]
   );
 
   const onNodeClick = useCallback(
@@ -346,6 +432,75 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
     [activeWorkflow, editingSubAgentData, saveWorkflow]
   );
 
+  // Handle Command selection from dialog
+  const handleCommandSelect = useCallback(
+    (command: { name: string; description: string; commandPath: string; validationStatus: 'valid' | 'missing' | 'invalid' }) => {
+      if (!activeWorkflow) return;
+
+      // Check if we're editing an existing node
+      if (editingCommandData?.nodeId) {
+        const updatedNodes = activeWorkflow.nodes.map((node) => {
+          if (node.id === editingCommandData.nodeId) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                commandName: command.name,
+                commandPath: command.commandPath,
+                description: command.description,
+                validationStatus: command.validationStatus,
+              },
+            };
+          }
+          return node;
+        });
+
+        const updatedWorkflow = {
+          ...activeWorkflow,
+          nodes: updatedNodes,
+        };
+        saveWorkflow(updatedWorkflow as any);
+        setEditingCommandData(null);
+        return;
+      }
+
+      // Create new node
+      const position = contextMenu?.flowPosition || { x: 250, y: 150 };
+      const newNodeId = generateNodeId('command');
+      const newNode: any = {
+        id: newNodeId,
+        name: `command-${Date.now()}`,
+        type: 'command',
+        position,
+        data: {
+          commandName: command.name,
+          commandPath: command.commandPath,
+          description: command.description,
+          validationStatus: command.validationStatus,
+        },
+      };
+
+      // Add to local React Flow state first
+      setNodes((nds) => [...nds, {
+        id: newNode.id,
+        type: newNode.type,
+        position: newNode.position,
+        data: newNode.data,
+      }]);
+
+      // Mark as internal update to prevent re-sync
+      isInternalUpdate.current = true;
+
+      const updatedWorkflow = {
+        ...activeWorkflow,
+        nodes: [...activeWorkflow.nodes, newNode],
+      };
+      saveWorkflow(updatedWorkflow as any);
+      setContextMenu(null);
+    },
+    [activeWorkflow, editingCommandData, contextMenu, saveWorkflow, setNodes]
+  );
+
   // Handle drag over
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -373,6 +528,24 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
   const handleContextMenuSelect = useCallback(
     (nodeType: string) => {
       if (!activeWorkflow || !contextMenu) return;
+
+      // For command nodes, open the command browser dialog
+      if (nodeType === 'command') {
+        setCommandDialogOpen(true);
+        return;
+      }
+
+      // For mcp nodes, open the MCP dialog
+      if (nodeType === 'mcp') {
+        setMcpDialogOpen(true);
+        return;
+      }
+
+      // For subAgent nodes, open the SubAgent dialog
+      if (nodeType === 'subAgent') {
+        setSubAgentDialogOpen(true);
+        return;
+      }
 
       const position = contextMenu.flowPosition;
       const newNodeId = generateNodeId(nodeType);
@@ -468,7 +641,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         nodes={nodes}
         edges={edges}
         onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
+        onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
@@ -521,6 +694,13 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
           agentId: editingSubAgentData.agentId,
           prompt: editingSubAgentData.prompt,
         } : undefined}
+      />
+
+      {/* Command Browser Dialog */}
+      <CommandBrowserDialog
+        open={commandDialogOpen}
+        onOpenChange={setCommandDialogOpen}
+        onSelectCommand={handleCommandSelect}
       />
     </div>
   );

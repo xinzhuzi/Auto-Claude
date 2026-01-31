@@ -16,7 +16,7 @@ import { Button } from '../ui/button';
 import { useWorkflowStore, useActiveWorkflow } from '../../stores/workflow-store';
 import { cn } from '../../lib/utils';
 import { NodeType, type WorkflowNode } from '../../../shared/types';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, X } from 'lucide-react';
 
 interface PropertyPanelProps {
   className?: string;
@@ -27,12 +27,17 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
   const activeWorkflow = useActiveWorkflow();
   const selectedNodeId = useWorkflowStore((state) => state.selectedNodeId);
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
+  const setPropertyPanelOpen = useWorkflowStore((state) => state.setPropertyPanelOpen);
 
   const selectedNode = activeWorkflow?.nodes.find((n) => n.id === selectedNodeId);
 
+  const handleClose = () => {
+    setPropertyPanelOpen(false);
+  };
+
   if (!activeWorkflow) {
     return (
-      <Card className={cn("w-full h-full flex flex-col overflow-hidden", className)}>
+      <Card className={cn("w-full h-full flex flex-col overflow-hidden relative", className)}>
         <div className="p-4">
           <h3 className="font-semibold mb-4">{t('properties.title', 'Properties')}</h3>
           <div className="text-sm text-muted-foreground">
@@ -45,9 +50,19 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
 
   if (!selectedNode) {
     return (
-      <Card className={cn("w-full h-full flex flex-col overflow-hidden", className)}>
+      <Card className={cn("w-full h-full flex flex-col overflow-hidden relative", className)}>
         <div className="p-4">
-          <h3 className="font-semibold mb-4">{t('properties.title', 'Properties')}</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">{t('properties.title', 'Properties')}</h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={handleClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
           <div className="text-sm text-muted-foreground">
             {t('properties.noNodeSelected', 'Select a node to view properties')}
           </div>
@@ -61,10 +76,20 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
   };
 
   return (
-    <Card className={cn("w-full h-full flex flex-col overflow-hidden", className)}>
-      {/* Fixed Header */}
+    <Card className={cn("w-full h-full flex flex-col overflow-hidden relative", className)}>
+      {/* Fixed Header with Close Button */}
       <div className="p-4 pb-2 border-b flex-shrink-0">
-        <h3 className="font-semibold text-lg">{getNodeTitle(selectedNode.type)}</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-lg">{getNodeTitle(selectedNode.type)}</h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Scrollable Content */}

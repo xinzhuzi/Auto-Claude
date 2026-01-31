@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Play,
   Square,
@@ -32,97 +33,97 @@ interface NodeContextMenuProps {
 
 interface NodeType {
   type: string;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
-  description: string;
+  descKey: string;
 }
 
 interface Category {
   key: string;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
   nodes: NodeType[];
 }
 
-const categories: Category[] = [
+const categoriesConfig: Category[] = [
   {
     key: 'basic',
-    label: '基础节点',
+    labelKey: 'basicNodes',
     icon: <Layers className="h-4 w-4" />,
     nodes: [
       {
         type: 'start',
-        label: '开始',
+        labelKey: 'nodes.start.label',
         icon: <Play className="h-4 w-4" />,
-        description: '工作流的起点',
+        descKey: 'nodes.start.description',
       },
       {
         type: 'end',
-        label: '结束',
+        labelKey: 'nodes.end.label',
         icon: <Square className="h-4 w-4" />,
-        description: '工作流的终点',
+        descKey: 'nodes.end.description',
       },
       {
         type: 'prompt',
-        label: '提示词',
+        labelKey: 'nodes.prompt.label',
         icon: <MessageSquare className="h-4 w-4" />,
-        description: '发送提示词给 AI',
+        descKey: 'nodes.prompt.description',
       },
     ],
   },
   {
     key: 'execution',
-    label: '执行节点',
+    labelKey: 'executionNodes',
     icon: <Cog className="h-4 w-4" />,
     nodes: [
       {
         type: 'skill',
-        label: '技能',
+        labelKey: 'nodes.skill.label',
         icon: <Zap className="h-4 w-4" />,
-        description: '执行预定义的技能',
+        descKey: 'nodes.skill.description',
       },
       {
         type: 'mcp',
-        label: 'MCP 工具',
+        labelKey: 'nodes.mcp.label',
         icon: <Plug className="h-4 w-4" />,
-        description: '调用 MCP 服务器工具',
+        descKey: 'nodes.mcp.description',
       },
       {
         type: 'subAgent',
-        label: '子代理',
+        labelKey: 'nodes.subAgent.label',
         icon: <Bot className="h-4 w-4" />,
-        description: '启动子代理执行任务',
+        descKey: 'nodes.subAgent.description',
       },
       {
         type: 'command',
-        label: '快捷命令',
+        labelKey: 'nodes.command.label',
         icon: <Terminal className="h-4 w-4" />,
-        description: '执行 slash 命令',
+        descKey: 'nodes.command.description',
       },
     ],
   },
   {
     key: 'control',
-    label: '流程控制',
+    labelKey: 'controlFlow',
     icon: <Route className="h-4 w-4" />,
     nodes: [
       {
         type: 'ifElse',
-        label: '条件判断',
+        labelKey: 'nodes.ifElse.label',
         icon: <GitBranch className="h-4 w-4" />,
-        description: '根据条件选择分支',
+        descKey: 'nodes.ifElse.description',
       },
       {
         type: 'switch',
-        label: '多路分支',
+        labelKey: 'nodes.switch.label',
         icon: <GitMerge className="h-4 w-4" />,
-        description: '多条件分支选择',
+        descKey: 'nodes.switch.description',
       },
       {
         type: 'askUserQuestion',
-        label: '询问用户',
+        labelKey: 'nodes.askUser.label',
         icon: <HelpCircle className="h-4 w-4" />,
-        description: '暂停并等待用户输入',
+        descKey: 'nodes.askUser.description',
       },
     ],
   },
@@ -133,6 +134,7 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
   onSelect,
   onClose,
 }) => {
+  const { t } = useTranslation('workflowStudio');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const handleSelect = (nodeType: string) => {
@@ -140,9 +142,20 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
     onClose();
   };
 
+  // Toggle category on click
+  const handleCategoryClick = (categoryKey: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveCategory(prev => prev === categoryKey ? null : categoryKey);
+  };
+
   // Handle click outside to close
   React.useEffect(() => {
-    const handleClickOutside = () => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't close if clicking inside the menu
+      if (target.closest('.node-context-menu')) {
+        return;
+      }
       onClose();
     };
 
@@ -171,31 +184,33 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
 
   return (
     <div
-      className="fixed z-50 bg-popover border rounded-lg shadow-lg py-1 min-w-[180px]"
+      className="node-context-menu fixed z-50 bg-popover border rounded-lg shadow-lg py-1 min-w-[180px]"
       style={{
         left: position.x,
         top: position.y,
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {categories.map((category) => (
+      {categoriesConfig.map((category) => (
         <div
           key={category.key}
           className="relative"
-          onMouseEnter={() => setActiveCategory(category.key)}
-          onMouseLeave={() => setActiveCategory(null)}
         >
-          {/* Category Item */}
+          {/* Category Item - Click to toggle */}
           <button
             className={cn(
               'w-full px-3 py-2 flex items-center gap-3 text-left',
               'hover:bg-accent transition-colors',
               activeCategory === category.key && 'bg-accent'
             )}
+            onClick={(e) => handleCategoryClick(category.key, e)}
           >
             <span className="text-primary">{category.icon}</span>
-            <span className="flex-1 text-sm font-medium">{category.label}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <span className="flex-1 text-sm font-medium">{t(category.labelKey)}</span>
+            <ChevronRight className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              activeCategory === category.key && "rotate-90"
+            )} />
           </button>
 
           {/* Submenu */}
@@ -215,9 +230,9 @@ export const NodeContextMenu: React.FC<NodeContextMenuProps> = ({
                 >
                   <span className="text-primary">{node.icon}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{node.label}</div>
+                    <div className="text-sm font-medium">{t(node.labelKey)}</div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {node.description}
+                      {t(node.descKey)}
                     </div>
                   </div>
                 </button>

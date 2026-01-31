@@ -51,6 +51,20 @@ function escapeYamlString(value: string, alwaysQuote = false): string {
 }
 
 /**
+ * 提取提示词中的变量引用
+ * 匹配 {{step_1}}, {{previous}}, {{workflow.input}} 等格式
+ */
+function extractVariableReferences(text: string): string[] {
+  const pattern = /\{\{([^}]+)\}\}/g;
+  const matches: string[] = [];
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    matches.push(`{{${match[1]}}}`);
+  }
+  return [...new Set(matches)];
+}
+
+/**
  * 生成 Mermaid 流程图
  */
 export function generateMermaidFlowchart(workflow: Workflow): string {
@@ -79,6 +93,9 @@ export function generateMermaidFlowchart(workflow: Workflow): string {
     } else if (nodeType === 'mcp') {
       const mcpLabel = node.data?.toolName ? `MCP: ${node.data.toolName}` : 'MCP Tool';
       lines.push(`    ${nodeId}[[${escapeLabel(mcpLabel)}]]`);
+    } else if (nodeType === 'command') {
+      const commandName = node.data?.commandName || 'Command';
+      lines.push(`    ${nodeId}[[${escapeLabel(`/${commandName}`)}]]`);
     } else if (nodeType === 'subAgent') {
       const agentName = node.name || 'Sub-Agent';
       lines.push(`    ${nodeId}[${escapeLabel(agentName)}]`);
@@ -107,30 +124,129 @@ export function generateMermaidFlowchart(workflow: Workflow): string {
 }
 
 /**
- * 生成执行指令
+ * 计算节点执行顺序（拓扑排序）
+ */
+function calculateExecutionOrder(workflow: Workflow): WorkflowNode[] {
+  const { nodes, connections } = workflow;
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const inDegree = new Map<string, number>();
+  const adjacency = new Map<string, string[]>();
+
+  // 初始化
+  for (const node of nodes) {
+    inDegree.set(node.id, 0);
+    adjacency.set(node.id, []);
+  }
+
+  // 构建图
+  for (const conn of connections) {
+    adjacency.get(conn.from)?.push(conn.to);
+    inDegree.set(conn.to, (inDegree.get(conn.to) || 0) + 1);
+  }
+
+  // 拓扑排序
+  const queue: string[] = [];
+  const result: WorkflowNode[] = [];
+
+  for (const [id, degree] of inDegree) {
+    if (degree === 0) queue.push(id);
+  }
+
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    const node = nodeMap.get(id);
+    if (node) result.push(node);
+
+    for (const next of adjacency.get(id) || []) {
+      const newDegree = (inDegree.get(next) || 1) - 1;
+      inDegree.set(next, newDegree);
+      if (newDegree === 0) queue.push(next);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 生成执行指令 (参考 cc-wf-studio 的实现)
  */
 export function generateExecutionInstructions(workflow: Workflow): string {
   const { nodes } = workflow;
   const sections: string[] = [];
 
+  // 计算执行顺序
+  const executionOrder = calculateExecutionOrder(workflow);
+  const executableNodes = executionOrder.filter((n) => n.type !== 'start' && n.type !== 'end');
+
+  // Introduction - 更强调连续执行
   sections.push('## Workflow Execution Guide');
   sections.push('');
-  sections.push('Follow the Mermaid flowchart above to execute the workflow. Each node type has specific execution methods as described below.');
+  sections.push('**THIS IS A MULTI-STEP WORKFLOW. YOU MUST COMPLETE ALL STEPS.**');
+  sections.push('');
+  sections.push('After completing EACH step, output: "✓ Step N completed. Proceeding to Step N+1..."');
+  sections.push('');
+  sections.push('The workflow is ONLY complete when you output: "✓ Workflow complete."');
   sections.push('');
 
-  // 节点类型说明
+  // 添加变量传递规则
+  sections.push('### Variable Passing Rules');
+  sections.push('');
+  sections.push('**Track outputs from each step as variables for use in subsequent steps**:');
+  sections.push('- `{{step_N}}` - Output of step N (e.g., `{{step_1}}`, `{{step_2}}`)');
+  sections.push('- `{{previous}}` - Alias for the immediately previous step output');
+  sections.push('');
+  sections.push('**After each step**: Store result as `{{step_N}}`. If next step references variables, substitute with actual values.');
+  sections.push('');
+
+  // 添加明确的执行顺序
+  if (executableNodes.length > 0) {
+    sections.push('### Steps to Execute');
+    sections.push('');
+    for (let i = 0; i < executableNodes.length; i++) {
+      const node = executableNodes[i];
+      const nodeId = sanitizeNodeId(node.id);
+      const nodeType = node.type as string;
+      let nodeLabel = node.name || node.id;
+
+      if (nodeType === 'prompt') {
+        nodeLabel = node.data?.prompt?.split('\n')[0] || 'Prompt';
+        if (nodeLabel.length > 40) nodeLabel = `${nodeLabel.substring(0, 37)}...`;
+      } else if (nodeType === 'command') {
+        nodeLabel = `/${node.data?.commandName || 'command'}`;
+      } else if (nodeType === 'skill') {
+        nodeLabel = `Skill: ${node.data?.name || 'Skill'}`;
+      }
+
+      sections.push(`**Step ${i + 1}**: ${nodeLabel}`);
+      sections.push(`- Node ID: ${nodeId}`);
+      sections.push(`- Type: ${nodeType}`);
+      sections.push(`- After completion: Output "✓ Step ${i + 1} completed. Result: [brief summary]"`);
+      sections.push(`- Store result as: \`{{step_${i + 1}}}\` for reference in later steps`);
+      sections.push('');
+    }
+    sections.push(`**Step ${executableNodes.length + 1}**: Output "✓ Workflow complete."`);
+    sections.push('');
+  }
+
+  // Node type explanations
   sections.push('### Execution Methods by Node Type');
   sections.push('');
-  sections.push('- **Rectangle nodes**: Execute Sub-Agents using the Task tool');
-  sections.push('- **Diamond nodes (AskUserQuestion:...)**: Use the AskUserQuestion tool to prompt the user');
-  sections.push('- **Diamond nodes (Branch/Switch:...)**: Automatically branch based on previous results');
-  sections.push('- **Rectangle nodes (Prompt nodes)**: Execute the prompts described below');
+  sections.push('- **Oval nodes (Start/End)**: Flow control markers - Start begins the workflow, End completes it');
+  sections.push('- **Rectangle nodes (Prompt)**: Execute the prompt text directly as instructions');
+  sections.push('- **Double-bordered nodes (/command)**: Execute slash commands using the Skill tool');
+  sections.push('- **Double-bordered nodes (Skill:...)**: Execute the referenced skill');
+  sections.push('- **Double-bordered nodes (MCP:...)**: Execute MCP tools with the specified parameters');
+  sections.push('- **Rectangle nodes (Sub-Agent)**: Execute Sub-Agents using the Task tool');
+  sections.push('- **Diamond nodes (AskUserQuestion)**: Use the AskUserQuestion tool to prompt the user');
+  sections.push('- **Diamond nodes (If/Else, Switch)**: Evaluate conditions and branch accordingly');
   sections.push('');
 
-  // Prompt 节点详情
+  // Prompt node details
   const promptNodes = nodes.filter((n) => n.type === 'prompt');
   if (promptNodes.length > 0) {
     sections.push('### Prompt Node Details');
+    sections.push('');
+    sections.push('When you reach a Prompt node, execute the following prompt:');
     sections.push('');
     for (const node of promptNodes) {
       const nodeId = sanitizeNodeId(node.id);
@@ -142,19 +258,56 @@ export function generateExecutionInstructions(workflow: Workflow): string {
       sections.push(node.data?.prompt || '');
       sections.push('```');
       sections.push('');
+
+      // 检测变量引用
+      const promptText = node.data?.prompt || '';
+      const variableRefs = extractVariableReferences(promptText);
+      if (variableRefs.length > 0) {
+        sections.push(`**Variables Referenced**: ${variableRefs.join(', ')}`);
+        sections.push('');
+      }
     }
   }
 
-  // Skill 节点详情
+  // Command node details
+  const commandNodes = nodes.filter((n) => n.type === 'command');
+  if (commandNodes.length > 0) {
+    sections.push('### Command Node Details');
+    sections.push('');
+    sections.push('When you reach a Command node, read and execute the referenced command file inline. Do NOT use the Skill tool - instead, read the command file and execute its instructions directly within this workflow context.');
+    sections.push('');
+    for (const node of commandNodes) {
+      const nodeId = sanitizeNodeId(node.id);
+      const commandName = node.data?.commandName || 'command';
+      const commandPath = node.data?.commandPath || `.claude/commands/${commandName}.md`;
+      sections.push(`#### ${nodeId}(/${commandName})`);
+      sections.push('');
+      sections.push(`**Command**: \`/${commandName}\``);
+      sections.push('');
+      if (node.data?.description) {
+        sections.push(`**Description**: ${node.data.description}`);
+        sections.push('');
+      }
+      sections.push(`**Command File**: \`${commandPath}\``);
+      sections.push('');
+      sections.push('**Execution Method**: Read the command file above using the Read tool, then execute its instructions inline. After completing the command, continue to the next node in this workflow.');
+      sections.push('');
+    }
+  }
+
+  // Skill node details
   const skillNodes = nodes.filter((n) => n.type === 'skill');
   if (skillNodes.length > 0) {
-    sections.push('### Skill Nodes');
+    sections.push('### Skill Node Details');
     sections.push('');
     for (const node of skillNodes) {
       const nodeId = sanitizeNodeId(node.id);
-      sections.push(`#### ${nodeId}(${node.data?.name || node.name})`);
+      const skillName = node.data?.name || node.name || 'Skill';
+      sections.push(`#### ${nodeId}(${skillName})`);
       sections.push('');
       sections.push(`**Description**: ${node.data?.description || ''}`);
+      sections.push('');
+      sections.push(`**Scope**: ${node.data?.scope || 'project'}`);
       sections.push('');
       if (node.data?.skillPath) {
         sections.push(`**Skill Path**: \`${node.data.skillPath}\``);
@@ -163,21 +316,89 @@ export function generateExecutionInstructions(workflow: Workflow): string {
     }
   }
 
-  // MCP 节点详情
+  // MCP node details
   const mcpNodes = nodes.filter((n) => n.type === 'mcp');
   if (mcpNodes.length > 0) {
-    sections.push('### MCP Tool Nodes');
+    sections.push('### MCP Tool Node Details');
     sections.push('');
     for (const node of mcpNodes) {
       const nodeId = sanitizeNodeId(node.id);
-      sections.push(`#### ${nodeId}(${node.data?.toolName || 'MCP Tool'})`);
+      const toolName = node.data?.toolName || 'MCP Tool';
+      sections.push(`#### ${nodeId}(${toolName})`);
       sections.push('');
       sections.push(`**MCP Server**: ${node.data?.serverId || ''}`);
       sections.push('');
-      sections.push(`**Tool Name**: ${node.data?.toolName || ''}`);
+      sections.push(`**Tool Name**: ${toolName}`);
       sections.push('');
+      if (node.data?.parameterValues && Object.keys(node.data.parameterValues).length > 0) {
+        sections.push('**Parameters**:');
+        for (const [key, value] of Object.entries(node.data.parameterValues)) {
+          sections.push(`- \`${key}\`: ${JSON.stringify(value)}`);
+        }
+        sections.push('');
+      }
     }
   }
+
+  // SubAgent node details
+  const subAgentNodes = nodes.filter((n) => n.type === 'subAgent');
+  if (subAgentNodes.length > 0) {
+    sections.push('### Sub-Agent Node Details');
+    sections.push('');
+    sections.push('**Execute each Sub-Agent using the Task tool**. The Task tool will spawn a specialized agent to handle the task.');
+    sections.push('');
+    for (const node of subAgentNodes) {
+      const nodeId = sanitizeNodeId(node.id);
+      const agentName = node.data?.description || node.name || 'Sub-Agent';
+      const agentType = node.data?.agentType || 'general-purpose';
+      sections.push(`#### ${nodeId}(${agentName})`);
+      sections.push('');
+      if (node.data?.prompt) {
+        // 在 prompt 前添加权限说明
+        const permissionNote = 'You have permission to use: Read, Write, Edit, Bash, Glob, Grep tools. Do NOT delete any files.';
+        const fullPrompt = `${permissionNote}\n\nTask:\n${node.data.prompt}`;
+        sections.push('**Task Prompt** (with permissions):');
+        sections.push('```');
+        sections.push(fullPrompt);
+        sections.push('```');
+        sections.push('');
+        sections.push(`**Execution**: Use Task tool with \`subagent_type: "${agentType}"\` and the prompt above (including permission note).`);
+        sections.push('');
+      }
+    }
+  }
+
+  // AskUserQuestion node details
+  const askUserQuestionNodes = nodes.filter((n) => n.type === 'askUserQuestion');
+  if (askUserQuestionNodes.length > 0) {
+    sections.push('### AskUserQuestion Node Details');
+    sections.push('');
+    sections.push('Use the AskUserQuestion tool to prompt the user:');
+    sections.push('');
+    for (const node of askUserQuestionNodes) {
+      const nodeId = sanitizeNodeId(node.id);
+      const question = node.data?.questionText || 'Question';
+      sections.push(`#### ${nodeId}(${question})`);
+      sections.push('');
+      sections.push(`**Question**: ${question}`);
+      sections.push('');
+      if (node.data?.options && node.data.options.length > 0) {
+        sections.push('**Options**:');
+        for (const option of node.data.options) {
+          sections.push(`- **${option.label}**: ${option.description || ''}`);
+        }
+        sections.push('');
+      }
+    }
+  }
+
+  // 添加完成检查提醒
+  sections.push('### Workflow Completion');
+  sections.push('');
+  sections.push('After completing ALL steps above, output: "✓ Workflow complete."');
+  sections.push('');
+  sections.push('If you have not output "✓ Workflow complete.", the workflow is NOT finished. Check the Steps to Execute section and continue from where you left off.');
+  sections.push('');
 
   return sections.join('\n');
 }
@@ -192,9 +413,12 @@ export function generateSlashCommandFile(workflow: Workflow): string {
     `description: ${escapeYamlString(workflow.description || workflow.name)}`,
   ];
 
-  // 添加可选字段
+  // 添加 allowed-tools - 如果用户配置了就用用户的，否则使用默认值
   if (workflow.slashCommandOptions?.allowedTools) {
     frontmatterLines.push(`allowed-tools: ${workflow.slashCommandOptions.allowedTools}`);
+  } else {
+    // 默认授权常用工具，避免执行时频繁请求权限
+    frontmatterLines.push('allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task');
   }
 
   if (workflow.slashCommandOptions?.model && workflow.slashCommandOptions.model !== 'default') {

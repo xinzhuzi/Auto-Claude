@@ -24,6 +24,8 @@ interface WorkflowState {
   searchQuery: string;
   selectedWorkflows: Set<string>;
   selectedNodeId: string | null;
+  isPropertyPanelOpen: boolean;
+  isExecutionPanelOpen: boolean;
 
   // Actions - synchronous
   setWorkflows: (workflows: Workflow[]) => void;
@@ -37,6 +39,8 @@ interface WorkflowState {
   setSelectedWorkflows: (ids: Set<string>) => void;
   toggleWorkflowSelection: (id: string) => void;
   setSelectedNode: (nodeId: string | null) => void;
+  setPropertyPanelOpen: (open: boolean) => void;
+  setExecutionPanelOpen: (open: boolean) => void;
   updateNodeData: (nodeId: string, data: Partial<WorkflowNode['data']>) => void;
 
   // Actions - async with IPC
@@ -70,6 +74,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   searchQuery: '',
   selectedWorkflows: new Set(),
   selectedNodeId: null,
+  isPropertyPanelOpen: false,
+  isExecutionPanelOpen: true,
 
   // Synchronous actions
   setWorkflows: (workflows) => set({ workflows }),
@@ -143,7 +149,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return { selectedWorkflows: newSet };
     }),
 
-  setSelectedNode: (nodeId) => set({ selectedNodeId: nodeId }),
+  setSelectedNode: (nodeId) => set({
+    selectedNodeId: nodeId,
+    // Auto-open property panel when selecting a node
+    isPropertyPanelOpen: nodeId !== null ? true : get().isPropertyPanelOpen,
+  }),
+
+  setPropertyPanelOpen: (open) => set({ isPropertyPanelOpen: open }),
+
+  setExecutionPanelOpen: (open) => set({ isExecutionPanelOpen: open }),
 
   updateNodeData: (nodeId, data) =>
     set((state) => {

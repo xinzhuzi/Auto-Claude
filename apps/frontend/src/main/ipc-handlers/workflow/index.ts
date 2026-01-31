@@ -968,4 +968,97 @@ export function registerWorkflowHandlers(): void {
       }
     }
   );
+
+  // ============================================
+  // Command Operations (for Command node)
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.COMMAND_LIST_FROM_PROJECT,
+    async (_, projectPath: string): Promise<IPCResult<Array<{
+      name: string;
+      description: string;
+      commandPath: string;
+      validationStatus: 'valid' | 'missing' | 'invalid';
+    }>>> => {
+      try {
+        // Validate project path
+        if (!projectPath || !existsSync(projectPath)) {
+          return { success: false, error: 'Invalid project path' };
+        }
+
+        const commandsDir = path.join(projectPath, '.claude', 'commands');
+
+        // If directory doesn't exist, return empty list
+        if (!existsSync(commandsDir)) {
+          return { success: true, data: [] };
+        }
+
+        const files = await readdir(commandsDir);
+        const commands: Array<{
+          name: string;
+          description: string;
+          commandPath: string;
+          validationStatus: 'valid' | 'missing' | 'invalid';
+        }> = [];
+
+        for (const file of files) {
+          if (file.endsWith('.md')) {
+            try {
+              const filePath = path.join(commandsDir, file);
+              const content = await readFile(filePath, 'utf-8');
+
+              // Extract description from first line or frontmatter
+              let description = '';
+              const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+              if (frontmatterMatch) {
+                const descMatch = frontmatterMatch[1].match(/^description:\s*["']?(.+?)["']?\s*$/m);
+                if (descMatch) {
+                  description = descMatch[1].trim();
+                }
+              }
+
+              // If no frontmatter description, use first non-empty line after frontmatter
+              if (!description) {
+                const contentAfterFrontmatter = frontmatterMatch
+                  ? content.slice(frontmatterMatch[0].length).trim()
+                  : content.trim();
+                const firstLine = contentAfterFrontmatter.split('\n')[0];
+                if (firstLine && !firstLine.startsWith('#')) {
+                  description = firstLine.slice(0, 100);
+                }
+              }
+
+              commands.push({
+                name: file.replace('.md', ''),
+                description,
+                commandPath: filePath,
+                validationStatus: 'valid',
+              });
+            } catch (parseError) {
+              logger.warn(`[Command] Failed to parse ${file}:`, parseError);
+              commands.push({
+                name: file.replace('.md', ''),
+                description: '',
+                commandPath: path.join(commandsDir, file),
+                validationStatus: 'invalid',
+              });
+            }
+          }
+        }
+
+        // Sort by name
+        commands.sort((a, b) => a.name.localeCompare(b.name));
+
+        logger.info(`[Command] Listed ${commands.length} commands from project: ${projectPath}`);
+        return { success: true, data: commands };
+      } catch (error) {
+        logger.error('[Command] Failed to list commands from project:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to list commands from project'
+        };
+      }
+    }
+  );
 }

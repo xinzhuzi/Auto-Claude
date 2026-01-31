@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, type NodeProps, Position } from 'reactflow';
 import { cn } from '../../../lib/utils';
 
@@ -36,6 +37,8 @@ export const SubAgentNode: React.FC<NodeProps<SubAgentData>> = ({
   data,
   selected,
 }) => {
+  const { t } = useTranslation('workflowStudio');
+
   return (
     <div
       className={cn(
@@ -46,12 +49,12 @@ export const SubAgentNode: React.FC<NodeProps<SubAgentData>> = ({
       {/* Node Header */}
       <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
         {data.icon && <span className="text-sm normal-case">{data.icon}</span>}
-        <span>Sub-Agent</span>
+        <span>{t('nodes.subAgent.label')}</span>
       </div>
 
       {/* Node Description */}
       <div className="text-[13px] text-foreground mb-2 font-medium">
-        {data.description || 'Untitled Sub-Agent'}
+        {data.description || t('newSubAgent')}
       </div>
 
       {/* Agent ID */}

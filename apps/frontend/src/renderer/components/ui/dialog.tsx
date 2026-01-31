@@ -40,6 +40,7 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      aria-describedby={undefined}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 w-full max-w-lg max-h-[90vh]',
         'translate-x-[-50%] translate-y-[-50%]',

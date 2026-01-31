@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
 import {
@@ -37,9 +38,14 @@ interface ToolbarProps {
   onNewWorkflow?: () => void;
   onAiRefine?: () => void;
   onReset?: () => void;
+  onClose?: () => void;
   onStartTour?: () => void;
   onToggleFocusMode?: () => void;
+  onTogglePropertyPanel?: () => void;
+  onToggleExecutionPanel?: () => void;
   isFocusMode?: boolean;
+  isPropertyPanelOpen?: boolean;
+  isExecutionPanelOpen?: boolean;
   slashCommandOptions?: SlashCommandOptions;
   onSlashCommandOptionsChange?: (options: SlashCommandOptions) => void;
   hasUnsavedChanges?: boolean;
@@ -58,9 +64,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onNewWorkflow,
   onAiRefine,
   onReset,
+  onClose,
   onStartTour,
   onToggleFocusMode,
+  onTogglePropertyPanel,
+  onToggleExecutionPanel,
   isFocusMode = false,
+  isPropertyPanelOpen = false,
+  isExecutionPanelOpen = true,
   slashCommandOptions = {},
   onSlashCommandOptionsChange,
   hasUnsavedChanges = false,
@@ -68,6 +79,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   disabled = false,
   className,
 }) => {
+  const { t } = useTranslation('workflowStudio');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -78,7 +90,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   // Handle save
   const handleSave = async () => {
     setIsSaving(true);
-    setProcessingMessage('Saving workflow...');
+    setProcessingMessage(t('saving'));
     try {
       await onSave();
     } finally {
@@ -90,7 +102,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   // Handle load
   const handleLoad = async () => {
     setIsLoading(true);
-    setProcessingMessage('Loading workflow...');
+    setProcessingMessage(t('importWorkflow'));
     try {
       await onLoad();
     } finally {
@@ -102,7 +114,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   // Handle export
   const handleExport = async () => {
     setIsExporting(true);
-    setProcessingMessage('Exporting workflow...');
+    setProcessingMessage(t('exporting'));
     try {
       await onExport();
     } finally {
@@ -116,7 +128,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     if (!onGenerateWorkflowName) return;
 
     setIsGeneratingName(true);
-    setProcessingMessage('Generating workflow name...');
+    setProcessingMessage(t('aiProcessing'));
     try {
       await onGenerateWorkflowName();
     } finally {
@@ -149,11 +161,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <EditableNameField
             value={workflowName}
             onChange={onWorkflowNameChange}
-            placeholder="Untitled Workflow"
+            placeholder={t('workflowNamePlaceholder')}
             maxLength={100}
             onValidate={(value) => {
               if (value.length < 3) {
-                return 'Name must be at least 3 characters';
+                return t('toolbar.namePatternError');
               }
               return null;
             }}
@@ -168,7 +180,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             />
           )}
           {hasUnsavedChanges && (
-            <span className="text-xs text-muted-foreground">• Unsaved</span>
+            <span className="text-xs text-muted-foreground">• {t('toolbar.unsaved', '未保存')}</span>
           )}
         </div>
 
@@ -188,7 +200,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             ) : (
               <Save className="h-4 w-4" />
             )}
-            <span>Save</span>
+            <span>{t('save')}</span>
           </Button>
 
           <Button
@@ -203,7 +215,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             ) : (
               <FolderOpen className="h-4 w-4" />
             )}
-            <span>Load</span>
+            <span>{t('load')}</span>
           </Button>
 
           <Button
@@ -218,7 +230,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             ) : (
               <Download className="h-4 w-4" />
             )}
-            <span>Export</span>
+            <span>{t('export')}</span>
           </Button>
         </div>
 
@@ -243,7 +255,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             className="gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            <span>AI Refine</span>
+            <span>{t('refineButton')}</span>
           </Button>
         )}
 
@@ -254,9 +266,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <MoreActionsDropdown
           onNewWorkflow={onNewWorkflow}
           onReset={onReset ? () => setShowResetConfirm(true) : undefined}
+          onClose={onClose}
           onStartTour={onStartTour}
           onToggleFocusMode={onToggleFocusMode}
+          onTogglePropertyPanel={onTogglePropertyPanel}
+          onToggleExecutionPanel={onToggleExecutionPanel}
           isFocusMode={isFocusMode}
+          isPropertyPanelOpen={isPropertyPanelOpen}
+          isExecutionPanelOpen={isExecutionPanelOpen}
           disabled={isDisabled}
         />
       </div>
@@ -271,10 +288,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       <ConfirmDialog
         open={showResetConfirm}
         onOpenChange={setShowResetConfirm}
-        title="Reset Workflow"
-        message="Are you sure you want to reset the workflow? All unsaved changes will be lost."
-        confirmLabel="Reset"
-        cancelLabel="Cancel"
+        title={t('resetWorkflow')}
+        message={t('toolbar.resetConfirmMessage', '确定要重置工作流吗？所有未保存的更改将丢失。')}
+        confirmLabel={t('confirm')}
+        cancelLabel={t('cancel')}
         variant="destructive"
         onConfirm={handleReset}
       />

@@ -29,7 +29,8 @@ import {
   Clock,
   AlertCircle,
   Activity,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 
 interface ExecutionPanelProps {
@@ -56,6 +57,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
   const { t } = useTranslation('workflowStudio');
   const activeWorkflow = useActiveWorkflow();
   const workflowName = useWorkflowStore((state) => state.workflowName);
+  const setExecutionPanelOpen = useWorkflowStore((state) => state.setExecutionPanelOpen);
 
   // Get project path from project store
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
@@ -99,7 +101,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
         }));
 
         // Add log entry
-        addLog('info', `Progress: ${progress}% - Node: ${currentNode || 'unknown'}`, currentNode);
+        addLog('info', `进度: ${progress}% - 节点: ${currentNode || '未知'}`, currentNode);
       }
     };
 
@@ -113,7 +115,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
           progress: 100,
           completedAt: new Date().toISOString(),
         }));
-        addLog('success', 'Workflow execution completed successfully');
+        addLog('success', '工作流执行完成');
       }
     };
 
@@ -125,9 +127,9 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
           ...prev,
           status: 'failed',
           completedAt: new Date().toISOString(),
-          error: error || 'Unknown error',
+          error: error || '未知错误',
         }));
-        addLog('error', `Workflow execution failed: ${error || 'Unknown error'}`);
+        addLog('error', `工作流执行失败: ${error || '未知错误'}`);
       }
     };
 
@@ -136,9 +138,9 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
       const { executionId: evtExecId, nodeId, nodeName, success, error } = event;
       if (evtExecId === executionId) {
         if (success) {
-          addLog('success', `Node "${nodeName || nodeId}" executed successfully`, nodeId);
+          addLog('success', `节点 "${nodeName || nodeId}" 执行成功`, nodeId);
         } else {
-          addLog('error', `Node "${nodeName || nodeId}" failed: ${error}`, nodeId);
+          addLog('error', `节点 "${nodeName || nodeId}" 执行失败: ${error}`, nodeId);
         }
       }
     };
@@ -208,7 +210,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
     if (!activeWorkflow) return;
 
     if (!projectPath) {
-      addLog('error', 'No project selected. Please select a project first.');
+      addLog('error', '未选择项目，请先选择一个项目');
       return;
     }
 
@@ -222,14 +224,14 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
       });
       setLogs([]);
       setStreamOutput('');
-      addLog('info', `Starting workflow execution: ${currentWorkflowName}`);
+      addLog('info', `开始执行工作流: ${currentWorkflowName}`);
 
       // Clean up any previous listeners
       cleanupRef.current.forEach(cleanup => cleanup());
       cleanupRef.current = [];
 
       // 1. First export the workflow to .claude/commands/
-      addLog('info', 'Exporting workflow to .claude/commands/...');
+      addLog('info', '正在导出工作流到 .claude/commands/...');
 
       const { generateSlashCommandFile, nodeNameToFileName } = await import('../../services/workflow');
       const { serializeWorkflow } = await import('../../services/workflow');
@@ -256,9 +258,9 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
 
       const exportResult = await window.electronAPI.workflow.exportWorkflowToProject(workflow, mdContent, projectPath);
       if (!exportResult.success) {
-        throw new Error(exportResult.error || 'Failed to export workflow');
+        throw new Error(exportResult.error || '导出工作流失败');
       }
-      addLog('success', `Exported to .claude/commands/${fileName}.md`);
+      addLog('success', `已导出到 .claude/commands/${fileName}.md`);
 
       // 2. Register command execution event listeners
       // Note: We don't filter by executionId since we only run one workflow at a time
@@ -488,6 +490,16 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
             >
               <Square className="h-4 w-4" />
               {t('executionPanel.stop')}
+            </Button>
+
+            {/* Close Button */}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setExecutionPanelOpen(false)}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>

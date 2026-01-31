@@ -86,6 +86,14 @@ export interface WorkflowAPI {
     icon?: string;
     filePath: string;
   }>>>;
+
+  // Command operations (for Command node)
+  listCommandsFromProject: (projectPath: string) => Promise<IPCResult<Array<{
+    name: string;
+    description: string;
+    commandPath: string;
+    validationStatus: 'valid' | 'missing' | 'invalid';
+  }>>>;
 }
 
 export const createWorkflowAPI = (): WorkflowAPI => {
@@ -246,5 +254,9 @@ export const createWorkflowAPI = (): WorkflowAPI => {
     // Agent operations (for SubAgent node)
     listAgentsFromProject: (projectPath) =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_LIST_FROM_PROJECT, projectPath),
+
+    // Command operations (for Command node)
+    listCommandsFromProject: (projectPath) =>
+      ipcRenderer.invoke(IPC_CHANNELS.COMMAND_LIST_FROM_PROJECT, projectPath),
   };
 };

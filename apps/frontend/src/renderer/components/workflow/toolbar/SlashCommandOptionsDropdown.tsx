@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +48,8 @@ export const SlashCommandOptionsDropdown: React.FC<SlashCommandOptionsDropdownPr
   onChange,
   disabled = false,
 }) => {
+  const { t } = useTranslation('workflowStudio');
+
   const handleModelChange = (model: string) => {
     onChange({ ...options, model });
   };
@@ -63,7 +66,7 @@ export const SlashCommandOptionsDropdown: React.FC<SlashCommandOptionsDropdownPr
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" disabled={disabled} className="gap-2">
           <Settings2 className="h-4 w-4" />
-          <span>Options</span>
+          <span>{t('slashCommandOptions.options', '选项')}</span>
           {Object.keys(options).length > 0 && (
             <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
               {Object.keys(options).length}
@@ -72,14 +75,14 @@ export const SlashCommandOptionsDropdown: React.FC<SlashCommandOptionsDropdownPr
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel>Slash Command Options</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('slashCommandOptions.title', '斜杠命令选项')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         {/* Model Selection */}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Cpu className="mr-2 h-4 w-4" />
-            <span>Model</span>
+            <span>{t('model')}</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             {AVAILABLE_MODELS.map((model) => (
@@ -100,7 +103,7 @@ export const SlashCommandOptionsDropdown: React.FC<SlashCommandOptionsDropdownPr
         {/* Context Files */}
         <DropdownMenuItem disabled>
           <FileText className="mr-2 h-4 w-4" />
-          <span>Context Files</span>
+          <span>{t('slashCommandOptions.contextFiles', '上下文文件')}</span>
           {options.context && options.context.length > 0 && (
             <Badge variant="secondary" className="ml-auto">
               {options.context.length}
@@ -111,7 +114,7 @@ export const SlashCommandOptionsDropdown: React.FC<SlashCommandOptionsDropdownPr
         {/* Hooks */}
         <DropdownMenuItem disabled>
           <Zap className="mr-2 h-4 w-4" />
-          <span>Hooks</span>
+          <span>{t('slashCommandOptions.hooks', '钩子')}</span>
           {options.hooks && options.hooks.length > 0 && (
             <Badge variant="secondary" className="ml-auto">
               {options.hooks.length}
@@ -122,7 +125,7 @@ export const SlashCommandOptionsDropdown: React.FC<SlashCommandOptionsDropdownPr
         {/* Allowed Tools */}
         <DropdownMenuItem disabled>
           <Wrench className="mr-2 h-4 w-4" />
-          <span>Allowed Tools</span>
+          <span>{t('allowedTools')}</span>
           {options.allowedTools && options.allowedTools.length > 0 && (
             <Badge variant="secondary" className="ml-auto">
               {options.allowedTools.length}
@@ -134,7 +137,7 @@ export const SlashCommandOptionsDropdown: React.FC<SlashCommandOptionsDropdownPr
 
         {/* Disable Model Invocation */}
         <DropdownMenuItem onClick={toggleDisableModelInvocation}>
-          <span>Disable Model Invocation</span>
+          <span>{t('slashCommandOptions.disableModelInvocation', '禁用模型调用')}</span>
           {options.disableModelInvocation && (
             <span className="ml-auto text-xs">✓</span>
           )}

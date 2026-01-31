@@ -633,5 +633,8 @@ export const IPC_CHANNELS = {
   TEMPLATE_APPLY: 'template:apply',
 
   // Agent operations (for SubAgent node)
-  AGENT_LIST_FROM_PROJECT: 'agent:listFromProject'
+  AGENT_LIST_FROM_PROJECT: 'agent:listFromProject',
+
+  // Command operations (for Command node)
+  COMMAND_LIST_FROM_PROJECT: 'command:listFromProject'
 } as const;

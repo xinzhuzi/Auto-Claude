@@ -1,14 +1,12 @@
 /**
  * PromptNode Component
  *
- * Text prompt node for user input
+ * Text prompt node - displays prompt content from property panel
  */
 
 import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Card } from '../../ui/card';
-import { Input } from '../../ui/input';
-import { Textarea } from '../../ui/textarea';
 import { MessageSquare } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
@@ -31,26 +29,14 @@ export const PromptNode: React.FC<NodeProps> = ({ data, selected }) => {
         className="!w-4 !h-4 !bg-primary !border-2 !border-background"
       />
 
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-2">
         <MessageSquare className="w-4 h-4 text-primary" />
-        <div className="font-semibold text-sm">Prompt</div>
+        <div className="font-semibold text-sm">{data?.label || 'Prompt'}</div>
       </div>
 
-      <div className="space-y-3">
-        <Input
-          value={data?.label || ''}
-          onChange={(e) => data?.onUpdate?.({ label: e.target.value })}
-          placeholder="Prompt name..."
-          className="text-sm"
-        />
-
-        <Textarea
-          value={data?.prompt || ''}
-          onChange={(e) => data?.onUpdate?.({ prompt: e.target.value })}
-          placeholder="Enter your prompt..."
-          rows={3}
-          className="text-sm resize-none"
-        />
+      {/* Display prompt content as text */}
+      <div className="text-xs text-muted-foreground line-clamp-4 whitespace-pre-wrap">
+        {data?.prompt || '点击编辑提示词...'}
       </div>
     </Card>
   );

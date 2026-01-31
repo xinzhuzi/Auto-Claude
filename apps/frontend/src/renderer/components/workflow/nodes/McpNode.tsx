@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, type NodeProps, Position } from 'reactflow';
 import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -39,55 +40,11 @@ function getValidationIcon(status: 'valid' | 'missing' | 'invalid') {
 }
 
 /**
- * Get validation tooltip message
- */
-function getValidationTooltip(status: 'valid' | 'missing' | 'invalid'): string {
-  switch (status) {
-    case 'valid':
-      return 'MCP tool is valid and ready to use';
-    case 'missing':
-      return 'MCP server not found or not connected';
-    case 'invalid':
-      return 'MCP tool configuration is invalid';
-  }
-}
-
-/**
  * Truncate text with ellipsis
  */
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return `${text.substring(0, maxLength)}...`;
-}
-
-/**
- * Get main parameter values for display (up to 2 parameters)
- */
-function getMainParameterPreview(parameterValues: Record<string, unknown>): string {
-  const entries = Object.entries(parameterValues).slice(0, 2);
-  if (entries.length === 0) return 'No parameters configured';
-
-  return entries
-    .map(([key, value]) => {
-      const valueStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
-      return `${key}: ${truncateText(valueStr, 30)}`;
-    })
-    .join(', ');
-}
-
-/**
- * Get mode badge label
- */
-function getModeBadgeLabel(mode: McpNodeData['mode']): string {
-  switch (mode) {
-    case 'aiToolSelection':
-      return 'AI Tool Selection';
-    case 'aiParameterConfig':
-      return 'AI Parameters';
-    case 'manualParameterConfig':
-    default:
-      return 'Manual Config';
-  }
 }
 
 /**
@@ -98,8 +55,45 @@ export const McpNode: React.FC<NodeProps<McpNodeData>> = ({
   data,
   selected,
 }) => {
+  const { t } = useTranslation('workflowStudio');
+
   // Get current mode (default to 'manualParameterConfig' for backwards compatibility)
   const currentMode = data.mode || 'manualParameterConfig';
+
+  const getValidationTooltip = (status: 'valid' | 'missing' | 'invalid'): string => {
+    switch (status) {
+      case 'valid':
+        return t('valid');
+      case 'missing':
+        return t('missing');
+      case 'invalid':
+        return t('invalid');
+    }
+  };
+
+  const getModeBadgeLabel = (mode: McpNodeData['mode']): string => {
+    switch (mode) {
+      case 'aiToolSelection':
+        return t('mcpEditDialog.aiToolMode');
+      case 'aiParameterConfig':
+        return t('mcpEditDialog.aiParamMode');
+      case 'manualParameterConfig':
+      default:
+        return t('mcpEditDialog.manualMode');
+    }
+  };
+
+  const getMainParameterPreview = (parameterValues: Record<string, unknown>): string => {
+    const entries = Object.entries(parameterValues).slice(0, 2);
+    if (entries.length === 0) return t('mcpEditDialog.noParams');
+
+    return entries
+      .map(([key, value]) => {
+        const valueStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
+        return `${key}: ${truncateText(valueStr, 30)}`;
+      })
+      .join(', ');
+  };
 
   return (
     <div
@@ -111,7 +105,7 @@ export const McpNode: React.FC<NodeProps<McpNodeData>> = ({
       {/* Node Header */}
       <div className="flex items-center gap-1.5 mb-2">
         <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-          MCP Tool
+          {t('nodes.mcp.label')}
         </div>
         {/* Validation Status Icon */}
         <div title={getValidationTooltip(data.validationStatus)}>
@@ -125,8 +119,8 @@ export const McpNode: React.FC<NodeProps<McpNodeData>> = ({
         <span className="font-normal">
           :{' '}
           {currentMode === 'aiToolSelection'
-            ? 'Auto selected Tool'
-            : data.toolName || 'Untitled Tool'}
+            ? t('mcpEditDialog.aiToolMode')
+            : data.toolName || t('nodes.mcp.label')}
         </span>
       </div>
 
@@ -140,13 +134,13 @@ export const McpNode: React.FC<NodeProps<McpNodeData>> = ({
       {/* Mode-specific content display */}
       {currentMode === 'aiToolSelection' && data.aiToolSelectionConfig?.taskDescription && (
         <div className="text-[11px] text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
-          <strong>Task:</strong> {data.aiToolSelectionConfig.taskDescription}
+          <strong>{t('taskDescription')}:</strong> {data.aiToolSelectionConfig.taskDescription}
         </div>
       )}
 
       {currentMode === 'aiParameterConfig' && data.aiParameterConfig?.description && (
         <div className="text-[11px] text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
-          <strong>Params:</strong> {data.aiParameterConfig.description}
+          <strong>{t('parameters')}:</strong> {data.aiParameterConfig.description}
         </div>
       )}
 
