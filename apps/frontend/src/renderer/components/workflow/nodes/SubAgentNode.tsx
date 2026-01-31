@@ -9,15 +9,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Handle, type NodeProps, Position } from 'reactflow';
 import { cn } from '../../../lib/utils';
-
-export interface SubAgentData {
-  description: string;
-  prompt?: string;
-  model?: string;
-  color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'pink';
-  agentId?: string;
-  icon?: string;
-}
+import type { SubAgentData } from '../../../../shared/types';
 
 // Color mapping for sub-agent badges
 const SUB_AGENT_COLORS = {

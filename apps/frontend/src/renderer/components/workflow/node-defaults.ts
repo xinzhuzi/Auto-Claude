@@ -53,6 +53,7 @@ export function getNodeDefaults(nodeType: string): Partial<WorkflowNode['data']>
         model: 'inherit',
         tools: '',
         color: 'blue',
+        agentId: 'general-purpose',
       };
 
     case 'ifElse':

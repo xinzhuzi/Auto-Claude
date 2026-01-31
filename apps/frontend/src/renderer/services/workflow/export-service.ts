@@ -350,7 +350,7 @@ export function generateExecutionInstructions(workflow: Workflow): string {
     for (const node of subAgentNodes) {
       const nodeId = sanitizeNodeId(node.id);
       const agentName = node.data?.description || node.name || 'Sub-Agent';
-      const agentType = node.data?.agentId || 'general-purpose';
+      const subagentType = node.data?.agentId || 'general-purpose';
       sections.push(`#### ${nodeId}(${agentName})`);
       sections.push('');
       if (node.data?.prompt) {
@@ -362,7 +362,7 @@ export function generateExecutionInstructions(workflow: Workflow): string {
         sections.push(fullPrompt);
         sections.push('```');
         sections.push('');
-        sections.push(`**Execution**: Use Task tool with \`subagent_type: "${agentType}"\` and the prompt above (including permission note).`);
+        sections.push(`**Execution**: Use Task tool with \`subagent_type: "${subagentType}"\` and the prompt above (including permission note).`);
         sections.push('');
       }
     }

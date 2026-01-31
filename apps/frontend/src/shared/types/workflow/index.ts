@@ -108,7 +108,9 @@ export interface SubAgentData {
   tools?: string;
   model?: 'sonnet' | 'opus' | 'haiku' | 'inherit';
   color?: 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange' | 'pink' | 'cyan';
-  outputPorts: number;
+  outputPorts?: number;
+  agentId?: string;
+  icon?: string;
 }
 
 export const SUB_AGENT_COLORS = {
