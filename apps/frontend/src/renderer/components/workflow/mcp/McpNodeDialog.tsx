@@ -24,6 +24,8 @@ import {
   listMcpServers,
   getMcpTools,
   refreshMcpCache,
+  translateToolDescriptions,
+  clearTranslationCache,
 } from '../../../services/mcp';
 
 interface McpServer {
@@ -87,6 +89,7 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
   const [aiTaskDescription, setAiTaskDescription] = useState('');
   const [serverTools, setServerTools] = useState<McpTool[]>([]);
   const [loadingTools, setLoadingTools] = useState(false);
+  const [translating, setTranslating] = useState(false);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -120,11 +123,29 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
     try {
       const toolsResult = await getMcpTools({ serverId });
       if (toolsResult.success && toolsResult.tools) {
-        setServerTools(toolsResult.tools.map(t => ({
+        const tools = toolsResult.tools.map(t => ({
           name: t.name,
-          description: t.description,
+          description: t.description || '',
           serverId,
-        })));
+        }));
+        
+        // Translate descriptions to Chinese
+        const toTranslate = tools.filter(t => t.description && t.description.length > 0);
+        if (toTranslate.length > 0) {
+          const translateResult = await translateToolDescriptions(toTranslate);
+          if (translateResult.success && translateResult.data) {
+            // Merge translated descriptions back
+            const translatedMap = new Map(translateResult.data.map(t => [t.name, t.description]));
+            tools.forEach(tool => {
+              const translated = translatedMap.get(tool.name);
+              if (translated) {
+                tool.description = translated;
+              }
+            });
+          }
+        }
+        
+        setServerTools(tools);
       } else {
         setServerTools([]);
       }
@@ -176,6 +197,23 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
     }
   };
 
+  // Refresh translation - clear cache and re-translate
+  const handleRefreshTranslation = async () => {
+    if (!selectedTool) return;
+    
+    setTranslating(true);
+    try {
+      // Clear cache first
+      await clearTranslationCache();
+      // Reload tools (will trigger re-translation)
+      await loadServerTools(selectedTool.serverId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh translation');
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const handleToolClick = (tool: McpTool) => {
     setSelectedTool(tool);
     setServerTools([]);
@@ -184,7 +222,7 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
   const handleConfirm = () => {
     if (mode === 'aiToolSelection') {
       if (!aiTaskDescription.trim()) {
-        setError('任务描述是必填项');
+        setError(t('mcpEditDialog.taskDescRequired', '任务描述是必填项'));
         return;
       }
       onSelect('', '', {
@@ -193,12 +231,12 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
       });
     } else {
       if (!selectedTool) {
-        setError('请选择服务器');
+        setError(t('mcpDialog.selectServer', '请选择服务器'));
         return;
       }
 
       if (!aiParameterDescription.trim()) {
-        setError('参数描述是必填项');
+        setError(t('mcpEditDialog.paramDescRequired', '参数描述是必填项'));
         return;
       }
 
@@ -229,9 +267,9 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl h-[700px] flex flex-col">
         <DialogHeader>
-          <DialogTitle>配置 MCP 节点</DialogTitle>
+          <DialogTitle>{t('mcpDialog.title', '配置 MCP 节点')}</DialogTitle>
           <DialogDescription>
-            选择配置模式，然后根据需要选择工具和填写参数
+            {t('mcpDialog.description', '选择配置模式，然后根据需要选择工具和填写参数')}
           </DialogDescription>
         </DialogHeader>
 
@@ -246,7 +284,7 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
         <div className="flex-1 flex gap-4 min-h-0">
           {/* Left Panel - Mode Selection */}
           <div className="w-56 flex-shrink-0 space-y-2">
-            <h4 className="text-sm font-medium mb-3">配置模式</h4>
+            <h4 className="text-sm font-medium mb-3">{t('mcpEditDialog.configMode', '配置模式')}</h4>
 
             <button
               onClick={() => setMode('aiParameterConfig')}
@@ -259,10 +297,10 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
             >
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-purple-500" />
-                <span className="font-medium text-sm">AI 填参数</span>
+                <span className="font-medium text-sm">{t('mcpEditDialog.aiParamMode', 'AI 填参数')}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                选择服务器，AI 根据描述填参数
+                {t('mcpEditDialog.aiParamModeDesc', '选择服务器，AI 根据描述填参数')}
               </p>
             </button>
 
@@ -277,10 +315,10 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
             >
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-green-500" />
-                <span className="font-medium text-sm">AI 全自动</span>
+                <span className="font-medium text-sm">{t('mcpEditDialog.aiToolMode', 'AI 全自动')}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                描述任务，AI 选服务器和参数
+                {t('mcpEditDialog.aiToolModeDesc', '描述任务，AI 选服务器和参数')}
               </p>
             </button>
           </div>
@@ -291,7 +329,7 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
               {/* All Tools List */}
               <div className="w-72 flex-shrink-0 space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium">MCP 服务器</h4>
+                  <h4 className="text-sm font-medium">{t('mcpDialog.servers', 'MCP 服务器')}</h4>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -305,7 +343,7 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
                 <div className="relative">
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                   <Input
-                    placeholder="搜索服务器..."
+                    placeholder={t('mcpDialog.searchTools', '搜索服务器...')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-7 h-8 text-sm"
@@ -314,11 +352,11 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
                 <ScrollArea className="h-[calc(100%-4rem)]">
                   {loading ? (
                     <div className="text-xs text-muted-foreground p-2 text-center">
-                      加载中...
+                      {t('mcpDialog.loadingTools', '加载中...')}
                     </div>
                   ) : filteredTools.length === 0 ? (
                     <div className="text-xs text-muted-foreground p-2 text-center">
-                      没有可用的服务器
+                      {t('mcpDialog.noServers', '没有可用的服务器')}
                     </div>
                   ) : (
                     <div className="space-y-1">
@@ -355,24 +393,36 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
               <div className="flex-1 space-y-3 border-l pl-4 min-w-0 overflow-hidden">
                 {!selectedTool ? (
                   <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-                    ← 请先选择一个服务器
+                    {t('mcpDialog.selectServer', '← 请先选择一个服务器')}
                   </div>
                 ) : (
                   <>
                     {/* Server Capabilities Description */}
                     <div className="space-y-2">
-                      <h4 className="text-sm font-medium">{selectedTool.name} 详情</h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium">{selectedTool.name} {t('mcpDialog.toolDescription', '详情')}</h4>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={handleRefreshTranslation}
+                          disabled={loadingTools || translating}
+                          title={t('mcpDialog.refreshTranslation', '重新翻译')}
+                        >
+                          <RefreshCw className={cn("h-3 w-3", translating && "animate-spin")} />
+                        </Button>
+                      </div>
                       <ScrollArea className="h-40 border rounded-md p-3 bg-muted/30">
                         {loadingTools ? (
-                          <div className="text-xs text-muted-foreground text-center py-2">加载中...</div>
+                          <div className="text-xs text-muted-foreground text-center py-2">{t('loading', '加载中...')}</div>
                         ) : serverTools.length === 0 ? (
-                          <div className="text-xs text-muted-foreground text-center py-2">暂无详情</div>
+                          <div className="text-xs text-muted-foreground text-center py-2">{t('mcpDialog.noToolsAvailable', '暂无详情')}</div>
                         ) : (
                           <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
                             {serverTools.map((tool) => (
                               <li key={tool.name}>
                                 <span className="font-medium text-foreground">{tool.name}</span>
-                                {tool.description ? ` - ${tool.description}` : ' - 暂无描述'}
+                                {tool.description ? ` - ${tool.description}` : ` - ${t('mcpDialog.noToolsAvailable', '暂无描述')}`}
                               </li>
                             ))}
                           </ul>
@@ -382,16 +432,16 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
 
                     {/* Task Description */}
                     <div className="space-y-2">
-                      <h4 className="text-sm font-medium">任务描述 <span className="text-destructive">*</span></h4>
+                      <h4 className="text-sm font-medium">{t('mcpEditDialog.taskDescription', '任务描述')} <span className="text-destructive">*</span></h4>
                       <Textarea
                         value={aiParameterDescription}
                         onChange={(e) => setAiParameterDescription(e.target.value)}
-                        placeholder={"例如：读取 /path/to/file.txt 文件内容"}
+                        placeholder={t('mcpEditDialog.paramDescPlaceholder', '例如：读取 /path/to/file.txt 文件内容')}
                         rows={4}
                         className="text-sm"
                       />
                       <p className="text-xs text-muted-foreground">
-                        描述您想要完成的任务，AI 会自动选择合适的方法并填写参数
+                        {t('mcpEditDialog.aiParamHint', '描述您想要完成的任务，AI 会自动选择合适的方法并填写参数')}
                       </p>
                     </div>
                   </>
@@ -403,16 +453,16 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
           {/* AI Auto Mode - Task Description */}
           {mode === 'aiToolSelection' && (
             <div className="flex-1 border-l pl-4 space-y-3">
-              <h4 className="text-sm font-medium">任务描述</h4>
+              <h4 className="text-sm font-medium">{t('mcpEditDialog.taskDescription', '任务描述')}</h4>
               <Textarea
                 value={aiTaskDescription}
                 onChange={(e) => setAiTaskDescription(e.target.value)}
-                placeholder={"描述您想要完成的任务，例如：\n\n读取 /Users/test/config.json 文件的内容\n\n或者：\n\n在当前目录创建一个名为 output.txt 的文件，内容为上一步的处理结果"}
+                placeholder={t('mcpEditDialog.taskDescPlaceholder', '描述您想要完成的任务...')}
                 rows={12}
                 className="text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                AI 会根据任务描述自动选择合适的 MCP 服务器、工具，并填写相应的参数
+                {t('mcpEditDialog.aiToolHint', 'AI 会根据任务描述自动选择合适的 MCP 服务器、工具，并填写相应的参数')}
               </p>
             </div>
           )}
@@ -420,10 +470,10 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t('cancel', '取消')}
           </Button>
           <Button onClick={handleConfirm} disabled={!canConfirm()}>
-            确定
+            {t('mcpEditDialog.saveConfig', '确定')}
           </Button>
         </DialogFooter>
       </DialogContent>

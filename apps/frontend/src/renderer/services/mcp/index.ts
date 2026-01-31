@@ -260,3 +260,57 @@ export async function refreshMcpCache(): Promise<McpCacheRefreshedPayload> {
     };
   }
 }
+
+/**
+ * Translate tool descriptions to Chinese using AI
+ *
+ * @param descriptions - Array of tool names and descriptions to translate
+ * @returns Promise resolving to translated descriptions
+ *
+ * @example
+ * ```typescript
+ * const result = await translateToolDescriptions([
+ *   { name: 'read_file', description: 'Reads a file from the filesystem' }
+ * ]);
+ * // Returns [{ name: 'read_file', description: '从文件系统读取文件' }]
+ * ```
+ */
+export async function translateToolDescriptions(
+  descriptions: { name: string; description: string }[]
+): Promise<{ success: boolean; data?: { name: string; description: string }[]; error?: string }> {
+  try {
+    const result = await window.electronAPI.mcp.translateDescriptions(descriptions);
+    if (result.success && result.data) {
+      return {
+        success: true,
+        data: result.data,
+      };
+    }
+    return {
+      success: false,
+      error: result.error || 'Failed to translate descriptions',
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to translate descriptions',
+    };
+  }
+}
+
+/**
+ * Clear the translation cache
+ *
+ * @returns Promise resolving to clear result
+ */
+export async function clearTranslationCache(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await window.electronAPI.mcp.clearTranslationCache();
+    return { success: result.success };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to clear translation cache',
+    };
+  }
+}

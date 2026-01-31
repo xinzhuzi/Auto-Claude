@@ -70,6 +70,10 @@ export interface McpAPI {
   getToolSchema: (payload: GetMcpToolSchemaPayload) => Promise<IPCResult<McpToolSchemaResult>>;
   /** Refresh MCP cache (for workflow studio) */
   refreshCache: () => Promise<IPCResult<void>>;
+  /** Translate tool descriptions to Chinese using AI */
+  translateDescriptions: (descriptions: { name: string; description: string }[]) => Promise<IPCResult<{ name: string; description: string }[]>>;
+  /** Clear translation cache */
+  clearTranslationCache: () => Promise<IPCResult<void>>;
 }
 
 export function createMcpAPI(): McpAPI {
@@ -91,5 +95,11 @@ export function createMcpAPI(): McpAPI {
 
     refreshCache: () =>
       ipcRenderer.invoke(IPC_CHANNELS.MCP_REFRESH_CACHE),
+
+    translateDescriptions: (descriptions: { name: string; description: string }[]) =>
+      ipcRenderer.invoke(IPC_CHANNELS.MCP_TRANSLATE_DESCRIPTIONS, descriptions),
+
+    clearTranslationCache: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.MCP_CLEAR_TRANSLATION_CACHE),
   };
 }

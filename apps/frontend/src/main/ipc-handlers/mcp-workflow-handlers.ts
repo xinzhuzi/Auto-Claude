@@ -17,8 +17,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
-import { appLog } from '../app-logger';
+import { createLogger } from '../lib/logger';
+
+const logger = createLogger('MCP-Workflow');
 import { getConfiguredPythonPath } from '../python-env-manager';
+import { projectStore } from '../project-store';
 
 // ============================================================================
 // Types
@@ -93,7 +96,7 @@ function readJsonConfig(configPath: string): Record<string, unknown> | null {
     const content = fs.readFileSync(configPath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    appLog.warn(`[MCP] Failed to read config: ${configPath}`, error);
+    logger.warn(`[MCP] Failed to read config: ${configPath}`, error);
     return null;
   }
 }
@@ -185,11 +188,11 @@ function getAllMcpServers(projectPath?: string): McpServer[] {
 
   // Priority 0: Claude Code plugins (~/.claude/plugins/cache/*/.mcp.json)
   const claudePluginsDir = path.join(os.homedir(), '.claude', 'plugins', 'cache');
-  appLog.info(`[MCP] Scanning Claude plugins directory: ${claudePluginsDir}`);
+  logger.info(`[MCP] Scanning Claude plugins directory: ${claudePluginsDir}`);
   if (fs.existsSync(claudePluginsDir)) {
     try {
       const marketplaces = fs.readdirSync(claudePluginsDir);
-      appLog.info(`[MCP] Found marketplaces: ${marketplaces.join(', ')}`);
+      logger.info(`[MCP] Found marketplaces: ${marketplaces.join(', ')}`);
       for (const marketplace of marketplaces) {
         if (marketplace.startsWith('.')) continue; // Skip hidden files
         const marketplacePath = path.join(claudePluginsDir, marketplace);
@@ -210,14 +213,14 @@ function getAllMcpServers(projectPath?: string): McpServer[] {
 
             const mcpConfigPath = path.join(versionPath, '.mcp.json');
             if (fs.existsSync(mcpConfigPath)) {
-              appLog.info(`[MCP] Found MCP config: ${mcpConfigPath}`);
+              logger.info(`[MCP] Found MCP config: ${mcpConfigPath}`);
               addServersFromPluginConfig(mcpConfigPath, 'claude', 'user');
             }
           }
         }
       }
     } catch (error) {
-      appLog.warn('[MCP] Failed to scan Claude plugins directory:', error);
+      logger.warn('[MCP] Failed to scan Claude plugins directory:', error);
     }
   }
 
@@ -276,7 +279,48 @@ function getAllMcpServers(projectPath?: string): McpServer[] {
   // Priority 8: Codex CLI (~/.codex/config.toml) - simplified, skip TOML parsing for now
   // TODO: Add TOML parsing if needed
 
-  appLog.info(`[MCP] Found ${servers.length} MCP servers`);
+  // Priority 9: Auto-Claude custom MCP servers (from project .env file)
+  if (projectPath) {
+    try {
+      const envPath = path.join(projectPath, '.auto-claude', '.env');
+      if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf-8');
+        const customServersMatch = envContent.match(/CUSTOM_MCP_SERVERS=(.+)/);
+        if (customServersMatch) {
+          const customServersJson = customServersMatch[1].trim();
+          const customServers = JSON.parse(customServersJson) as Array<{
+            id: string;
+            name: string;
+            type: 'http' | 'command';
+            url?: string;
+            command?: string;
+            args?: string[];
+          }>;
+          
+          for (const customServer of customServers) {
+            if (seenIds.has(customServer.id)) continue;
+            seenIds.add(customServer.id);
+            
+            servers.push({
+              id: customServer.id,
+              name: customServer.name || customServer.id,
+              type: customServer.type,
+              url: customServer.url,
+              command: customServer.command,
+              args: customServer.args,
+              scope: 'user',
+              source: 'claude',
+            });
+            logger.info(`[MCP] Adde server from .env: ${customServer.name || customServer.id}`);
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn('[MCP] Failed to parse custom MCP servers from .env:', error);
+    }
+  }
+
+  logger.info(`[MCP] Found ${servers.length} MCP servers`);
   return servers;
 }
 
@@ -293,22 +337,67 @@ async function getToolsFromServer(server: McpServer): Promise<McpToolReference[]
 }
 
 /**
+ * Parse SSE response to extract JSON data
+ */
+function parseSseResponse(text: string): unknown {
+  const dataLine = text.split('\n').find(line => line.startsWith('data:'));
+  if (dataLine) {
+    return JSON.parse(dataLine.substring(5).trim());
+  }
+  return null;
+}
+
+/**
  * Get tools from HTTP MCP server
+ * Note: Some MCP servers (like Unity MCP) require initialize first to get session ID
  */
 async function getToolsFromHttpServer(server: McpServer): Promise<McpToolReference[]> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
-    const response = await fetch(server.url!, {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream',
+    };
+
+    // Step 1: Initialize to get session ID
+    const initResponse = await fetch(server.url!, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json, text/event-stream',
-      },
+      headers,
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: {
+            name: 'auto-claude-workflow',
+            version: '1.0.0',
+          },
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    if (!initResponse.ok) {
+      throw new Error(`Initialize failed: HTTP ${initResponse.status}`);
+    }
+
+    // Get session ID from response headers
+    const sessionId = initResponse.headers.get('mcp-session-id');
+    if (sessionId) {
+      headers['mcp-session-id'] = sessionId;
+    }
+
+    // Step 2: Get tools list
+    const response = await fetch(server.url!, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
         method: 'tools/list',
         params: {},
       }),
@@ -326,25 +415,25 @@ async function getToolsFromHttpServer(server: McpServer): Promise<McpToolReferen
 
     if (contentType.includes('text/event-stream')) {
       const text = await response.text();
-      const dataLine = text.split('\n').find(line => line.startsWith('data:'));
-      if (dataLine) {
-        data = JSON.parse(dataLine.substring(5).trim());
-      }
+      data = parseSseResponse(text);
     } else {
       data = await response.json();
     }
 
-    if (data?.result?.tools) {
-      return data.result.tools.map((tool: { name: string; description?: string }) => ({
-        name: tool.name,
-        description: tool.description || '',
-        serverId: server.id,
-      }));
+    if (data && typeof data === 'object' && 'result' in data) {
+      const result = (data as { result?: { tools?: Array<{ name: string; description?: string }> } }).result;
+      if (result?.tools) {
+        return result.tools.map((tool) => ({
+          name: tool.name,
+          description: tool.description || '',
+          serverId: server.id,
+        }));
+      }
     }
 
     return [];
   } catch (error) {
-    appLog.warn(`[MCP] Failed to get tools from HTTP server ${server.id}:`, error);
+    logger.warn(`[MCP] Failed to get tools from HTTP server ${server.id}:`, error);
     return [];
   }
 }
@@ -362,7 +451,7 @@ async function getToolsFromCommandServer(server: McpServer): Promise<McpToolRefe
     const isWindows = process.platform === 'win32';
     const args = server.args || [];
 
-    appLog.info(`[MCP] Starting command server ${server.id}: ${server.command} ${args.join(' ')}`);
+    logger.info(`[MCP] Starting command server ${server.id}: ${server.command} ${args.join(' ')}`);
 
     const proc = spawn(server.command!, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -377,7 +466,7 @@ async function getToolsFromCommandServer(server: McpServer): Promise<McpToolRefe
       if (!resolved) {
         resolved = true;
         proc.kill();
-        appLog.warn(`[MCP] Timeout getting tools from ${server.id}`);
+        logger.warn(`[MCP] Timeout getting tools from ${server.id}`);
         resolve([]);
       }
     }, 15000);
@@ -414,7 +503,7 @@ async function getToolsFromCommandServer(server: McpServer): Promise<McpToolRefe
             // Handle initialize response
             if (response.id === 1 && response.result && !initialized) {
               initialized = true;
-              appLog.info(`[MCP] Server ${server.id} initialized, requesting tools list`);
+              logger.info(`[MCP] Server ${server.id} initialized, requesting tools list`);
 
               // Now request tools list
               const toolsRequest = JSON.stringify({
@@ -440,7 +529,7 @@ async function getToolsFromCommandServer(server: McpServer): Promise<McpToolRefe
                   serverId: server.id,
                 }));
 
-                appLog.info(`[MCP] Got ${tools.length} tools from ${server.id}`);
+                logger.info(`[MCP] Got ${tools.length} tools from ${server.id}`);
                 resolve(tools);
               }
               return;
@@ -455,14 +544,14 @@ async function getToolsFromCommandServer(server: McpServer): Promise<McpToolRefe
     });
 
     proc.stderr.on('data', (data: Buffer) => {
-      appLog.warn(`[MCP] Server ${server.id} stderr: ${data.toString()}`);
+      logger.warn(`[MCP] Server ${server.id} stderr: ${data.toString()}`);
     });
 
     proc.on('error', (error: Error) => {
       if (!resolved) {
         resolved = true;
         clearTimeout(timeoutId);
-        appLog.error(`[MCP] Failed to start server ${server.id}:`, error);
+        logger.error(`[MCP] Failed to start server ${server.id}:`, error);
         resolve([]);
       }
     });
@@ -471,7 +560,7 @@ async function getToolsFromCommandServer(server: McpServer): Promise<McpToolRefe
       if (!resolved) {
         resolved = true;
         clearTimeout(timeoutId);
-        appLog.info(`[MCP] Server ${server.id} closed with code ${code}`);
+        logger.info(`[MCP] Server ${server.id} closed with code ${code}`);
         resolve([]);
       }
     });
@@ -489,18 +578,50 @@ async function getToolSchemaFromServer(
   if (server.type === 'http' && server.url) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
-      // First get the tools list to find the schema
-      const response = await fetch(server.url, {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+      };
+
+      // Step 1: Initialize to get session ID
+      const initResponse = await fetch(server.url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, text/event-stream',
-        },
+        headers,
         body: JSON.stringify({
           jsonrpc: '2.0',
           id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2024-11-05',
+            capabilities: {},
+            clientInfo: {
+              name: 'auto-claude-workflow',
+              version: '1.0.0',
+            },
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      if (!initResponse.ok) {
+        return null;
+      }
+
+      // Get session ID from response headers
+      const sessionId = initResponse.headers.get('mcp-session-id');
+      if (sessionId) {
+        headers['mcp-session-id'] = sessionId;
+      }
+
+      // Step 2: Get tools list to find the schema
+      const response = await fetch(server.url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 2,
           method: 'tools/list',
           params: {},
         }),
@@ -518,29 +639,29 @@ async function getToolSchemaFromServer(
 
       if (contentType.includes('text/event-stream')) {
         const text = await response.text();
-        const dataLine = text.split('\n').find(line => line.startsWith('data:'));
-        if (dataLine) {
-          data = JSON.parse(dataLine.substring(5).trim());
-        }
+        data = parseSseResponse(text);
       } else {
         data = await response.json();
       }
 
-      if (data?.result?.tools) {
-        const tool = data.result.tools.find((t: { name: string }) => t.name === toolName);
-        if (tool) {
-          return {
-            name: tool.name,
-            description: tool.description || '',
-            inputSchema: tool.inputSchema,
-            parameters: convertInputSchemaToParameters(tool.inputSchema),
-          };
+      if (data && typeof data === 'object' && 'result' in data) {
+        const result = (data as { result?: { tools?: Array<{ name: string; description?: string; inputSchema?: unknown }> } }).result;
+        if (result?.tools) {
+          const tool = result.tools.find((t) => t.name === toolName);
+          if (tool) {
+            return {
+              name: tool.name,
+              description: tool.description || '',
+              inputSchema: tool.inputSchema as McpToolSchema['inputSchema'],
+              parameters: convertInputSchemaToParameters(tool.inputSchema as McpToolSchema['inputSchema']),
+            };
+          }
         }
       }
 
       return null;
     } catch (error) {
-      appLog.warn(`[MCP] Failed to get tool schema from ${server.id}:`, error);
+      logger.warn(`[MCP] Failed to get tool schema from ${server.id}:`, error);
       return null;
     }
   }
@@ -686,7 +807,7 @@ asyncio.run(main())
       return { ...tool, description: '暂无描述' };
     });
   } catch (error) {
-    appLog.warn('[MCP] Translation failed, using original descriptions:', error);
+    logger.warn('[MCP] Translation failed, using original descriptions:', error);
     return tools.map(tool => ({
       ...tool,
       description: tool.description || '暂无描述'
@@ -702,7 +823,7 @@ asyncio.run(main())
  * Register MCP workflow studio IPC handlers
  */
 export function registerMcpWorkflowHandlers(): void {
-  appLog.info('[MCP Workflow] Registering MCP workflow studio handlers');
+  logger.info('[MCP Workflow] Registering MCP workflow studio handlers');
 
   // List all MCP servers
   ipcMain.handle(IPC_CHANNELS.MCP_LIST_SERVERS, async (_event, payload?: { filterByScope?: string[] }) => {
@@ -721,9 +842,16 @@ export function registerMcpWorkflowHandlers(): void {
         return { success: true, data: { servers } };
       }
 
-      // Refresh cache
-      // TODO: Get project path from active project
-      const servers = getAllMcpServers();
+      // Refresh cache - get project path from active project
+      const tabState = projectStore.getTabState();
+      let projectPath: string | undefined;
+      if (tabState.activeProjectId) {
+        const activeProject = projectStore.getProject(tabState.activeProjectId);
+        if (activeProject) {
+          projectPath = activeProject.path;
+        }
+      }
+      const servers = getAllMcpServers(projectPath);
       mcpCache.servers = servers;
       mcpCache.lastRefresh = now;
 
@@ -734,7 +862,7 @@ export function registerMcpWorkflowHandlers(): void {
 
       return { success: true, data: { servers: filteredServers } };
     } catch (error) {
-      appLog.error('[MCP Workflow] Failed to list servers:', error);
+      logger.error('[MCP Workflow] Failed to list servers:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to list MCP servers',
@@ -773,7 +901,7 @@ export function registerMcpWorkflowHandlers(): void {
 
       return { success: true, data: { tools: translatedTools } };
     } catch (error) {
-      appLog.error('[MCP Workflow] Failed to get tools:', error);
+      logger.error('[MCP Workflow] Failed to get tools:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get MCP tools',
@@ -811,7 +939,7 @@ export function registerMcpWorkflowHandlers(): void {
 
       return { success: true, data: { schema } };
     } catch (error) {
-      appLog.error('[MCP Workflow] Failed to get tool schema:', error);
+      logger.error('[MCP Workflow] Failed to get tool schema:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get MCP tool schema',
@@ -828,10 +956,10 @@ export function registerMcpWorkflowHandlers(): void {
       mcpCache.translatedTools.clear();
       mcpCache.lastRefresh = 0;
 
-      appLog.info('[MCP Workflow] Cache cleared');
+      logger.info('[MCP Workflow] Cache cleared');
       return { success: true };
     } catch (error) {
-      appLog.error('[MCP Workflow] Failed to refresh cache:', error);
+      logger.error('[MCP Workflow] Failed to refresh cache:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to refresh MCP cache',
@@ -839,5 +967,5 @@ export function registerMcpWorkflowHandlers(): void {
     }
   });
 
-  appLog.info('[MCP Workflow] MCP workflow studio handlers registered');
+  logger.info('[MCP Workflow] MCP workflow studio handlers registered');
 }

@@ -541,6 +541,8 @@ export const IPC_CHANNELS = {
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+  MCP_TRANSLATE_DESCRIPTIONS: 'mcp:translateDescriptions', // Translate tool descriptions to Chinese
+  MCP_CLEAR_TRANSLATION_CACHE: 'mcp:clearTranslationCache', // Clear translation cache
 
   // MCP Workflow Studio operations (for workflow editor)
   MCP_LIST_SERVERS: 'mcp:listServers',           // List all configured MCP servers
