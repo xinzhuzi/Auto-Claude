@@ -13,7 +13,7 @@ import { createLogger } from '../lib/logger';
 const logger = createLogger('MCP');
 import { isWindows } from '../platform';
 // Import custom MetaMCP handler (won't be overwritten by upstream merges)
-import { isMetaMcpServer, testMetaMcpConnection, checkMetaMcpHealth } from '../custom/metamcp-handler';
+import { isMetaMcpServer, testMetaMcpConnection, checkMetaMcpHealth, isUnityMcpServer, checkUnityMcpHealth } from '../custom/metamcp-handler';
 // Import tool description translator
 import { toolDescriptionTranslator } from '../tool-description-translator';
 
@@ -83,6 +83,11 @@ async function checkMcpHealth(server: CustomMcpServer): Promise<McpHealthCheckRe
     if (isMetaMcpServer(server)) {
       logger.info('[MCP] Detected MetaMCP server for health check, using custom handler');
       return checkMetaMcpHealth(server);
+    }
+    // Check if this is a Unity MCP server and use custom handler
+    if (isUnityMcpServer(server)) {
+      logger.info('[MCP] Detected Unity MCP server for health check, using custom handler');
+      return checkUnityMcpHealth(server);
     }
     return checkHttpHealth(server, startTime);
   } else {
@@ -871,7 +876,7 @@ export function registerMcpHandlers(): void {
 
   // Full connection test
   ipcMain.handle(IPC_CHANNELS.MCP_TEST_CONNECTION, async (_event, server: CustomMcpServer) => {
-    logger.info('[MCP] MCP_TEST_CONNECTION called for server:', server.id, server.name, server.type);
+    logger.info(`[MCP] MCP_TEST_CONNECTION called for server: ${server.id}, ${server.name}, ${server.type}`);
     try {
       const result = await testMcpConnection(server);
       logger.info('[MCP] MCP_TEST_CONNECTION result:', result);

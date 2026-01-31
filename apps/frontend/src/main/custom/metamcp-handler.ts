@@ -229,6 +229,175 @@ export function isMetaMcpServer(server: CustomMcpServer): boolean {
 }
 
 /**
+ * Check if a server is a Unity MCP server.
+ * Unity MCP requires session-based communication (POST with initialize first).
+ */
+export function isUnityMcpServer(server: CustomMcpServer): boolean {
+  if (!server.url) return false;
+  const url = server.url.toLowerCase();
+  const name = (server.name || '').toLowerCase();
+  const id = (server.id || '').toLowerCase();
+  return (
+    url.includes('unity') ||
+    url.includes(':6400') ||
+    url.includes(':6401') ||
+    url.includes(':6402') ||
+    name.includes('unity') ||
+    id.includes('unity')
+  );
+}
+
+/**
+ * Quick health check for Unity MCP server.
+ * Uses MCP protocol (POST with initialize) instead of simple GET request.
+ */
+export async function checkUnityMcpHealth(server: CustomMcpServer): Promise<McpHealthCheckResult> {
+  const startTime = Date.now();
+
+  if (!server.url) {
+    return {
+      serverId: server.id,
+      status: 'unhealthy',
+      message: 'No URL configured',
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream',
+    };
+
+    if (server.headers) {
+      Object.assign(headers, server.headers);
+    }
+
+    // Unity MCP requires POST with initialize - GET will return 400
+    const initRequest = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: {
+          name: 'auto-claude-health-check',
+          version: '1.0.0',
+        },
+      },
+    };
+
+    const response = await fetch(server.url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(initRequest),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+    const responseTime = Date.now() - startTime;
+
+    // Get session ID from response headers
+    const sessionId = response.headers.get('mcp-session-id');
+    const contentType = response.headers.get('content-type') || '';
+
+    // Handle SSE response
+    if (contentType.includes('text/event-stream')) {
+      return {
+        serverId: server.id,
+        status: 'healthy',
+        message: sessionId ? 'Unity MCP connected' : 'Unity MCP responding (SSE)',
+        responseTime,
+        checkedAt: new Date().toISOString(),
+      };
+    }
+
+    if (response.ok) {
+      // Try to parse response
+      try {
+        const text = await response.text();
+        let data;
+
+        if (text.includes('event:') || text.includes('data:')) {
+          // SSE format
+          const dataLine = text.split('\n').find(line => line.startsWith('data:'));
+          if (dataLine) {
+            data = JSON.parse(dataLine.substring(5).trim());
+          }
+        } else {
+          data = JSON.parse(text);
+        }
+
+        if (data?.result || data?.id) {
+          return {
+            serverId: server.id,
+            status: 'healthy',
+            statusCode: response.status,
+            message: 'Unity MCP connected',
+            responseTime,
+            checkedAt: new Date().toISOString(),
+          };
+        }
+      } catch {
+        // Parse failed but response was OK
+        return {
+          serverId: server.id,
+          status: 'healthy',
+          statusCode: response.status,
+          message: 'Unity MCP responding',
+          responseTime,
+          checkedAt: new Date().toISOString(),
+        };
+      }
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        serverId: server.id,
+        status: 'needs_auth',
+        statusCode: response.status,
+        message: response.status === 401 ? 'Authentication required' : 'Access forbidden',
+        responseTime,
+        checkedAt: new Date().toISOString(),
+      };
+    }
+
+    return {
+      serverId: server.id,
+      status: 'unhealthy',
+      statusCode: response.status,
+      message: `HTTP ${response.status}: ${response.statusText}`,
+      responseTime,
+      checkedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    let message = errorMessage;
+    if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
+      message = 'Connection timed out';
+    } else if (errorMessage.includes('ECONNREFUSED')) {
+      message = 'Unity Editor not running or MCP not enabled';
+    } else if (errorMessage.includes('ENOTFOUND')) {
+      message = 'Server not found - check URL';
+    }
+
+    return {
+      serverId: server.id,
+      status: 'unhealthy',
+      message,
+      responseTime,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+}
+
+/**
  * Quick health check for MetaMCP server.
  * Uses MCP protocol instead of simple GET request.
  */

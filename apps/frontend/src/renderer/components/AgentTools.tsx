@@ -897,7 +897,7 @@ export function AgentTools() {
       }));
 
       try {
-        const result = await window.electronAPI.checkMcpHealth(server);
+        const result = await window.electronAPI.mcp.checkMcpHealth(server);
         if (result.success && result.data) {
           setServerHealthStatus(prev => ({
             ...prev,
@@ -930,7 +930,7 @@ export function AgentTools() {
     setTestingServers(prev => new Set(prev).add(server.id));
 
     try {
-      const result = await window.electronAPI.testMcpConnection(server);
+      const result = await window.electronAPI.mcp.testMcpConnection(server);
       if (result.success && result.data) {
         // Update health status based on test result
         setServerHealthStatus(prev => ({

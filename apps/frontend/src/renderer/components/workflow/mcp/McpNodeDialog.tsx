@@ -18,7 +18,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { ScrollArea } from '../../ui/scroll-area';
 import { Textarea } from '../../ui/textarea';
-import { Search, Server, RefreshCw, AlertCircle, Sparkles, Zap } from 'lucide-react';
+import { Search, Server, RefreshCw, AlertCircle, Sparkles, Zap, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import {
   listMcpServers,
@@ -27,6 +27,7 @@ import {
   translateToolDescriptions,
   clearTranslationCache,
 } from '../../../services/mcp';
+import type { CustomMcpServer } from '../../../../shared/types/project';
 
 interface McpServer {
   id: string;
@@ -35,6 +36,10 @@ interface McpServer {
   connected: boolean;
   scope?: string;
   source?: string;
+  type?: 'http';
+  url?: string;
+  command?: string;
+  args?: string[];
 }
 
 interface McpTool {
@@ -83,6 +88,7 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingHealth, setCheckingHealth] = useState(false);
 
   // Parameter state
   const [aiParameterDescription, setAiParameterDescription] = useState('');
@@ -157,8 +163,10 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
   };
 
   // Load all MCP servers (display server names, not individual tools)
+  // Only show servers that are actually connected (healthy)
   const loadAllTools = async () => {
     setLoading(true);
+    setCheckingHealth(true);
     setError(null);
     try {
       const serverResult = await listMcpServers();
@@ -168,19 +176,46 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
         return;
       }
 
-      // Display servers as selectable items
-      const serverList = serverResult.servers.map((server) => ({
-        name: server.name,
-        description: server.scope,
-        serverId: server.id,
-      }));
+      // Check health of each server and only include connected ones
+      const connectedServers: McpTool[] = [];
 
-      setTools(serverList);
+      for (const server of serverResult.servers) {
+        try {
+          // Build server config for health check
+          const serverConfig: CustomMcpServer = {
+            id: server.id,
+            name: server.name,
+            type: server.type === 'http' ? 'http' : 'command',
+            url: server.url,
+            command: server.command,
+            args: server.args,
+          };
+
+          const healthResult = await window.electronAPI.mcp.checkMcpHealth(serverConfig);
+
+          if (healthResult.success && healthResult.data?.status === 'healthy') {
+            connectedServers.push({
+              name: server.name,
+              description: server.scope,
+              serverId: server.id,
+            });
+          }
+        } catch {
+          // Skip servers that fail health check
+        }
+      }
+
+      setTools(connectedServers);
+
+      if (connectedServers.length === 0 && serverResult.servers.length > 0) {
+        setError(t('mcpDialog.noConnectedServers', '没有已连接的服务器，请检查 MCP 服务器状态'));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load MCP servers');
       setTools([]);
     } finally {
       setLoading(false);
+      setCheckingHealth(false);
     }
   };
 
@@ -352,11 +387,19 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
                 <ScrollArea className="h-[calc(100%-4rem)]">
                   {loading ? (
                     <div className="text-xs text-muted-foreground p-2 text-center">
-                      {t('mcpDialog.loadingTools', '加载中...')}
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {checkingHealth
+                          ? t('mcpDialog.checkingHealth', '检查服务器连接状态...')
+                          : t('mcpDialog.loadingTools', '加载中...')}
+                      </div>
                     </div>
                   ) : filteredTools.length === 0 ? (
                     <div className="text-xs text-muted-foreground p-2 text-center">
-                      {t('mcpDialog.noServers', '没有可用的服务器')}
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        {t('mcpDialog.noConnectedServers', '没有已连接的服务器')}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-1">
@@ -371,14 +414,15 @@ export const McpNodeDialog: React.FC<McpNodeDialogProps> = ({
                           )}
                         >
                           <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-3 w-3 flex-shrink-0 text-emerald-500" />
                             <Server className="h-3 w-3 flex-shrink-0 text-primary" />
                             <span className="text-sm font-medium truncate">{tool.name}</span>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate pl-5">
                             {tool.serverId}
                           </div>
                           {tool.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 pl-5">
                               {tool.description}
                             </p>
                           )}

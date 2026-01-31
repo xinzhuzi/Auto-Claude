@@ -14,10 +14,15 @@ import { app } from 'electron';
 log.transports.file.level = 'info';
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
 
-// Set log file location
-if (app.isReady()) {
-  log.transports.file.resolvePathFn = () => path.join(app.getPath('logs'), 'main.log');
-}
+// Set log file location - use callback to ensure it works even before app is ready
+log.transports.file.resolvePathFn = () => {
+  try {
+    return path.join(app.getPath('logs'), 'main.log');
+  } catch {
+    // Fallback if app is not ready yet
+    return path.join(process.env.HOME || '/tmp', 'Library', 'Logs', 'ai-staff', 'main.log');
+  }
+};
 
 export enum LogLevel {
   DEBUG = 0,
