@@ -18,8 +18,18 @@ export const PromptNode: React.FC<NodeProps> = ({ data, selected }) => {
       "w-64 p-4 border-2 transition-all",
       selected && "border-primary"
     )}>
-      <Handle type="target" position={Position.Top} />
-      <Handle type="source" position={Position.Bottom} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="output"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
+      />
 
       <div className="flex items-center gap-2 mb-3">
         <MessageSquare className="w-4 h-4 text-primary" />

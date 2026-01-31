@@ -14,6 +14,8 @@ export interface SubAgentData {
   prompt?: string;
   model?: string;
   color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'pink';
+  agentId?: string;
+  icon?: string;
 }
 
 // Color mapping for sub-agent badges
@@ -42,14 +44,22 @@ export const SubAgentNode: React.FC<NodeProps<SubAgentData>> = ({
       )}
     >
       {/* Node Header */}
-      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-        Sub-Agent
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+        {data.icon && <span className="text-sm normal-case">{data.icon}</span>}
+        <span>Sub-Agent</span>
       </div>
 
       {/* Node Description */}
       <div className="text-[13px] text-foreground mb-2 font-medium">
         {data.description || 'Untitled Sub-Agent'}
       </div>
+
+      {/* Agent ID */}
+      {data.agentId && (
+        <div className="text-[10px] text-muted-foreground mb-2">
+          {data.agentId}
+        </div>
+      )}
 
       {/* Prompt Preview */}
       {data.prompt && (
@@ -85,7 +95,7 @@ export const SubAgentNode: React.FC<NodeProps<SubAgentData>> = ({
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 bg-primary border-2 border-background"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
       />
 
       {/* Output Handle */}
@@ -93,7 +103,7 @@ export const SubAgentNode: React.FC<NodeProps<SubAgentData>> = ({
         type="source"
         position={Position.Right}
         id="output"
-        className="w-3 h-3 bg-primary border-2 border-background"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
       />
     </div>
   );

@@ -630,5 +630,8 @@ export const IPC_CHANNELS = {
 
   // Template operations
   TEMPLATE_LIST: 'template:list',
-  TEMPLATE_APPLY: 'template:apply'
+  TEMPLATE_APPLY: 'template:apply',
+
+  // Agent operations (for SubAgent node)
+  AGENT_LIST_FROM_PROJECT: 'agent:listFromProject'
 } as const;

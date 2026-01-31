@@ -15,7 +15,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NodePalette, PropertyPanel, ExecutionPanel, Toolbar } from './workflow';
+import { PropertyPanel, ExecutionPanel, Toolbar } from './workflow';
 import WorkflowCanvasWithProvider from './workflow/WorkflowCanvas';
 import { useWorkflowStore, useActiveWorkflow } from '../stores/workflow-store';
 import { Button } from './ui/button';
@@ -458,17 +458,16 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Node Palette */}
-        <NodePalette />
-
         {/* Center: Canvas + Execution Panel */}
         <div className="flex-1 flex flex-col">
           {/* Main Canvas Area */}
-          <div className="flex-1 flex">
+          <div className="flex-1 flex min-h-0">
             <WorkflowCanvasWithProvider className="flex-1" />
 
-            {/* Right: Property Panel */}
-            <PropertyPanel />
+            {/* Right: Property Panel - fixed width, scrollable */}
+            <div className="w-80 flex-shrink-0 overflow-hidden">
+              <PropertyPanel className="h-full" />
+            </div>
           </div>
 
           {/* Bottom: Execution Panel */}

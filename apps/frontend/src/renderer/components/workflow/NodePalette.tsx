@@ -5,7 +5,6 @@
  */
 
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Play,
   Square,
@@ -15,7 +14,8 @@ import {
   GitBranch,
   GitMerge,
   HelpCircle,
-  Bot
+  Bot,
+  Terminal
 } from 'lucide-react';
 import { Card } from '../ui/card';
 import { cn } from '../../lib/utils';
@@ -26,9 +26,9 @@ interface NodePaletteProps {
 
 interface NodeType {
   type: string;
-  labelKey: string;
+  label: string;
   icon: React.ReactNode;
-  descriptionKey: string;
+  description: string;
   category: 'basic' | 'execution' | 'control';
 }
 
@@ -36,76 +36,81 @@ const nodeTypes: NodeType[] = [
   // Basic Nodes
   {
     type: 'start',
-    labelKey: 'nodes.start.label',
+    label: '开始',
     icon: <Play className="h-5 w-5" />,
-    descriptionKey: 'nodes.start.description',
+    description: '工作流的起点',
     category: 'basic',
   },
   {
     type: 'end',
-    labelKey: 'nodes.end.label',
+    label: '结束',
     icon: <Square className="h-5 w-5" />,
-    descriptionKey: 'nodes.end.description',
+    description: '工作流的终点',
     category: 'basic',
   },
   {
     type: 'prompt',
-    labelKey: 'nodes.prompt.label',
+    label: '提示词',
     icon: <MessageSquare className="h-5 w-5" />,
-    descriptionKey: 'nodes.prompt.description',
+    description: '发送提示词给 AI',
     category: 'basic',
   },
 
   // Execution Nodes
   {
     type: 'skill',
-    labelKey: 'nodes.skill.label',
+    label: '技能',
     icon: <Zap className="h-5 w-5" />,
-    descriptionKey: 'nodes.skill.description',
+    description: '执行预定义的技能',
     category: 'execution',
   },
   {
     type: 'mcp',
-    labelKey: 'nodes.mcp.label',
+    label: 'MCP 工具',
     icon: <Plug className="h-5 w-5" />,
-    descriptionKey: 'nodes.mcp.description',
+    description: '调用 MCP 服务器工具',
     category: 'execution',
   },
   {
     type: 'subAgent',
-    labelKey: 'nodes.subAgent.label',
+    label: '子代理',
     icon: <Bot className="h-5 w-5" />,
-    descriptionKey: 'nodes.subAgent.description',
+    description: '启动子代理执行任务',
+    category: 'execution',
+  },
+  {
+    type: 'command',
+    label: '快捷命令',
+    icon: <Terminal className="h-5 w-5" />,
+    description: '执行 slash 命令',
     category: 'execution',
   },
 
   // Control Flow Nodes
   {
     type: 'ifElse',
-    labelKey: 'nodes.ifElse.label',
+    label: '条件判断',
     icon: <GitBranch className="h-5 w-5" />,
-    descriptionKey: 'nodes.ifElse.description',
+    description: '根据条件选择分支',
     category: 'control',
   },
   {
     type: 'switch',
-    labelKey: 'nodes.switch.label',
+    label: '多路分支',
     icon: <GitMerge className="h-5 w-5" />,
-    descriptionKey: 'nodes.switch.description',
+    description: '多条件分支选择',
     category: 'control',
   },
   {
     type: 'askUserQuestion',
-    labelKey: 'nodes.askUser.label',
+    label: '询问用户',
     icon: <HelpCircle className="h-5 w-5" />,
-    descriptionKey: 'nodes.askUser.description',
+    description: '暂停并等待用户输入',
     category: 'control',
   },
 ];
 
 export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
-  const { t } = useTranslation('workflowStudio');
-
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
@@ -121,15 +126,13 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
   }, {} as Record<string, NodeType[]>);
 
   const categoryLabels = {
-    basic: t('basicNodes'),
-    execution: t('executionNodes'),
-    control: t('controlFlow'),
+    basic: '基础节点',
+    execution: '执行节点',
+    control: '流程控制',
   };
 
   return (
     <Card className={cn('w-64 p-4 overflow-y-auto border-r', className)}>
-      <h3 className="font-semibold mb-4 text-lg">{t('palette.title')}</h3>
-
       <div className="space-y-6">
         {Object.entries(groupedNodes).map(([category, nodes]) => (
           <div key={category}>
@@ -151,7 +154,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
                   )}
                   draggable
                   onDragStart={(e) => onDragStart(e, node.type)}
-                  title={t(node.descriptionKey)}
+                  title={node.description}
                 >
                   <div className="flex items-start gap-3">
                     {/* Icon */}
@@ -162,10 +165,10 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
                     {/* Label and Description */}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-foreground mb-0.5">
-                        {t(node.labelKey)}
+                        {node.label}
                       </div>
                       <div className="text-xs text-muted-foreground line-clamp-2">
-                        {t(node.descriptionKey)}
+                        {node.description}
                       </div>
                     </div>
                   </div>
@@ -185,12 +188,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className }) => {
         ))}
       </div>
 
-      {/* Quick Tips */}
-      <div className="mt-6 p-3 bg-muted/50 rounded-lg">
-        <p className="text-xs text-muted-foreground">
-          {t('quickStart')}
-        </p>
-      </div>
+      {/* Quick Tips - Removed */}
     </Card>
   );
 };

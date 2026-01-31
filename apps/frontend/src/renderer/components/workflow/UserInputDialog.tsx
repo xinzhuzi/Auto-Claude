@@ -132,9 +132,9 @@ export function UserInputDialog() {
     <Dialog open={!!currentRequest} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>User Input Required</DialogTitle>
+          <DialogTitle>🙋 等待您的输入</DialogTitle>
           <DialogDescription>
-            The workflow is waiting for your input to continue.
+            工作流正在等待您的选择或输入后继续执行
           </DialogDescription>
         </DialogHeader>
 
@@ -195,7 +195,7 @@ export function UserInputDialog() {
             // Text input
             <div className="space-y-2">
               <Input
-                placeholder="Enter your response..."
+                placeholder="请输入您的回复..."
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -217,13 +217,13 @@ export function UserInputDialog() {
             onClick={handleCancel}
             disabled={isSubmitting}
           >
-            Cancel
+            取消
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!isValid() || isSubmitting}
           >
-            {isSubmitting ? 'Submitting...' : 'Submit'}
+            {isSubmitting ? '提交中...' : '确认'}
           </Button>
         </DialogFooter>
       </DialogContent>

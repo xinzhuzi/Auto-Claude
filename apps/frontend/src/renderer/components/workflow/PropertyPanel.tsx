@@ -32,10 +32,12 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
 
   if (!activeWorkflow) {
     return (
-      <Card className={cn("w-80 p-4 overflow-y-auto", className)}>
-        <h3 className="font-semibold mb-4">{t('properties.title', 'Properties')}</h3>
-        <div className="text-sm text-muted-foreground">
-          {t('properties.noWorkflow', 'No workflow selected')}
+      <Card className={cn("w-full h-full flex flex-col overflow-hidden", className)}>
+        <div className="p-4">
+          <h3 className="font-semibold mb-4">{t('properties.title', 'Properties')}</h3>
+          <div className="text-sm text-muted-foreground">
+            {t('properties.noWorkflow', 'No workflow selected')}
+          </div>
         </div>
       </Card>
     );
@@ -43,10 +45,12 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
 
   if (!selectedNode) {
     return (
-      <Card className={cn("w-80 p-4 overflow-y-auto", className)}>
-        <h3 className="font-semibold mb-4">{t('properties.title', 'Properties')}</h3>
-        <div className="text-sm text-muted-foreground">
-          {t('properties.noNodeSelected', 'Select a node to view properties')}
+      <Card className={cn("w-full h-full flex flex-col overflow-hidden", className)}>
+        <div className="p-4">
+          <h3 className="font-semibold mb-4">{t('properties.title', 'Properties')}</h3>
+          <div className="text-sm text-muted-foreground">
+            {t('properties.noNodeSelected', 'Select a node to view properties')}
+          </div>
         </div>
       </Card>
     );
@@ -57,36 +61,55 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
   };
 
   return (
-    <Card className={cn("w-80 p-4 overflow-y-auto", className)}>
-      <div className="space-y-4">
-        {/* Header */}
-        <div>
-          <h3 className="font-semibold text-lg">{t('properties.title', 'Properties')}</h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            {t(`nodes.${selectedNode.type}.name`, selectedNode.type)}
-          </p>
-        </div>
+    <Card className={cn("w-full h-full flex flex-col overflow-hidden", className)}>
+      {/* Fixed Header */}
+      <div className="p-4 pb-2 border-b flex-shrink-0">
+        <h3 className="font-semibold text-lg">{getNodeTitle(selectedNode.type)}</h3>
+      </div>
 
-        {/* Node Name */}
-        <div className="space-y-2">
-          <Label htmlFor="node-name">{t('properties.nodeName', 'Node Name')}</Label>
-          <Input
-            id="node-name"
-            value={selectedNode.name}
-            onChange={(e) => {
-              // Update node name (this would need a separate action in the store)
-              // For now, we'll skip this as it requires updating the node itself, not just data
-            }}
-            placeholder={t('properties.nodeNamePlaceholder', 'Enter node name')}
-          />
-        </div>
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
+        <div className="space-y-4">
+          {/* Node Name */}
+          <div className="space-y-2">
+            <Label htmlFor="node-name">{t('properties.nodeName', 'Node Name')}</Label>
+            <Input
+              id="node-name"
+              value={selectedNode.name}
+              onChange={(e) => {
+                // Update node name (this would need a separate action in the store)
+                // For now, we'll skip this as it requires updating the node itself, not just data
+              }}
+              placeholder={t('properties.nodeNamePlaceholder', 'Enter node name')}
+            />
+          </div>
 
-        {/* Node-specific properties */}
-        {renderNodeProperties(selectedNode, handleUpdate, t)}
+          {/* Node-specific properties */}
+          {renderNodeProperties(selectedNode, handleUpdate, t)}
+        </div>
       </div>
     </Card>
   );
 };
+
+// Get node title based on type
+function getNodeTitle(type: string): string {
+  const titles: Record<string, string> = {
+    start: '开始节点',
+    end: '结束节点',
+    prompt: '提示词节点',
+    skill: '技能节点',
+    mcp: 'MCP 工具节点',
+    subAgent: '子代理节点',
+    ifElse: '条件判断',
+    switch: '多路分支',
+    askUserQuestion: '询问用户',
+    command: '快捷命令',
+    branch: '分支节点',
+    subAgentFlow: '子代理流程',
+  };
+  return titles[type] || type;
+}
 
 function renderNodeProperties(
   node: WorkflowNode,
@@ -282,32 +305,37 @@ function renderNodeProperties(
       return (
         <>
           <div className="space-y-2">
-            <Label htmlFor="evaluationTarget">{t('properties.evaluationTarget', 'Evaluation Target')}</Label>
-            <Input
+            <Label htmlFor="evaluationTarget">{t('properties.evaluationTarget', '判断条件')}</Label>
+            <Textarea
               id="evaluationTarget"
               value={node.data.evaluationTarget || ''}
               onChange={(e) => handleUpdate({ evaluationTarget: e.target.value })}
-              placeholder={t('properties.evaluationTargetPlaceholder', 'Variable to evaluate')}
+              placeholder={t('properties.evaluationTargetPlaceholder', '基于上一节点的输出结果，描述判断条件...\n\n示例：\n• 用户选择了"确认"\n• 返回结果包含"成功"\n• 数值大于100')}
+              rows={5}
             />
+            <p className="text-xs text-muted-foreground">
+              AI 将根据上一节点的输出结果判断此条件是否为真
+            </p>
           </div>
           <div className="space-y-2">
-            <Label>{t('properties.branches', 'Branches')}</Label>
+            <Label>{t('properties.branches', '分支')}</Label>
             {node.data.branches.map((branch, index) => (
               <div key={branch.id || index} className="border rounded p-2 space-y-2">
                 <span className="text-xs font-medium">
-                  {index === 0 ? t('properties.ifBranch', 'If') : t('properties.elseBranch', 'Else')}
+                  {index === 0 ? t('properties.ifBranch', '✓ 条件为真时') : t('properties.elseBranch', '✗ 条件为假时')}
                 </span>
-                {index === 0 && (
-                  <Input
-                    value={branch.condition}
-                    onChange={(e) => {
-                      const newBranches = [...node.data.branches];
-                      newBranches[0] = { ...branch, condition: e.target.value };
-                      handleUpdate({ branches: newBranches });
-                    }}
-                    placeholder={t('properties.conditionPlaceholder', 'Condition')}
-                  />
-                )}
+                <Textarea
+                  value={branch.condition}
+                  onChange={(e) => {
+                    const newBranches = [...node.data.branches];
+                    newBranches[index] = { ...branch, condition: e.target.value };
+                    handleUpdate({ branches: newBranches });
+                  }}
+                  placeholder={index === 0
+                    ? t('properties.trueBranchPlaceholder', '条件为真时执行的 AI 对话指令')
+                    : t('properties.falseBranchPlaceholder', '条件为假时执行的 AI 对话指令')}
+                  rows={4}
+                />
               </div>
             ))}
           </div>
@@ -318,24 +346,28 @@ function renderNodeProperties(
       return (
         <>
           <div className="space-y-2">
-            <Label htmlFor="evaluationTarget">{t('properties.evaluationTarget', 'Evaluation Target')}</Label>
-            <Input
+            <Label htmlFor="evaluationTarget">{t('properties.evaluationTarget', '判断条件')}</Label>
+            <Textarea
               id="evaluationTarget"
               value={node.data.evaluationTarget || ''}
               onChange={(e) => handleUpdate({ evaluationTarget: e.target.value })}
-              placeholder={t('properties.evaluationTargetPlaceholder', 'Variable to evaluate')}
+              placeholder={t('properties.evaluationTargetPlaceholder', '基于上一节点的输出结果，描述判断条件...\n\n示例：\n• 用户选择了哪个选项\n• 返回结果的类型\n• 数值所在的范围')}
+              rows={5}
             />
+            <p className="text-xs text-muted-foreground">
+              AI 将根据上一节点的输出结果匹配对应的分支
+            </p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>{t('properties.cases', 'Cases')}</Label>
+              <Label>{t('properties.cases', '分支条件')}</Label>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => {
                   const newBranch = {
                     id: `case-${Date.now()}`,
-                    label: '',
+                    label: `分支 ${node.data.branches.length}`,
                     condition: '',
                   };
                   // Insert before the default branch (last one)
@@ -345,14 +377,14 @@ function renderNodeProperties(
                 }}
               >
                 <Plus className="h-4 w-4 mr-1" />
-                {t('properties.addCase', 'Add')}
+                {t('properties.addCase', '添加')}
               </Button>
             </div>
             {node.data.branches.map((branch, index) => (
               <div key={branch.id || index} className="border rounded p-2 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium">
-                    {branch.isDefault ? t('properties.defaultCase', 'Default') : `Case ${index + 1}`}
+                    {branch.isDefault ? t('properties.defaultCase', '⚡ 默认分支') : `📌 分支 ${index + 1}`}
                   </span>
                   {!branch.isDefault && (
                     <Button
@@ -367,7 +399,7 @@ function renderNodeProperties(
                     </Button>
                   )}
                 </div>
-                {!branch.isDefault && (
+                {!branch.isDefault ? (
                   <>
                     <Input
                       value={branch.label}
@@ -376,18 +408,30 @@ function renderNodeProperties(
                         newBranches[index] = { ...branch, label: e.target.value };
                         handleUpdate({ branches: newBranches });
                       }}
-                      placeholder={t('properties.caseLabel', 'Label')}
+                      placeholder={t('properties.caseLabel', '分支名称')}
                     />
-                    <Input
+                    <Textarea
                       value={branch.condition}
                       onChange={(e) => {
                         const newBranches = [...node.data.branches];
                         newBranches[index] = { ...branch, condition: e.target.value };
                         handleUpdate({ branches: newBranches });
                       }}
-                      placeholder={t('properties.conditionPlaceholder', 'Condition')}
+                      placeholder={t('properties.conditionPlaceholder', '匹配此分支的条件，例如：用户选择了"选项A"')}
+                      rows={3}
                     />
                   </>
+                ) : (
+                  <Textarea
+                    value={branch.condition}
+                    onChange={(e) => {
+                      const newBranches = [...node.data.branches];
+                      newBranches[index] = { ...branch, condition: e.target.value };
+                      handleUpdate({ branches: newBranches });
+                    }}
+                    placeholder={t('properties.defaultConditionPlaceholder', '当其他分支都不匹配时执行的 AI 对话指令')}
+                    rows={3}
+                  />
                 )}
               </div>
             ))}
@@ -634,6 +678,43 @@ function renderNodeProperties(
               value={node.data.subAgentFlowId}
               onChange={(e) => handleUpdate({ subAgentFlowId: e.target.value })}
               placeholder={t('properties.subAgentFlowIdPlaceholder', 'Flow ID')}
+            />
+          </div>
+        </>
+      );
+
+    case 'command':
+      return (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="commandName">命令名称</Label>
+            <Input
+              id="commandName"
+              value={node.data.commandName || ''}
+              onChange={(e) => handleUpdate({ commandName: e.target.value })}
+              placeholder="例如: commit, review-pr"
+            />
+            <p className="text-xs text-muted-foreground">
+              对应 .claude/commands/ 目录下的命令文件
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="commandArgs">命令参数</Label>
+            <Textarea
+              id="commandArgs"
+              value={node.data.args || ''}
+              onChange={(e) => handleUpdate({ args: e.target.value })}
+              placeholder="传递给命令的参数..."
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="commandDescription">描述</Label>
+            <Input
+              id="commandDescription"
+              value={node.data.description || ''}
+              onChange={(e) => handleUpdate({ description: e.target.value })}
+              placeholder="命令的简要描述"
             />
           </div>
         </>

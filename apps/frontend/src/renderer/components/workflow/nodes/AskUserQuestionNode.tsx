@@ -42,7 +42,7 @@ export const AskUserQuestionNode: React.FC<NodeProps<AskUserQuestionData>> = ({
       {/* Node Header */}
       <div className="flex justify-between items-center mb-2">
         <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-          Ask User Question
+          🙋 询问用户
         </div>
         <div className="flex gap-1">
           {data.useAiSuggestions && (
@@ -52,7 +52,7 @@ export const AskUserQuestionNode: React.FC<NodeProps<AskUserQuestionData>> = ({
           )}
           {data.multiSelect && (
             <div className="text-[9px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-semibold">
-              MULTI
+              多选
             </div>
           )}
         </div>
@@ -60,7 +60,7 @@ export const AskUserQuestionNode: React.FC<NodeProps<AskUserQuestionData>> = ({
 
       {/* Question Text */}
       <div className="text-[13px] text-foreground mb-3 font-medium">
-        {data.questionText || 'Untitled Question'}
+        {data.questionText || '未设置问题'}
       </div>
 
       {/* Options List - only show when not using AI suggestions */}
@@ -80,7 +80,7 @@ export const AskUserQuestionNode: React.FC<NodeProps<AskUserQuestionData>> = ({
       {/* AI Suggestions Indicator */}
       {data.useAiSuggestions && (
         <div className="text-[11px] text-muted-foreground italic mb-2">
-          Options will be suggested by AI
+          选项由 AI 动态生成
         </div>
       )}
 
@@ -89,7 +89,7 @@ export const AskUserQuestionNode: React.FC<NodeProps<AskUserQuestionData>> = ({
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 bg-primary border-2 border-background"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
       />
 
       {/* Dynamic Output Handles */}
@@ -99,7 +99,7 @@ export const AskUserQuestionNode: React.FC<NodeProps<AskUserQuestionData>> = ({
           type="source"
           position={Position.Right}
           id="output"
-          className="w-3 h-3 bg-primary border-2 border-background"
+          className="!w-4 !h-4 !bg-primary !border-2 !border-background"
         />
       ) : (
         /* Single select with user-defined options: multiple output handles (2-4 branches) */
@@ -109,7 +109,7 @@ export const AskUserQuestionNode: React.FC<NodeProps<AskUserQuestionData>> = ({
             type="source"
             position={Position.Right}
             id={`branch-${i}`}
-            className="w-3 h-3 bg-primary border-2 border-background"
+            className="!w-4 !h-4 !bg-primary !border-2 !border-background"
             style={{
               top: `${((i + 1) / (data.options.length + 1)) * 100}%`,
             }}

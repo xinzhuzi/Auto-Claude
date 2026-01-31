@@ -79,7 +79,7 @@ export const IfElseNode: React.FC<NodeProps<IfElseNodeData>> = ({
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 bg-primary border-2 border-background"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
       />
 
       {/* Fixed 2 Output Handles */}
@@ -89,7 +89,7 @@ export const IfElseNode: React.FC<NodeProps<IfElseNodeData>> = ({
           type="source"
           position={Position.Right}
           id={`branch-${i}`}
-          className="w-3 h-3 bg-primary border-2 border-background"
+          className="!w-4 !h-4 !bg-primary !border-2 !border-background"
           style={{
             top: `${((i + 1) / 3) * 100}%`, // Fixed positions for 2 branches (33%, 66%)
           }}

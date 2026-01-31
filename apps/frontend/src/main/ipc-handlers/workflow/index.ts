@@ -858,4 +858,114 @@ export function registerWorkflowHandlers(): void {
       }
     }
   );
+
+  // ============================================
+  // Agent Operations (for SubAgent node)
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.AGENT_LIST_FROM_PROJECT,
+    async (_, projectPath: string): Promise<IPCResult<Array<{
+      id: string;
+      name: string;
+      description: string;
+      category: string;
+      icon?: string;
+      filePath: string;
+    }>>> => {
+      try {
+        // Validate project path
+        if (!projectPath || !existsSync(projectPath)) {
+          return { success: false, error: 'Invalid project path' };
+        }
+
+        const agentsDir = path.join(projectPath, '.claude', 'agents');
+
+        // If directory doesn't exist, return empty list
+        if (!existsSync(agentsDir)) {
+          return { success: true, data: [] };
+        }
+
+        const files = await readdir(agentsDir);
+        const agents: Array<{
+          id: string;
+          name: string;
+          description: string;
+          category: string;
+          icon?: string;
+          filePath: string;
+        }> = [];
+
+        for (const file of files) {
+          if (file.endsWith('.md') && file !== 'INDEX.md') {
+            try {
+              const filePath = path.join(agentsDir, file);
+              const content = await readFile(filePath, 'utf-8');
+
+              // Parse frontmatter (YAML between --- markers)
+              const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+              if (frontmatterMatch) {
+                const frontmatter = frontmatterMatch[1];
+
+                // Simple YAML parsing for key fields
+                const getName = (yaml: string) => {
+                  const match = yaml.match(/^name:\s*(.+)$/m);
+                  return match ? match[1].trim().replace(/^["']|["']$/g, '') : file.replace('.md', '');
+                };
+                const getDescription = (yaml: string) => {
+                  const match = yaml.match(/^description:\s*["']?(.+?)["']?\s*$/m);
+                  return match ? match[1].trim().replace(/^["']|["']$/g, '') : '';
+                };
+                const getCategory = (yaml: string) => {
+                  const match = yaml.match(/^category:\s*(.+)$/m);
+                  return match ? match[1].trim() : 'general';
+                };
+                const getIcon = (yaml: string) => {
+                  const match = yaml.match(/^icon:\s*(.+)$/m);
+                  return match ? match[1].trim() : undefined;
+                };
+
+                agents.push({
+                  id: file.replace('.md', ''),
+                  name: getName(frontmatter),
+                  description: getDescription(frontmatter),
+                  category: getCategory(frontmatter),
+                  icon: getIcon(frontmatter),
+                  filePath,
+                });
+              } else {
+                // No frontmatter, use filename as name
+                agents.push({
+                  id: file.replace('.md', ''),
+                  name: file.replace('.md', ''),
+                  description: '',
+                  category: 'general',
+                  filePath,
+                });
+              }
+            } catch (parseError) {
+              logger.warn(`[Agent] Failed to parse ${file}:`, parseError);
+            }
+          }
+        }
+
+        // Sort by category then name
+        agents.sort((a, b) => {
+          if (a.category !== b.category) {
+            return a.category.localeCompare(b.category);
+          }
+          return a.name.localeCompare(b.name);
+        });
+
+        logger.info(`[Agent] Listed ${agents.length} agents from project: ${projectPath}`);
+        return { success: true, data: agents };
+      } catch (error) {
+        logger.error('[Agent] Failed to list agents from project:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to list agents from project'
+        };
+      }
+    }
+  );
 }

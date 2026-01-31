@@ -135,14 +135,14 @@ export const SkillNode: React.FC<NodeProps<SkillNodeData>> = ({
           type="target"
           position={Position.Left}
           id="input"
-          className="w-3 h-3 bg-primary border-2 border-background"
+          className="!w-4 !h-4 !bg-primary !border-2 !border-background"
         />
 
         <Handle
           type="source"
           position={Position.Right}
           id="output"
-          className="w-3 h-3 bg-primary border-2 border-background"
+          className="!w-4 !h-4 !bg-primary !border-2 !border-background"
         />
       </div>
 

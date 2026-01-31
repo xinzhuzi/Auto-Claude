@@ -163,7 +163,7 @@ export const McpNode: React.FC<NodeProps<McpNodeData>> = ({
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 bg-primary border-2 border-background"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
       />
 
       {/* Output Handle */}
@@ -171,7 +171,7 @@ export const McpNode: React.FC<NodeProps<McpNodeData>> = ({
         type="source"
         position={Position.Right}
         id="output"
-        className="w-3 h-3 bg-primary border-2 border-background"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
       />
     </div>
   );

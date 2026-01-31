@@ -77,7 +77,7 @@ export const SwitchNode: React.FC<NodeProps<SwitchNodeData>> = ({
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 bg-primary border-2 border-background"
+        className="!w-4 !h-4 !bg-primary !border-2 !border-background"
       />
 
       {/* Dynamic Output Handles */}
@@ -87,7 +87,7 @@ export const SwitchNode: React.FC<NodeProps<SwitchNodeData>> = ({
           type="source"
           position={Position.Right}
           id={`branch-${i}`}
-          className="w-3 h-3 bg-primary border-2 border-background"
+          className="!w-4 !h-4 !bg-primary !border-2 !border-background"
           style={{
             top: `${((i + 1) / (data.branches.length + 1)) * 100}%`,
           }}

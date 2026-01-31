@@ -117,6 +117,15 @@ export function getNodeDefaults(nodeType: string): Partial<WorkflowNode['data']>
         useAiSuggestions: false,
       };
 
+    case 'command':
+      return {
+        commandName: '',
+        commandPath: '',
+        description: '',
+        args: '',
+        validationStatus: 'missing',
+      };
+
     default:
       return {
         label: 'Untitled Node',

@@ -76,6 +76,16 @@ export interface WorkflowAPI {
   submitUserInput: (request: { requestId: string; response: any; cancelled: boolean }) => Promise<IPCResult<void>>;
   cancelUserInput: (requestId: string) => Promise<IPCResult<void>>;
   onUserInputRequest: (callback: (request: { requestId: string; question: string; options?: string[]; multiSelect?: boolean }) => void) => () => void;
+
+  // Agent operations (for SubAgent node)
+  listAgentsFromProject: (projectPath: string) => Promise<IPCResult<Array<{
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    icon?: string;
+    filePath: string;
+  }>>>;
 }
 
 export const createWorkflowAPI = (): WorkflowAPI => {
@@ -232,5 +242,9 @@ export const createWorkflowAPI = (): WorkflowAPI => {
 
     onUserInputRequest: (callback) =>
       createEventListener(IPC_CHANNELS.WORKFLOW_USER_INPUT_REQUEST, callback),
+
+    // Agent operations (for SubAgent node)
+    listAgentsFromProject: (projectPath) =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_LIST_FROM_PROJECT, projectPath),
   };
 };
