@@ -20,7 +20,7 @@ import WorkflowCanvasWithProvider from './workflow/WorkflowCanvas';
 import type { Workflow } from '../../shared/types';
 import { useWorkflowStore, useActiveWorkflow } from '../stores/workflow-store';
 import { Button } from './ui/button';
-import { Plus, FileText, Loader2, GripHorizontal } from 'lucide-react';
+import { Plus, FileText, Loader2, GripHorizontal, Search } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useToast } from '../hooks/use-toast';
 import { createLogger } from '../lib/logger';
@@ -57,6 +57,7 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
   const projectPath = selectedProject?.path || null;
 
   const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [workflowSearchQuery, setWorkflowSearchQuery] = useState('');
 
   // Use selector pattern to avoid potential undefined issues
   const createWorkflow = useWorkflowStore((state) => state.createWorkflow);
@@ -472,102 +473,6 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
       )}
     >
       <div className="text-center space-y-6 max-w-lg">
-        {/* Icon */}
-        <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-          <svg
-            className="w-8 h-8 text-primary"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 012-2m0 0V5a2 2 0 012 2h6a2 2 0 002 2m2-2h2.586a1 1 0 00.707.293l6.414 6.414a1 1 0 01.707.293l6.414-6.414a1 1 0 00-.707-.293l-6.414-6.414A1 1 0 0112.586 3H7"
-            />
-          </svg>
-        </div>
-
-        {/* Title */}
-        <h2 className="text-2xl font-semibold">
-          {t('empty.title', 'No workflow selected')}
-        </h2>
-
-        {/* Description */}
-        <p className="text-muted-foreground">
-          {t(
-            'empty.description',
-            'Create a new workflow or select an existing one to start designing your automation workflow'
-          )}
-        </p>
-
-        {/* Error message */}
-        {error && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-
-        {/* Create button */}
-        <Button
-          onClick={handleCreateWorkflow}
-          size="lg"
-          className="gap-2"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-              {t('empty.creating', 'Creating...')}
-            </>
-          ) : (
-            <>
-              <Plus className="w-5 h-5" />
-              {t('empty.createButton', 'Create New Workflow')}
-            </>
-          )}
-        </Button>
-
-        {/* Existing Workflows List */}
-        {projectWorkflows.length > 0 && (
-          <div className="rounded-lg border bg-card p-4 text-left">
-            <p className="font-medium mb-3">
-              {t('empty.existingWorkflows', '已有工作流')} ({projectWorkflows.length})
-            </p>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {isLoadingList ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                projectWorkflows.map((workflow) => (
-                  <button
-                    key={workflow.id}
-                    onClick={() => {
-                      // 先设置工作流，让 UI 立即响应
-                      setActiveWorkflow(workflow);
-                      // 后台初始化 MCP session，不阻塞
-                      initMcpSession();
-                    }}
-                    className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-muted transition-colors text-left"
-                  >
-                    <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{workflow.name}</p>
-                      {workflow.description && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {workflow.description}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Tips */}
         <div className="rounded-lg border bg-muted/50 p-4 text-sm text-left">
           <p className="font-medium mb-2">
@@ -606,6 +511,87 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
             </li>
           </ul>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        {/* Create button */}
+        <Button
+          onClick={handleCreateWorkflow}
+          size="lg"
+          className="gap-2"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+              {t('empty.creating', 'Creating...')}
+            </>
+          ) : (
+            <>
+              <Plus className="w-5 h-5" />
+              {t('empty.createButton', 'Create New Workflow')}
+            </>
+          )}
+        </Button>
+
+        {/* Existing Workflows List */}
+        {projectWorkflows.length > 0 && (
+          <div className="rounded-lg border bg-card p-4 text-left">
+            <p className="font-medium mb-3">
+              {t('empty.existingWorkflows', '已有工作流')} ({projectWorkflows.length})
+            </p>
+            {/* Search box */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={t('empty.searchPlaceholder', '搜索工作流...')}
+                value={workflowSearchQuery}
+                onChange={(e) => setWorkflowSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {isLoadingList ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                projectWorkflows
+                  .filter((workflow) =>
+                    workflow.name.toLowerCase().includes(workflowSearchQuery.toLowerCase())
+                  )
+                  .map((workflow) => (
+                  <button
+                    key={workflow.id}
+                    onClick={() => {
+                      // 先设置工作流，让 UI 立即响应
+                      setActiveWorkflow(workflow);
+                      // 后台初始化 MCP session，不阻塞
+                      initMcpSession();
+                    }}
+                    className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-muted transition-colors text-left"
+                  >
+                    <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{workflow.name}</p>
+                      {workflow.description && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {workflow.description}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

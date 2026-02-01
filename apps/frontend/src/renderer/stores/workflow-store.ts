@@ -67,7 +67,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   workflows: [],
   activeWorkflowId: null,
   activeWorkflow: null,  // cc-wf-studio 兼容
-  workflowName: 'my-workflow',  // cc-wf-studio 兼容
+  workflowName: '',  // cc-wf-studio 兼容，空字符串表示使用工作流自身名称
   workflowDescription: '',  // cc-wf-studio 兼容
   isLoading: false,
   error: null,
@@ -89,7 +89,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       set({
         activeWorkflowId: idOrWorkflow,
         activeWorkflow: workflow || null,
-        workflowName: workflow?.name || 'my-workflow',
+        workflowName: workflow?.name || '',
         workflowDescription: workflow?.description || '',
       });
     } else {
@@ -105,7 +105,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         workflows: updatedWorkflows,
         activeWorkflowId: idOrWorkflow.id,
         activeWorkflow: idOrWorkflow,
-        workflowName: idOrWorkflow.name || 'my-workflow',
+        workflowName: idOrWorkflow.name || '',
         workflowDescription: idOrWorkflow.description || '',
       });
     }

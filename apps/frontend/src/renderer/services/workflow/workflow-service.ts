@@ -182,10 +182,60 @@ export function validateWorkflow(workflow: Workflow): {
     errors.push('工作流必须至少有一个End节点');
   }
 
+  // 验证是否存在可执行节点（非 Start/End）
+  if (!hasExecutableNodes(workflow.nodes)) {
+    errors.push('工作流中没有可执行节点，请添加至少一个任务节点');
+  }
+
+  // 验证是否存在从 Start 到 End 的有效路径
+  if (startNodes.length === 1 && endNodes.length > 0 && !hasValidPath(workflow.nodes, workflow.connections)) {
+    errors.push('没有从开始到结束的有效路径，请确保节点正确连接');
+  }
+
   return {
     valid: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * 检查是否存在实际运行节点（非 Start/End）
+ */
+function hasExecutableNodes(nodes: WorkflowNode[]): boolean {
+  return nodes.some(n => n.type !== 'start' && n.type !== 'end');
+}
+
+/**
+ * 检查是否存在从 Start 到 End 的有效路径 (BFS)
+ */
+function hasValidPath(nodes: WorkflowNode[], connections: Connection[]): boolean {
+  const startNode = nodes.find(n => n.type === 'start');
+  const endNodeIds = nodes.filter(n => n.type === 'end').map(n => n.id);
+
+  if (!startNode || endNodeIds.length === 0) return false;
+
+  // 构建邻接表
+  const adjacency = new Map<string, string[]>();
+  for (const conn of connections) {
+    if (!adjacency.has(conn.from)) adjacency.set(conn.from, []);
+    adjacency.get(conn.from)!.push(conn.to);
+  }
+
+  // BFS 遍历
+  const visited = new Set<string>();
+  const queue = [startNode.id];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (endNodeIds.includes(current)) return true;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    const neighbors = adjacency.get(current) || [];
+    queue.push(...neighbors);
+  }
+
+  return false;
 }
 
 /**

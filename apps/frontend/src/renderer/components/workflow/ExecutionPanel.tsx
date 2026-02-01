@@ -214,6 +214,14 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
       return;
     }
 
+    // 验证工作流
+    const { validateWorkflow } = await import('../../services/workflow');
+    const validation = validateWorkflow(activeWorkflow);
+    if (!validation.valid) {
+      validation.errors.forEach(err => addLog('error', err));
+      return;
+    }
+
     const currentWorkflowName = workflowName || activeWorkflow.name || 'workflow';
 
     try {
