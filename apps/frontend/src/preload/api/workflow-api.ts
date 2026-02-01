@@ -66,6 +66,11 @@ export interface WorkflowAPI {
   onWorkflowCommandComplete: (callback: (executionId: string) => void) => () => void;
   onWorkflowCommandError: (callback: (executionId: string, error: string) => void) => () => void;
 
+  // Unified MCP Session
+  initSession: (projectPath: string) => Promise<IPCResult<void>>;
+  getSessionStatus: () => Promise<IPCResult<{ active: boolean; ready: boolean; busy: boolean; projectPath: string | null }>>;
+  closeSession: () => Promise<IPCResult<void>>;
+
   // AI generation
   aiGenerate: (request: { description: string; context?: string; projectPath: string }) => Promise<IPCResult<{ workflow: Workflow; iterations: number; suggestions?: Array<{ message: string }> }>>;
   aiGenerateSkill: (request: { description: string; skillName?: string; context?: string; projectPath: string; overwrite?: boolean }) => Promise<IPCResult<{ workflow: Workflow }>>;
@@ -227,6 +232,16 @@ export const createWorkflowAPI = (): WorkflowAPI => {
 
     onWorkflowCommandError: (callback) =>
       createEventListener(IPC_CHANNELS.WORKFLOW_COMMAND_ERROR, callback),
+
+    // Unified MCP Session
+    initSession: (projectPath) =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_INIT_SESSION, projectPath),
+
+    getSessionStatus: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_GET_SESSION_STATUS),
+
+    closeSession: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_CLOSE_SESSION),
 
     // AI generation
     aiGenerate: (request) =>

@@ -238,6 +238,10 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
 
       const nodes = activeWorkflow.nodes || [];
       const connections = activeWorkflow.connections || [];
+
+      // Debug: 打印节点数据，检查是否包含最新修改
+      console.log('[ExecutionPanel] activeWorkflow nodes:', JSON.stringify(nodes.map(n => ({ id: n.id, type: n.type, data: n.data })), null, 2));
+
       const reactFlowNodes = nodes.map((node: any) => ({
         id: node.id,
         type: node.type,

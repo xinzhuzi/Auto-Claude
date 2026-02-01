@@ -41,9 +41,11 @@ class MCPConfig:
         Load MCP server configurations.
 
         Reads from multiple sources in priority order:
-        1. Project-specific: {project_dir}/.claude/mcp_settings.json
-        2. User global: ~/.claude/mcp_settings.json
-        3. Claude Code config: ~/.config/claude/config.json
+        1. Project-specific: {project_dir}/.mcp.json
+        2. Project-specific: {project_dir}/.claude/.mcp.json
+        3. Project-specific: {project_dir}/.claude/mcp_settings.json
+        4. User global: ~/.claude/mcp_settings.json
+        5. Claude Code config: ~/.config/claude/config.json
 
         Returns:
             Dictionary of server configurations keyed by server name
@@ -52,13 +54,42 @@ class MCPConfig:
 
         # Try project-specific settings first
         if self.project_dir:
+            # Check .mcp.json in project root (Claude CLI standard)
+            project_mcp_root = self.project_dir / ".mcp.json"
+            if project_mcp_root.exists():
+                try:
+                    with open(project_mcp_root, "r") as f:
+                        project_config = json.load(f)
+                        if "mcpServers" in project_config:
+                            servers.update(project_config["mcpServers"])
+                            logger.info(f"Loaded {len(servers)} MCP servers from .mcp.json")
+                except Exception as e:
+                    logger.warning(f"Failed to load .mcp.json: {e}")
+
+            # Check .mcp.json in .claude directory
+            project_mcp_claude = self.project_dir / ".claude" / ".mcp.json"
+            if project_mcp_claude.exists():
+                try:
+                    with open(project_mcp_claude, "r") as f:
+                        project_config = json.load(f)
+                        if "mcpServers" in project_config:
+                            for name, config in project_config["mcpServers"].items():
+                                if name not in servers:
+                                    servers[name] = config
+                            logger.info(f"Loaded {len(servers)} MCP servers from .claude/.mcp.json")
+                except Exception as e:
+                    logger.warning(f"Failed to load .claude/.mcp.json: {e}")
+
+            # Check mcp_settings.json in .claude directory (legacy)
             project_mcp_file = self.project_dir / ".claude" / "mcp_settings.json"
             if project_mcp_file.exists():
                 try:
                     with open(project_mcp_file, "r") as f:
                         project_config = json.load(f)
                         if "mcpServers" in project_config:
-                            servers.update(project_config["mcpServers"])
+                            for name, config in project_config["mcpServers"].items():
+                                if name not in servers:
+                                    servers[name] = config
                             logger.info(f"Loaded {len(servers)} MCP servers from project config")
                 except Exception as e:
                     logger.warning(f"Failed to load project MCP config: {e}")

@@ -593,6 +593,11 @@ export const IPC_CHANNELS = {
   WORKFLOW_PAUSE: 'workflow:pause',
   WORKFLOW_RESUME: 'workflow:resume',
   WORKFLOW_STOP: 'workflow:stop',
+
+  // Unified MCP Session
+  WORKFLOW_INIT_SESSION: 'workflow:initSession',
+  WORKFLOW_GET_SESSION_STATUS: 'workflow:getSessionStatus',
+  WORKFLOW_CLOSE_SESSION: 'workflow:closeSession',
   WORKFLOW_GET_EXECUTION_STATUS: 'workflow:getExecutionStatus',
   WORKFLOW_GET_EXECUTION_LOGS: 'workflow:getExecutionLogs',
   WORKFLOW_EXECUTE_COMMAND: 'workflow:executeCommand',

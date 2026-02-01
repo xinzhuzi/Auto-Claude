@@ -461,12 +461,37 @@ async function getToolsFromHttpServer(server: McpServer): Promise<McpToolReferen
 
 /**
  * Get tools from command-based MCP server
+ *
+ * 优先使用统一会话（如果已初始化），否则回退到直接启动进程
  */
 async function getToolsFromCommandServer(server: McpServer): Promise<McpToolReference[]> {
   if (!server.command) {
     return [];
   }
 
+  // 尝试使用统一会话（如果已初始化）
+  try {
+    const { unifiedMcpSession } = await import('./workflow/unified-mcp-session');
+    const status = unifiedMcpSession.getStatus();
+
+    if (status.active && status.ready) {
+      logger.info(`[MCP] Unified session available, but using direct spawn for tool discovery`);
+      // 注意：统一会话是 Claude CLI，不能直接获取 MCP 工具列表
+      // 这里仍然使用直接启动 MCP 服务器的方式获取工具
+      // 但进程复用的好处体现在工作流执行时
+    }
+  } catch {
+    // 统一会话模块未加载，继续使用直接启动方式
+  }
+
+  return getToolsFromCommandServerDirect(server);
+}
+
+/**
+ * Get tools from command-based MCP server (direct spawn)
+ * 直接启动 MCP 服务器进程获取工具列表
+ */
+async function getToolsFromCommandServerDirect(server: McpServer): Promise<McpToolReference[]> {
   return new Promise((resolve) => {
     const { spawn } = require('child_process');
     const isWindows = process.platform === 'win32';

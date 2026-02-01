@@ -797,6 +797,31 @@ def get_sdk_env_vars() -> dict[str, str]:
     # The empty string ensures Python doesn't add any extra paths to sys.path.
     env["PYTHONPATH"] = ""
 
+    # Ensure PATH includes common binary directories for uvx, npx, etc.
+    # This fixes "spawn uvx ENOENT" errors when MCP servers need uvx
+    if is_windows():
+        common_paths = []
+    elif is_macos():
+        common_paths = [
+            "/opt/homebrew/bin",      # Apple Silicon Homebrew
+            "/usr/local/bin",         # Intel Homebrew
+            os.path.expanduser("~/.local/bin"),  # User-local binaries
+        ]
+    else:  # Linux
+        common_paths = [
+            "/usr/local/bin",
+            os.path.expanduser("~/.local/bin"),
+            "/home/linuxbrew/.linuxbrew/bin",
+        ]
+
+    current_path = os.environ.get("PATH", "")
+    if current_path:
+        # Prepend common paths to existing PATH
+        path_parts = common_paths + [current_path]
+        env["PATH"] = os.pathsep.join(path_parts)
+    else:
+        env["PATH"] = os.pathsep.join(common_paths)
+
     return env
 
 

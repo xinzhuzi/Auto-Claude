@@ -109,25 +109,76 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [projectWorkflows, setProjectWorkflows] = useState<Workflow[]>([]);
   useEffect(() => {
+    let isMounted = true;
+
     const loadExistingWorkflows = async () => {
       if (projectPath) {
         setIsLoadingList(true);
         try {
           // Use project-specific API instead of global loadWorkflows
           const result = await window.electronAPI.workflow.listWorkflowsFromProject(projectPath);
-          if (result.success && result.data) {
+          if (isMounted && result.success && result.data) {
             setProjectWorkflows(result.data);
           }
         } catch (err) {
           log.error('Failed to load workflows from project', err);
         } finally {
-          setIsLoadingList(false);
+          if (isMounted) {
+            setIsLoadingList(false);
+          }
         }
       }
     };
     loadExistingWorkflows();
+
+    return () => {
+      isMounted = false;
+    };
   }, [projectPath]);
 
+
+  /**
+   * Initialize unified MCP session when entering workflow editor
+   * 在后台初始化，不阻塞 UI
+   */
+  const initMcpSession = useCallback(() => {
+    if (!projectPath) return;
+    // 后台初始化，不等待结果
+    log.info('Initializing unified MCP session in background...', { projectPath });
+    window.electronAPI.workflow.initSession(projectPath)
+      .then((result) => {
+        if (result.success) {
+          log.info('Unified MCP session initialized');
+        } else {
+          log.warn('Failed to initialize MCP session:', result.error);
+        }
+      })
+      .catch((err) => {
+        log.error('Failed to initialize MCP session', err);
+      });
+  }, [projectPath]);
+
+  /**
+   * Close unified MCP session when leaving workflow editor
+   * 在后台关闭，不阻塞 UI
+   */
+  const closeMcpSession = useCallback(() => {
+    log.info('Closing unified MCP session in background...');
+    window.electronAPI.workflow.closeSession()
+      .then(() => {
+        log.info('Unified MCP session closed');
+      })
+      .catch((err) => {
+        log.error('Failed to close MCP session', err);
+      });
+  }, []);
+
+  // Cleanup MCP session on component unmount
+  useEffect(() => {
+    return () => {
+      closeMcpSession();
+    };
+  }, [closeMcpSession]);
 
   /**
    * Handle create new workflow
@@ -135,8 +186,11 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
   const handleCreateWorkflow = async () => {
     log.info('Creating workflow...');
     try {
+      // 先创建工作流，让 UI 立即响应
       const workflow = await createWorkflow('new-workflow', 'My workflow');
       log.info('Workflow created', { id: workflow?.id, name: workflow?.name });
+      // 后台初始化 MCP session，不阻塞
+      initMcpSession();
     } catch (err) {
       log.error('Failed to create workflow', err);
     }
@@ -369,8 +423,11 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
    */
   const handleCloseWorkflow = useCallback(() => {
     log.info('Closing workflow...');
+    // 先关闭 UI，让用户立即看到响应
     setActiveWorkflow(null);
-  }, [setActiveWorkflow]);
+    // 后台关闭 MCP session，不阻塞
+    closeMcpSession();
+  }, [setActiveWorkflow, closeMcpSession]);
 
   /**
    * Handle new workflow - clear current and create fresh one
@@ -378,7 +435,16 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
   const handleNewWorkflow = useCallback(async () => {
     log.info('Creating new workflow, clearing current...');
     try {
-      const workflow = await createWorkflow('new-workflow', 'My workflow');
+      // 生成唯一的工作流名称
+      const timestamp = new Date().toLocaleString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).replace(/[\/\s:]/g, '-');
+      const workflowName = `workflow-${timestamp}`;
+
+      const workflow = await createWorkflow(workflowName, '');
       log.info('New workflow created', { id: workflow?.id, name: workflow?.name });
       toast({
         title: '新工作流已创建',
@@ -478,7 +544,12 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
                 projectWorkflows.map((workflow) => (
                   <button
                     key={workflow.id}
-                    onClick={() => setActiveWorkflow(workflow)}
+                    onClick={() => {
+                      // 先设置工作流，让 UI 立即响应
+                      setActiveWorkflow(workflow);
+                      // 后台初始化 MCP session，不阻塞
+                      initMcpSession();
+                    }}
                     className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-muted transition-colors text-left"
                   >
                     <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />

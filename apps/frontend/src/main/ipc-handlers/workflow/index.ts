@@ -768,6 +768,69 @@ export function registerWorkflowHandlers(): void {
   );
 
   // ============================================
+  // Unified MCP Session Management
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.WORKFLOW_INIT_SESSION,
+    async (_, projectPath: string): Promise<IPCResult<void>> => {
+      try {
+        const { unifiedMcpSession } = await import('./unified-mcp-session');
+        await unifiedMcpSession.initialize(projectPath);
+
+        logger.info('[WorkflowHandler] Unified MCP session initialized for:', projectPath);
+        return { success: true, data: undefined };
+      } catch (error) {
+        logger.error('[WorkflowHandler] Failed to initialize unified session:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to initialize session'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.WORKFLOW_GET_SESSION_STATUS,
+    async (): Promise<IPCResult<{
+      active: boolean;
+      ready: boolean;
+      busy: boolean;
+      projectPath: string | null;
+    }>> => {
+      try {
+        const { unifiedMcpSession } = await import('./unified-mcp-session');
+        const status = unifiedMcpSession.getStatus();
+        return { success: true, data: status };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get session status'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.WORKFLOW_CLOSE_SESSION,
+    async (): Promise<IPCResult<void>> => {
+      try {
+        const { unifiedMcpSession } = await import('./unified-mcp-session');
+        await unifiedMcpSession.shutdown();
+
+        logger.info('[WorkflowHandler] Unified MCP session closed');
+        return { success: true, data: undefined };
+      } catch (error) {
+        logger.error('[WorkflowHandler] Failed to close unified session:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to close session'
+        };
+      }
+    }
+  );
+
+  // ============================================
   // Node Validation
   // ============================================
 

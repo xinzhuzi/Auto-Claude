@@ -128,12 +128,15 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         const updatedConnections = activeWorkflow.connections.filter(
           (conn) => !removedIds.includes(conn.from) && !removedIds.includes(conn.to)
         );
-        isInternalUpdate.current = true;
-        saveWorkflow({
-          ...activeWorkflow,
-          nodes: updatedNodes,
-          connections: updatedConnections,
-        });
+        // Defer save to avoid updating state during render
+        setTimeout(() => {
+          isInternalUpdate.current = true;
+          saveWorkflow({
+            ...activeWorkflow,
+            nodes: updatedNodes,
+            connections: updatedConnections,
+          });
+        }, 0);
         return;
       }
 
@@ -142,25 +145,27 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         (c) => c.type === 'position' && c.dragging === false
       );
       if (positionChanges.length > 0) {
-        // Get current positions from React Flow state
-        setNodes((currentNodes) => {
-          const updatedWorkflowNodes = activeWorkflow.nodes.map((node) => {
-            const currentNode = currentNodes.find((n) => n.id === node.id);
-            if (currentNode && currentNode.position) {
-              return { ...node, position: currentNode.position };
-            }
-            return node;
-          });
+        // Defer save to avoid updating state during render
+        setTimeout(() => {
+          setNodes((currentNodes) => {
+            const updatedWorkflowNodes = activeWorkflow.nodes.map((node) => {
+              const currentNode = currentNodes.find((n) => n.id === node.id);
+              if (currentNode && currentNode.position) {
+                return { ...node, position: currentNode.position };
+              }
+              return node;
+            });
 
-          // Save with updated positions
-          isInternalUpdate.current = true;
-          saveWorkflow({
-            ...activeWorkflow,
-            nodes: updatedWorkflowNodes,
-          });
+            // Save with updated positions
+            isInternalUpdate.current = true;
+            saveWorkflow({
+              ...activeWorkflow,
+              nodes: updatedWorkflowNodes,
+            });
 
-          return currentNodes; // Don't modify React Flow state
-        });
+            return currentNodes; // Don't modify React Flow state
+          });
+        }, 0);
       }
     },
     [onNodesChange, activeWorkflow, saveWorkflow]
@@ -182,11 +187,14 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
           (conn) => !removedIds.includes(conn.id)
         );
 
-        isInternalUpdate.current = true;
-        saveWorkflow({
-          ...activeWorkflow,
-          connections: updatedConnections,
-        });
+        // Defer save to avoid updating state during render
+        setTimeout(() => {
+          isInternalUpdate.current = true;
+          saveWorkflow({
+            ...activeWorkflow,
+            connections: updatedConnections,
+          });
+        }, 0);
       }
     },
     [onEdgesChange, activeWorkflow, saveWorkflow]
@@ -196,7 +204,10 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
   const lastWorkflowVersion = useRef<string | null>(null);
 
   // Sync with workflow updates - when workflow changes or node data updates
+  // Use setTimeout to defer state updates and avoid "Cannot update component while rendering" error
   React.useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+
     if (activeWorkflow) {
       // Skip if this is an internal update
       if (isInternalUpdate.current) {
@@ -204,32 +215,42 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         return;
       }
 
-      // Create a version string to detect any workflow changes
-      const currentVersion = `${activeWorkflow.id}-${activeWorkflow.updatedAt}-${activeWorkflow.nodes.length}-${activeWorkflow.connections.length}`;
+      // Create a version string that includes node data hash to detect property changes
+      const nodesDataHash = activeWorkflow.nodes.map(n => JSON.stringify(n.data)).join('|');
+      const currentVersion = `${activeWorkflow.id}-${activeWorkflow.updatedAt}-${activeWorkflow.nodes.length}-${activeWorkflow.connections.length}-${nodesDataHash}`;
       const workflowChanged = lastWorkflowId.current !== activeWorkflow.id;
       const versionChanged = lastWorkflowVersion.current !== currentVersion;
 
       lastWorkflowId.current = activeWorkflow.id;
       lastWorkflowVersion.current = currentVersion;
 
-      // Full sync when workflow ID changes or version changes (reload)
+      // Full sync when workflow ID changes or version changes (including node data changes)
       if (workflowChanged || versionChanged) {
-        const newNodes = activeWorkflow.nodes.map(node => ({
-          id: node.id,
-          type: node.type || 'default',
-          position: node.position || { x: 0, y: 0 },
-          data: node.data || {},
-        }));
-        const newEdges = activeWorkflow.connections.map(conn => ({
-          id: conn.id,
-          source: conn.from,
-          target: conn.to,
-          animated: true,
-        }));
-        setNodes(newNodes);
-        setEdges(newEdges);
+        // Defer state update to next tick to avoid updating during render
+        timeoutId = setTimeout(() => {
+          const newNodes = activeWorkflow.nodes.map(node => ({
+            id: node.id,
+            type: node.type || 'default',
+            position: node.position || { x: 0, y: 0 },
+            data: node.data || {},
+          }));
+          const newEdges = activeWorkflow.connections.map(conn => ({
+            id: conn.id,
+            source: conn.from,
+            target: conn.to,
+            animated: true,
+          }));
+          setNodes(newNodes);
+          setEdges(newEdges);
+        }, 0);
       }
     }
+    // Cleanup timeout on unmount or dependency change
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeWorkflow]);
 
@@ -249,15 +270,17 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         toPort: connection.targetHandle || 'input',
       };
 
-      // Mark as internal update
-      isInternalUpdate.current = true;
-
-      // Save to store
+      // Save to store with updated connections
       const updatedWorkflow = {
         ...activeWorkflow,
         connections: [...activeWorkflow.connections, newConnection],
       };
-      saveWorkflow(updatedWorkflow);
+
+      // Defer save to avoid updating state during render
+      setTimeout(() => {
+        isInternalUpdate.current = true;
+        saveWorkflow(updatedWorkflow);
+      }, 0);
     },
     [activeWorkflow, saveWorkflow, setEdges]
   );
@@ -272,18 +295,21 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
   // Handle node double click - open MCP dialog or SubAgent dialog
   const onNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      console.log('[WorkflowCanvas] onNodeDoubleClick called:', node.type, node.id);
       if (node.type === 'mcp') {
         setEditingNodeData({
           nodeId: node.id,
           ...node.data,
         });
         setMcpDialogOpen(true);
+        console.log('[WorkflowCanvas] Opening MCP dialog for node:', node.id);
       } else if (node.type === 'subAgent') {
         setEditingSubAgentData({
           nodeId: node.id,
           ...node.data,
         });
         setSubAgentDialogOpen(true);
+        console.log('[WorkflowCanvas] Opening SubAgent dialog for node:', node.id);
       }
     },
     []
@@ -343,7 +369,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
       };
       saveWorkflow(updatedWorkflow);
     },
-    [activeWorkflow, saveWorkflow]
+    [activeWorkflow, saveWorkflow, editingNodeData]
   );
 
   // Handle MCP node edit save
@@ -527,7 +553,26 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
   // Handle context menu node selection
   const handleContextMenuSelect = useCallback(
     (nodeType: string) => {
+      console.log('[WorkflowCanvas] handleContextMenuSelect called:', nodeType, { activeWorkflow: !!activeWorkflow, contextMenu });
       if (!activeWorkflow || !contextMenu) return;
+
+      // 检查 start 和 end 节点是否已存在
+      if (nodeType === 'start') {
+        const hasStart = activeWorkflow.nodes.some(n => n.type === 'start');
+        if (hasStart) {
+          console.log('[WorkflowCanvas] Start node already exists');
+          setContextMenu(null);
+          return;
+        }
+      }
+      if (nodeType === 'end') {
+        const hasEnd = activeWorkflow.nodes.some(n => n.type === 'end');
+        if (hasEnd) {
+          console.log('[WorkflowCanvas] End node already exists');
+          setContextMenu(null);
+          return;
+        }
+      }
 
       // For command nodes, open the command browser dialog
       if (nodeType === 'command') {
