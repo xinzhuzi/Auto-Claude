@@ -226,13 +226,17 @@
       ]
     },
     "nsis": {
+      "guid": "com.autoclaude.ai-staff",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "perMachine": true,
+      "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "deleteAppDataOnUninstall": false,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "differentialPackage": false,
+      "unicode": true,
+      "packElevateHelper": true
     },
     "linux": {
       "icon": "resources/icons",
