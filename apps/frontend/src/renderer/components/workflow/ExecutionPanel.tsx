@@ -77,6 +77,18 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
   const [activeTab, setActiveTab] = useState('monitor');
   const [streamOutput, setStreamOutput] = useState('');
   const cleanupRef = useRef<(() => void)[]>([]);
+  const isMountedRef = useRef(true);
+
+  // Cleanup on unmount - Fix memory leak #1
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Cleanup all event listeners on unmount
+      cleanupRef.current.forEach(cleanup => cleanup());
+      cleanupRef.current = [];
+    };
+  }, []);
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
@@ -156,15 +168,29 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
 
   // Poll for execution logs
   useEffect(() => {
-    if (!executionId || executionState.status === 'idle') return;
+    // Fix #2: Stop polling for terminal states
+    if (!executionId ||
+        executionState.status === 'idle' ||
+        executionState.status === 'completed' ||
+        executionState.status === 'failed' ||
+        executionState.status === 'cancelled') {
+      return;
+    }
 
     const interval = setInterval(async () => {
+      if (!isMountedRef.current) return; // Fix #6: check mounted before state update
       try {
         const result = await window.electronAPI.workflow.getExecutionLogs(executionId);
-        if (result.success && result.data) {
-          // Parse logs and update (data is string[] from IPC handler)
-          const newLogs = (result.data as unknown as string[]).map((logLine: string) => parseLogLine(logLine));
-          setLogs(newLogs);
+        if (result.success && result.data && isMountedRef.current) {
+          // Parse logs and update - Fix #3: improved runtime validation
+          const logs = Array.isArray(result.data)
+            ? result.data.filter(item => typeof item === 'string' || typeof item === 'number')
+                         .map(item => String(item))
+            : [];
+          if (logs.length > 0) {
+            const newLogs = logs.map((logLine: string) => parseLogLine(logLine));
+            setLogs(newLogs);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch logs:', error);
@@ -241,28 +267,14 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
       // 1. First export the workflow to .claude/commands/
       addLog('info', '正在导出工作流到 .claude/commands/...');
 
-      const { generateSlashCommandFile, nodeNameToFileName } = await import('../../services/workflow');
+      const { generateSlashCommandFile, nodeNameToFileName, deserializeWorkflow } = await import('../../services/workflow');
       const { serializeWorkflow } = await import('../../services/workflow');
 
-      const nodes = activeWorkflow.nodes || [];
-      const connections = activeWorkflow.connections || [];
-
       // Debug: 打印节点数据，检查是否包含最新修改
-      console.log('[ExecutionPanel] activeWorkflow nodes:', JSON.stringify(nodes.map(n => ({ id: n.id, type: n.type, data: n.data })), null, 2));
+      console.log('[ExecutionPanel] activeWorkflow nodes:', JSON.stringify((activeWorkflow.nodes || []).map(n => ({ id: n.id, type: n.type, data: n.data })), null, 2));
 
-      const reactFlowNodes = nodes.map((node: any) => ({
-        id: node.id,
-        type: node.type,
-        position: node.position,
-        data: node.data || {},
-      }));
-      const reactFlowEdges = connections.map((conn: any) => ({
-        id: conn.id,
-        source: conn.from,
-        target: conn.to,
-        sourceHandle: conn.fromPort,
-        targetHandle: conn.toPort,
-      }));
+      // Fix #9: 使用 deserializeWorkflow 避免重复代码
+      const { nodes: reactFlowNodes, edges: reactFlowEdges } = deserializeWorkflow(activeWorkflow);
 
       const workflow = serializeWorkflow(reactFlowNodes, reactFlowEdges, currentWorkflowName);
       const mdContent = generateSlashCommandFile(workflow);
@@ -276,6 +288,12 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
 
       // 2. Register command execution event listeners
       // Note: We don't filter by executionId since we only run one workflow at a time
+      // Helper to cleanup listeners after execution ends
+      const cleanupListeners = () => {
+        cleanupRef.current.forEach(fn => fn());
+        cleanupRef.current = [];
+      };
+
       const unsubOutput = window.electronAPI.workflow.onWorkflowCommandOutput((execId: string, data: string) => {
         console.log('[ExecutionPanel] Received output:', execId, data.length, 'bytes');
         setStreamOutput(prev => prev + data);
@@ -293,6 +311,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
           completedAt: new Date().toISOString(),
         }));
         addLog('success', 'Workflow execution completed successfully');
+        cleanupListeners(); // Fix #1: cleanup on complete
       });
       cleanupRef.current.push(unsubComplete);
 
@@ -305,6 +324,7 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
           completedAt: new Date().toISOString(),
         }));
         addLog('error', `Execution failed: ${error}`);
+        cleanupListeners(); // Fix #1: cleanup on error
       });
       cleanupRef.current.push(unsubError);
 

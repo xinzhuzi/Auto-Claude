@@ -140,11 +140,12 @@ export function validateWorkflow(workflow: Workflow): {
     errors.push('工作流名称不能为空');
   }
 
-  // 验证名称格式（小写字母、数字、连字符、下划线）
-  const namePattern = /^[a-z0-9_-]+$/;
+  // 验证名称格式（字母、数字、连字符、下划线，允许大小写）
+  // 注意：工作流名称会在保存时自动转为小写用作文件名
+  const namePattern = /^[a-zA-Z0-9_-]+$/;
   if (workflow.name && !namePattern.test(workflow.name)) {
     errors.push(
-      '工作流名称只能包含小写字母、数字、连字符和下划线'
+      '工作流名称只能包含字母、数字、连字符和下划线'
     );
   }
 

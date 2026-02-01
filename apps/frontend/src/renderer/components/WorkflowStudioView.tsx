@@ -76,6 +76,27 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
   const [executionPanelHeight, setExecutionPanelHeight] = useState(320); // Default h-80 = 320px
   const isResizingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Fix #6: Track active document listeners for cleanup on unmount
+  const activeListenersRef = useRef<{
+    mousemove?: (e: MouseEvent) => void;
+    mouseup?: () => void;
+  }>({});
+  // Fix #4: Track mounted state for async operations
+  const isMountedRef = useRef(true);
+
+  // Cleanup document listeners on unmount and set mounted state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (activeListenersRef.current.mousemove) {
+        document.removeEventListener('mousemove', activeListenersRef.current.mousemove);
+      }
+      if (activeListenersRef.current.mouseup) {
+        document.removeEventListener('mouseup', activeListenersRef.current.mouseup);
+      }
+    };
+  }, []);
 
   // Handle resize drag
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
@@ -100,8 +121,11 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      activeListenersRef.current = {}; // Clear refs after cleanup
     };
 
+    // Store refs for unmount cleanup
+    activeListenersRef.current = { mousemove: handleMouseMove, mouseup: handleMouseUp };
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   }, [executionPanelHeight]);
@@ -148,6 +172,7 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
     log.info('Initializing unified MCP session in background...', { projectPath });
     window.electronAPI.workflow.initSession(projectPath)
       .then((result) => {
+        if (!isMountedRef.current) return; // Fix #4: check mounted
         if (result.success) {
           log.info('Unified MCP session initialized');
         } else {
@@ -155,6 +180,7 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
         }
       })
       .catch((err) => {
+        if (!isMountedRef.current) return; // Fix #4: check mounted
         log.error('Failed to initialize MCP session', err);
       });
   }, [projectPath]);

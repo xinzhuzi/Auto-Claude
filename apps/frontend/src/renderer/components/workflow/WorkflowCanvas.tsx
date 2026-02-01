@@ -69,6 +69,16 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
   const isInternalUpdate = useRef(false);
   // Track the last workflow ID to detect workflow switches
   const lastWorkflowId = useRef<string | null>(null);
+  // Track mounted state to prevent state updates after unmount - Fix #2
+  const isMountedRef = useRef(true);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Dialog states
   const [mcpDialogOpen, setMcpDialogOpen] = useState(false);
@@ -130,6 +140,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         );
         // Defer save to avoid updating state during render
         setTimeout(() => {
+          if (!isMountedRef.current) return; // Fix #2: check mounted
           isInternalUpdate.current = true;
           saveWorkflow({
             ...activeWorkflow,
@@ -145,10 +156,13 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
         (c) => c.type === 'position' && c.dragging === false
       );
       if (positionChanges.length > 0) {
+        // Fix #8: Capture workflow in closure to avoid null access
+        const workflow = activeWorkflow;
         // Defer save to avoid updating state during render
         setTimeout(() => {
+          if (!isMountedRef.current || !workflow) return; // Fix #2 & #8: check mounted and null
           setNodes((currentNodes) => {
-            const updatedWorkflowNodes = activeWorkflow.nodes.map((node) => {
+            const updatedWorkflowNodes = workflow.nodes.map((node) => {
               const currentNode = currentNodes.find((n) => n.id === node.id);
               if (currentNode && currentNode.position) {
                 return { ...node, position: currentNode.position };
@@ -159,7 +173,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
             // Save with updated positions
             isInternalUpdate.current = true;
             saveWorkflow({
-              ...activeWorkflow,
+              ...workflow,
               nodes: updatedWorkflowNodes,
             });
 
@@ -189,6 +203,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
 
         // Defer save to avoid updating state during render
         setTimeout(() => {
+          if (!isMountedRef.current) return; // Fix #2: check mounted
           isInternalUpdate.current = true;
           saveWorkflow({
             ...activeWorkflow,
@@ -228,6 +243,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
       if (workflowChanged || versionChanged) {
         // Defer state update to next tick to avoid updating during render
         timeoutId = setTimeout(() => {
+          if (!isMountedRef.current) return; // Fix #2: check mounted
           const newNodes = activeWorkflow.nodes.map(node => ({
             id: node.id,
             type: node.type || 'default',
@@ -278,6 +294,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = ({ className }) => 
 
       // Defer save to avoid updating state during render
       setTimeout(() => {
+        if (!isMountedRef.current) return; // Fix #2: check mounted
         isInternalUpdate.current = true;
         saveWorkflow(updatedWorkflow);
       }, 0);

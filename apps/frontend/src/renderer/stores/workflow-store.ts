@@ -236,14 +236,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const result = await window.electronAPI.workflow.saveWorkflow(workflow);
 
       if (result.success) {
-        // Optimistic update - also update activeWorkflow for immediate UI sync
-        set((state) => ({
-          workflows: state.workflows.map((w) =>
-            w.id === workflow.id ? workflow : w
-          ),
-          activeWorkflow: state.activeWorkflowId === workflow.id ? workflow : state.activeWorkflow,
-          isLoading: false,
-        }));
+        // Fix #8: Always update activeWorkflow if it matches the saved workflow ID
+        set((state) => {
+          const shouldUpdateActive = state.activeWorkflowId === workflow.id ||
+                                     state.activeWorkflow?.id === workflow.id;
+          return {
+            workflows: state.workflows.map((w) =>
+              w.id === workflow.id ? workflow : w
+            ),
+            activeWorkflow: shouldUpdateActive ? workflow : state.activeWorkflow,
+            isLoading: false,
+          };
+        });
       } else {
         throw new Error(result.error);
       }

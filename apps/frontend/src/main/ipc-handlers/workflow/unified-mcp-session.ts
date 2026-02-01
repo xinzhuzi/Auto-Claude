@@ -73,6 +73,9 @@ class UnifiedMcpSession extends EventEmitter {
 
   // 执行锁，防止竞态条件
   private isExecuting: boolean = false;
+  // Fix #4: 异步执行锁
+  private executionLock: Promise<void> = Promise.resolve();
+  private releaseLock: (() => void) | null = null;
 
   // 事件监听器引用，用于清理
   private stdoutListener: ((data: Buffer) => void) | null = null;
@@ -298,6 +301,8 @@ class UnifiedMcpSession extends EventEmitter {
           }
           this.currentCallbacks = null;
           this.isExecuting = false;
+          // Fix #4: 释放执行锁
+          this.releaseLock?.();
         }
         break;
 
@@ -350,13 +355,19 @@ class UnifiedMcpSession extends EventEmitter {
     commandName: string,
     callbacks: SessionCallbacks
   ): Promise<ChildProcess> {
-    if (!this.process || this.process.killed) {
-      throw new Error('Session not initialized');
-    }
+    // Fix #4: 等待之前的执行完成
+    await this.executionLock;
 
-    // 使用锁防止竞态条件
-    if (this.isExecuting || this.currentCallbacks !== null) {
-      throw new Error('Session is busy with another execution');
+    // 创建新的锁
+    let releaseLock: () => void;
+    this.executionLock = new Promise(resolve => {
+      releaseLock = resolve;
+    });
+    this.releaseLock = releaseLock!;
+
+    if (!this.process || this.process.killed) {
+      this.releaseLock?.();
+      throw new Error('Session not initialized');
     }
 
     this.isExecuting = true;
@@ -372,18 +383,21 @@ class UnifiedMcpSession extends EventEmitter {
 
     logger.info('[UnifiedMcpSession] Executing command:', commandName);
 
-    // 检查进程和 stdin 状态
-    if (!this.process.stdin || this.process.stdin.destroyed || this.process.killed) {
+    // Fix #9: 缓存 stdin 引用并检查状态
+    const stdin = this.process.stdin;
+    if (!stdin || stdin.destroyed || this.process.killed) {
       this.currentCallbacks = null;
       this.isExecuting = false;
+      this.releaseLock?.();
       throw new Error('Process stdin is not available');
     }
 
     try {
-      this.process.stdin.write(message + '\n');
+      stdin.write(message + '\n');
     } catch (error) {
       this.currentCallbacks = null;
       this.isExecuting = false;
+      this.releaseLock?.();
       throw new Error(`Failed to write to stdin: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
@@ -397,13 +411,19 @@ class UnifiedMcpSession extends EventEmitter {
     content: string,
     callbacks: SessionCallbacks
   ): Promise<void> {
-    if (!this.process || this.process.killed) {
-      throw new Error('Session not initialized');
-    }
+    // Fix #4: 等待之前的执行完成
+    await this.executionLock;
 
-    // 使用锁防止竞态条件
-    if (this.isExecuting || this.currentCallbacks !== null) {
-      throw new Error('Session is busy with another execution');
+    // 创建新的锁
+    let releaseLock: () => void;
+    this.executionLock = new Promise(resolve => {
+      releaseLock = resolve;
+    });
+    this.releaseLock = releaseLock!;
+
+    if (!this.process || this.process.killed) {
+      this.releaseLock?.();
+      throw new Error('Session not initialized');
     }
 
     this.isExecuting = true;
@@ -417,18 +437,21 @@ class UnifiedMcpSession extends EventEmitter {
       }
     });
 
-    // 检查进程和 stdin 状态
-    if (!this.process.stdin || this.process.stdin.destroyed || this.process.killed) {
+    // Fix #9: 缓存 stdin 引用并检查状态
+    const stdin = this.process.stdin;
+    if (!stdin || stdin.destroyed || this.process.killed) {
       this.currentCallbacks = null;
       this.isExecuting = false;
+      this.releaseLock?.();
       throw new Error('Process stdin is not available');
     }
 
     try {
-      this.process.stdin.write(message + '\n');
+      stdin.write(message + '\n');
     } catch (error) {
       this.currentCallbacks = null;
       this.isExecuting = false;
+      this.releaseLock?.();
       throw new Error(`Failed to write to stdin: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -445,6 +468,8 @@ class UnifiedMcpSession extends EventEmitter {
     }
 
     this.isExecuting = false;
+    // Fix #4: 释放执行锁
+    this.releaseLock?.();
     this.process = null;
     this.isReady = false;
     this.sessionId = null;
@@ -463,6 +488,8 @@ class UnifiedMcpSession extends EventEmitter {
     }
 
     this.isExecuting = false;
+    // Fix #4: 释放执行锁
+    this.releaseLock?.();
 
     // 发出会话错误事件，通知外部
     this.emit('session-error', error);
@@ -474,10 +501,22 @@ class UnifiedMcpSession extends EventEmitter {
   async shutdown(): Promise<void> {
     logger.info('[UnifiedMcpSession] Shutting down session');
 
-    // 移除事件监听器，防止内存泄漏
-    this.removeProcessHandlers();
-
     if (this.process && !this.process.killed) {
+      // 设置退出处理器，确保清理完成
+      const cleanupPromise = new Promise<void>((resolve) => {
+        const exitHandler = () => {
+          this.removeProcessHandlers();
+          resolve();
+        };
+        this.process?.once('exit', exitHandler);
+
+        // 超时回退
+        setTimeout(() => {
+          this.removeProcessHandlers();
+          resolve();
+        }, 2000);
+      });
+
       // 先关闭 stdin，让进程有机会优雅退出
       if (this.process.stdin && !this.process.stdin.destroyed) {
         this.process.stdin.end();
@@ -486,10 +525,20 @@ class UnifiedMcpSession extends EventEmitter {
       // 给进程一点时间优雅退出
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // 如果进程还在运行，强制杀死
+      // 如果进程还在运行，发送 SIGTERM
       if (!this.process.killed) {
-        this.process.kill();
+        this.process.kill('SIGTERM');
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 如果还在运行，强制杀死
+        if (!this.process.killed) {
+          this.process.kill('SIGKILL');
+        }
       }
+
+      await cleanupPromise;
+    } else {
+      this.removeProcessHandlers();
     }
 
     this.process = null;
