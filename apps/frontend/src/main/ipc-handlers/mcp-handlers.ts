@@ -12,6 +12,7 @@ import { createLogger } from '../lib/logger';
 
 const logger = createLogger('MCP');
 import { isWindows } from '../platform';
+import { getAugmentedEnv } from '../env-utils';
 // Import custom MetaMCP handler (won't be overwritten by upstream merges)
 import { isMetaMcpServer, testMetaMcpConnection, checkMetaMcpHealth } from '../custom/metamcp-handler';
 // Import tool description translator
@@ -206,8 +207,12 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
     }
 
     const command = isWindows() ? 'where' : 'which';
+    // 使用增强的 PATH，确保打包后的应用能找到 /opt/homebrew/bin 等目录中的命令
+    const augmentedEnv = getAugmentedEnv();
+    logger.info(`[MCP] checkCommandHealth PATH: ${augmentedEnv.PATH?.substring(0, 200)}`);
     const proc = spawn(command, [server.command!], {
       timeout: 5000,
+      env: augmentedEnv,
     });
 
     let found = false;
@@ -702,11 +707,16 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
 
     const args = server.args || [];
 
+    // 使用增强的 PATH，确保打包后的应用能找到 /opt/homebrew/bin 等目录中的命令
+    const augmentedEnv = getAugmentedEnv();
+    logger.info(`[MCP] testCommandConnection PATH: ${augmentedEnv.PATH?.substring(0, 200)}`);
+
     // On Windows, use shell: true to properly handle .cmd/.bat scripts like npx
     const proc = spawn(server.command!, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 15000, // OS-level timeout for reliable process termination
       shell: isWindows(), // Required for Windows to run npx.cmd
+      env: augmentedEnv,
     });
 
     let stdout = '';

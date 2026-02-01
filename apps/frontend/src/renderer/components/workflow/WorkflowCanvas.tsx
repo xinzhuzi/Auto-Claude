@@ -5,7 +5,7 @@
  * Part of cc-wf-studio integration
  */
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,

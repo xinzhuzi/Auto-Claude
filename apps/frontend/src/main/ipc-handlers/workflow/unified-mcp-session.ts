@@ -132,6 +132,8 @@ class UnifiedMcpSession extends EventEmitter {
     const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
     // 构建环境变量 - 移除冲突的认证变量
+    // 注意：claudeEnv 包含增强的 PATH（包括 /opt/homebrew/bin 等），
+    // 必须放在最后以确保打包应用能找到 uvx 等命令
     const {
       DEBUG: _DEBUG,
       ANTHROPIC_API_KEY: _ANTHROPIC_API_KEY,
@@ -141,10 +143,14 @@ class UnifiedMcpSession extends EventEmitter {
 
     const env = {
       ...cleanEnv,
-      ...claudeEnv,
       ...oauthModeClearVars,
       ...apiProfileEnv,
+      ...claudeEnv,  // 放最后，确保增强的 PATH 不被覆盖
     };
+
+    // 调试：打印 PATH 信息
+    logger.info('[UnifiedMcpSession] claudeEnv PATH:', claudeEnv.PATH?.substring(0, 200));
+    logger.info('[UnifiedMcpSession] final env PATH:', env.PATH?.substring(0, 200));
 
     // 确保无认证冲突
     if (apiProfileEnv.ANTHROPIC_AUTH_TOKEN) {
