@@ -798,6 +798,31 @@ def create_client(
         f"and build-progress.txt updates."
     )
 
+    # 通用上下文管理规则 - 防止上下文溢出
+    base_prompt += (
+        f"\n\n## Context Management Rules\n"
+        f"To prevent context overflow and ensure task completion:\n\n"
+        f"**Reading Strategy:**\n"
+        f"- Batch reading: Read 5-10 files, then pause to process\n"
+        f"- Large files (>300 lines): Summarize key points after reading, don't hold raw content\n"
+        f"- After reading 20+ files: MUST compress context before continuing\n\n"
+        f"**Context Compression:**\n"
+        f"- When context feels heavy: Write analysis notes to your task's spec folder\n"
+        f"- Use numbered files: `_analysis_01.md`, `_analysis_02.md`, etc.\n"
+        f"- Location: Write to the same folder where your output files go (e.g., `.auto-claude/specs/XXX/`)\n"
+        f"- Extract only: file paths, key patterns, important decisions, action items\n"
+        f"- Discard: raw file contents, verbose details, redundant information\n"
+        f"- Then continue with fresh context, referencing your analysis notes\n\n"
+        f"**Output Discipline:**\n"
+        f"- Write incrementally: Don't wait until you've read everything\n"
+        f"- Checkpoint often: Save progress to files rather than holding in context\n"
+        f"- If unsure about context capacity: Write now, refine later\n\n"
+        f"**Warning Signs (act immediately):**\n"
+        f"- Read 30+ files without writing → compress context NOW\n"
+        f"- Responses getting slower → context is full, write analysis notes and continue\n"
+        f"- Forgetting earlier details → context overflow, save findings to file"
+    )
+
     # Include CLAUDE.md if enabled and present
     if should_use_claude_md():
         claude_md_content = load_claude_md(project_dir)

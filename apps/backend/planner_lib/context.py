@@ -28,6 +28,7 @@ _WORKFLOW_TYPE_MAPPING: dict[str, WorkflowType] = {
     "migration": WorkflowType.MIGRATION,
     "simple": WorkflowType.SIMPLE,
     "bugfix": WorkflowType.INVESTIGATION,
+    "documentation": WorkflowType.FEATURE,  # 文档任务映射到 FEATURE 类型
 }
 
 
