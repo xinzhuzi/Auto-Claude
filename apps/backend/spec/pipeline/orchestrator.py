@@ -6,6 +6,7 @@ Main orchestration logic for spec creation with dynamic complexity adaptation.
 """
 
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -760,7 +761,6 @@ class SpecOrchestrator:
         Returns:
             True if approved, False otherwise
         """
-        import sys
         print(f"[ORCHESTRATOR] _run_review_checkpoint called with auto_approve={auto_approve}", flush=True)
         print()
         print_section("HUMAN REVIEW CHECKPOINT", Icons.SEARCH)
