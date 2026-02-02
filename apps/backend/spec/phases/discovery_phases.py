@@ -58,11 +58,24 @@ class DiscoveryPhaseMixin:
 
     async def phase_context(self) -> PhaseResult:
         """Discover relevant files for the task."""
+        import json
+
         context_file = self.spec_dir / "context.json"
 
         if context_file.exists():
-            self.ui.print_status("context.json already exists", "success")
-            return PhaseResult("context", True, [str(context_file)], [], 0)
+            # Check if context.json has valid content (non-empty files lists)
+            try:
+                with open(context_file, encoding="utf-8") as f:
+                    ctx = json.load(f)
+                if ctx.get("files_to_modify") or ctx.get("files_to_reference"):
+                    self.ui.print_status("context.json already exists and is valid", "success")
+                    return PhaseResult("context", True, [str(context_file)], [], 0)
+                # Content is empty, delete and rediscover
+                self.ui.print_status("context.json exists but empty, deleting to rediscover...", "warning")
+                context_file.unlink()
+            except (json.JSONDecodeError, OSError):
+                self.ui.print_status("context.json invalid, deleting to regenerate...", "warning")
+                context_file.unlink(missing_ok=True)
 
         # Load requirements for task description
         task = self.task_description

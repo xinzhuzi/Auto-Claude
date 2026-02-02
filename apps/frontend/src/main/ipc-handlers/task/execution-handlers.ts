@@ -220,29 +220,19 @@ export function registerTaskExecutionHandlers(
         // Also pass baseBranch so worktrees are created from the correct branch
         agentManager.startSpecCreation(taskId, project.path, taskDescription, specDir, task.metadata, baseBranch);
       } else if (needsImplementation) {
-        // Spec exists but no subtasks - run run.py to create implementation plan and execute
-        // Read the spec.md to get the task description
-        const _taskDescription = task.description || task.title;
-        try {
-          readFileSync(specFilePath, 'utf-8');
-        } catch {
-          // Use default description
-        }
+        // Spec exists but no subtasks (phases array is empty) - need to run planning phase
+        // IMPORTANT: run.py only executes coder agent, it does NOT run planning phase!
+        // We must use spec_runner.py which runs the full spec pipeline.
+        // The pipeline will detect spec.md exists and skip to planning phase.
+        const taskDescription = task.description || task.title;
 
-        console.warn('[TASK_START] Starting task execution (no subtasks) for:', task.specId);
-        // Start task execution which will create the implementation plan
-        // Note: No parallel mode for planning phase - parallel only makes sense with multiple subtasks
-        agentManager.startTaskExecution(
-          taskId,
-          project.path,
-          task.specId,
-          {
-            parallel: false,  // Sequential for planning phase
-            workers: 1,
-            baseBranch,
-            useWorktree: task.metadata?.useWorktree
-          }
-        );
+        console.warn('[TASK_START] Starting spec pipeline (planning phase) for:', task.specId, 'phases are empty');
+        // Start spec creation process with --resume-planning flag
+        // This tells spec_runner to pass full context to AI at startup
+        agentManager.startSpecCreation(taskId, project.path, taskDescription, specDir, {
+          ...task.metadata,
+          resumePlanning: true  // Flag to indicate this is a planning resume
+        }, baseBranch);
       } else {
         // Task has subtasks, start normal execution
         // Note: Parallel execution is handled internally by the agent, not via CLI flags
@@ -798,19 +788,15 @@ export function registerTaskExecutionHandlers(
             console.warn('[TASK_UPDATE_STATUS] Starting spec creation for:', task.specId);
             agentManager.startSpecCreation(taskId, project.path, taskDescription, specDir, task.metadata, baseBranchForUpdate);
           } else if (needsImplementation) {
-            // Spec exists but no subtasks - run run.py to create implementation plan and execute
-            console.warn('[TASK_UPDATE_STATUS] Starting task execution (no subtasks) for:', task.specId);
-            agentManager.startTaskExecution(
-              taskId,
-              project.path,
-              task.specId,
-              {
-                parallel: false,
-                workers: 1,
-                baseBranch: baseBranchForUpdate,
-                useWorktree: task.metadata?.useWorktree
-              }
-            );
+            // Spec exists but no subtasks (phases array is empty) - need to run planning phase
+            // IMPORTANT: run.py only executes coder agent, it does NOT run planning phase!
+            // We must use spec_runner.py which runs the full spec pipeline.
+            const taskDescription = task.description || task.title;
+            console.warn('[TASK_UPDATE_STATUS] Starting spec pipeline (planning phase) for:', task.specId, 'phases are empty');
+            agentManager.startSpecCreation(taskId, project.path, taskDescription, specDir, {
+              ...task.metadata,
+              resumePlanning: true  // Flag to indicate this is a planning resume
+            }, baseBranchForUpdate);
           } else {
             // Task has subtasks, start normal execution
             // Note: Parallel execution is handled internally by the agent

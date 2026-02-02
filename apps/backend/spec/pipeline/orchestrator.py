@@ -61,6 +61,7 @@ class SpecOrchestrator:
         thinking_level: str = "medium",  # Thinking level for extended thinking
         complexity_override: str | None = None,  # Force a specific complexity
         use_ai_assessment: bool = True,  # Use AI for complexity assessment (vs heuristics)
+        resume_planning: bool = False,  # Resume incomplete planning phase
     ):
         """Initialize the spec orchestrator.
 
@@ -73,6 +74,7 @@ class SpecOrchestrator:
             thinking_level: Thinking level (none, low, medium, high, ultrathink)
             complexity_override: Force a specific complexity level
             use_ai_assessment: Whether to use AI for complexity assessment
+            resume_planning: Whether to resume an incomplete planning phase
         """
         self.project_dir = Path(project_dir)
         self.task_description = task_description
@@ -80,6 +82,7 @@ class SpecOrchestrator:
         self.thinking_level = thinking_level
         self.complexity_override = complexity_override
         self.use_ai_assessment = use_ai_assessment
+        self.resume_planning = resume_planning
 
         # Get the appropriate specs directory (within the project)
         self.specs_dir = get_specs_dir(self.project_dir)
@@ -219,6 +222,121 @@ class SpecOrchestrator:
                 print_status("Using cached project index", "info")
             # If no index exists and no refresh needed, that's fine - capabilities will be empty
 
+    async def _load_resume_planning_context(self) -> None:
+        """Load task files into phase summaries for resume planning mode.
+
+        This pre-loads the content of existing spec files so that AI has full
+        context from the very start of the pipeline, not just when planning phase runs.
+        Reads all relevant files in spec directory, with implementation_plan.json last.
+        """
+        print_status("Resume planning mode: loading task context...", "progress")
+
+        # Files to skip (logs, temp files, directories)
+        skip_files = {"task_logs.json", ".DS_Store"}
+        # implementation_plan.json should be read last
+        plan_filename = "implementation_plan.json"
+
+        # Scan spec directory for all files
+        all_files = []
+        plan_file_path = None
+
+        for item in self.spec_dir.iterdir():
+            if item.is_dir():
+                continue  # Skip directories like chunks/
+            if item.name in skip_files:
+                continue
+            if item.name.startswith("."):
+                continue  # Skip hidden files
+            if item.name == plan_filename:
+                plan_file_path = item  # Save for last
+                continue
+            all_files.append(item)
+
+        # Sort files for consistent ordering
+        all_files.sort(key=lambda x: x.name)
+
+        # Add implementation_plan.json at the end
+        if plan_file_path:
+            all_files.append(plan_file_path)
+
+        loaded_content = {}
+        loaded_count = 0
+        task_feature = ""
+        task_description = ""
+
+        for file_path in all_files:
+            filename = file_path.name
+            try:
+                content = file_path.read_text(encoding="utf-8")
+                loaded_content[filename] = content
+                loaded_count += 1
+
+                # Extract task info from implementation_plan.json
+                if filename == plan_filename:
+                    try:
+                        plan_data = json.loads(content)
+                        task_feature = plan_data.get("feature", "")
+                        task_description = plan_data.get("description", "")
+                    except json.JSONDecodeError:
+                        pass
+
+                print_status(f"Loaded: {filename}", "info")
+            except Exception as e:
+                print_status(f"Failed to read {filename}: {e}", "warning")
+                loaded_content[filename] = f"[Failed to read: {e}]"
+
+        # Build comprehensive context summary
+        # Knowledge files first, then implementation_plan.json
+        context_parts = [
+            "## 🎯 TASK DEFINITION (Resume Planning Mode)\n",
+            f"**Task Title**: {task_feature}\n",
+            f"**Task Description**:\n{task_description}\n",
+            "\n---\n",
+            "## 📁 SPEC FILES (Knowledge Base)\n",
+        ]
+
+        for filename, content in loaded_content.items():
+            if filename == plan_filename:
+                continue  # Add at the end
+            ext = filename.split(".")[-1] if "." in filename else ""
+            lang = "json" if ext == "json" else "markdown" if ext == "md" else ""
+            context_parts.append(f"\n### {filename}\n```{lang}\n{content}\n```\n")
+
+        # Add implementation_plan.json last
+        if plan_filename in loaded_content:
+            context_parts.append("\n---\n")
+            context_parts.append("## 📋 IMPLEMENTATION PLAN (Needs phases)\n")
+            context_parts.append(f"```json\n{loaded_content[plan_filename]}\n```\n")
+
+        context_parts.append("\n---\n")
+        context_parts.append("## ✅ MISSION\n\n")
+        context_parts.append("The planning phase is incomplete. The `phases` array in implementation_plan.json is empty.\n\n")
+        context_parts.append("**IMPORTANT - CODEBASE INVESTIGATION REQUIRED**:\n")
+        context_parts.append("Before creating phases, you MUST read project files:\n")
+        context_parts.append("1. Read `context.json` above to find `files_to_modify` and `files_to_reference`\n")
+        context_parts.append("2. Use Read tool to read ALL those project files\n")
+        context_parts.append("3. Understand existing code patterns before planning\n\n")
+        context_parts.append("Then create a valid phases array with subtasks based on spec.md and your investigation.\n")
+
+        resume_context = "".join(context_parts)
+
+        # Store as a "resume_context" phase summary so all subsequent phases can access it
+        self._phase_summaries["resume_context"] = resume_context
+
+        # Log to task_logs.json
+        task_logger = get_task_logger(self.spec_dir)
+        if task_logger:
+            task_logger.log(
+                f"Resume planning mode: loaded {loaded_count} spec files into context",
+                LogEntryType.INFO,
+                LogPhase.PLANNING,
+            )
+
+        print_status(
+            f"Loaded {loaded_count} task files into context",
+            "success" if loaded_count > 0 else "warning",
+        )
+
     async def run(self, interactive: bool = True, auto_approve: bool = False) -> bool:
         """Run the spec creation process with dynamic phase selection.
 
@@ -248,6 +366,11 @@ class SpecOrchestrator:
 
         # Smart cache: refresh project index if dependency files have changed
         await self._ensure_fresh_project_index()
+
+        # Resume planning mode: pre-load task files into phase summaries
+        # This ensures AI has full context from the start
+        if self.resume_planning:
+            await self._load_resume_planning_context()
 
         # Create phase executor
         phase_executor = phases.PhaseExecutor(
@@ -443,6 +566,19 @@ class SpecOrchestrator:
         assessment_file = self.spec_dir / "complexity_assessment.json"
         requirements_file = self.spec_dir / "requirements.json"
 
+        # Check if assessment already exists (skip if resuming)
+        if assessment_file.exists():
+            try:
+                self.assessment = complexity.load_assessment(self.spec_dir)
+                if self.assessment:
+                    print_status("complexity_assessment.json already exists", "success")
+                    self._print_phases_to_run()
+                    return phases.PhaseResult(
+                        "complexity_assessment", True, [str(assessment_file)], [], 0
+                    )
+            except Exception as e:
+                print_status(f"Failed to load existing assessment: {e}", "warning")
+
         # Load requirements for full context
         requirements_context = self._load_requirements_context(requirements_file)
 
@@ -624,29 +760,40 @@ class SpecOrchestrator:
         Returns:
             True if approved, False otherwise
         """
+        import sys
+        print(f"[ORCHESTRATOR] _run_review_checkpoint called with auto_approve={auto_approve}", flush=True)
         print()
         print_section("HUMAN REVIEW CHECKPOINT", Icons.SEARCH)
 
         try:
+            print(f"[ORCHESTRATOR] Calling run_review_checkpoint...", flush=True)
             review_state = run_review_checkpoint(
                 spec_dir=self.spec_dir,
                 auto_approve=auto_approve,
             )
+            print(f"[ORCHESTRATOR] run_review_checkpoint returned, is_approved={review_state.is_approved()}", flush=True)
 
             if not review_state.is_approved():
+                print(f"[ORCHESTRATOR] Review state not approved, returning False", flush=True)
                 print()
                 print_status("Build will not proceed without approval.", "warning")
                 return False
 
         except SystemExit as e:
+            # SystemExit with code 0 means user paused review (not rejected)
+            # SystemExit with code != 0 means user rejected or error
+            print(f"[ORCHESTRATOR] Caught SystemExit with code={e.code}", flush=True)
             if e.code != 0:
                 return False
+            # User paused review - treat as not approved for now
             return False
         except KeyboardInterrupt:
+            print(f"[ORCHESTRATOR] Caught KeyboardInterrupt", flush=True)
             print()
             print_status("Review interrupted. Run again to continue.", "info")
             return False
 
+        print(f"[ORCHESTRATOR] Review checkpoint passed, returning True", flush=True)
         return True
 
     # Backward compatibility methods for tests

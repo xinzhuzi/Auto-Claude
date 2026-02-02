@@ -162,6 +162,23 @@ Write ONLY the sections assigned to you. Do NOT write the entire spec.
 Do NOT create or write to spec.md - only write to chunks/chunk_{chunk_idx}.md
 """
 
+            # Inject spec_writer.md content so AI doesn't need to read it
+            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+            spec_writer_path = prompts_dir / "spec_writer.md"
+            if spec_writer_path.exists():
+                spec_writer_content = spec_writer_path.read_text(encoding="utf-8")
+                template_context = f"""
+---
+## SPEC WRITER TEMPLATE (已预加载，无需读取)
+
+以下是 spec_writer.md 的完整内容，请直接使用：
+
+{spec_writer_content}
+
+---
+"""
+                context_str = context_str + template_context
+
             chunk_success = False
             for attempt in range(MAX_RETRIES):
                 self.ui.print_status(

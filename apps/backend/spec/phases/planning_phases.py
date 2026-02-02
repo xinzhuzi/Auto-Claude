@@ -24,6 +24,7 @@ class PlanningPhaseMixin:
         from ..validate_pkg.auto_fix import auto_fix_plan
 
         plan_file = self.spec_dir / "implementation_plan.json"
+        is_resume_mode = False  # Track if we're resuming an incomplete plan
 
         if plan_file.exists():
             result = self.spec_validator.validate_implementation_plan()
@@ -32,7 +33,9 @@ class PlanningPhaseMixin:
                     "implementation_plan.json already exists and is valid", "success"
                 )
                 return PhaseResult("planning", True, [str(plan_file)], [], 0)
-            self.ui.print_status("Plan exists but invalid, regenerating...", "warning")
+            # Plan exists but invalid (e.g., empty phases) - keep file, AI will update it
+            self.ui.print_status("Plan exists but needs phases, AI will update...", "warning")
+            is_resume_mode = True  # Mark as resume mode
 
         errors = []
 
@@ -68,6 +71,120 @@ class PlanningPhaseMixin:
 
         # Fall back to agent
         self.ui.print_status("Falling back to planner agent...", "progress")
+
+        # Build additional context for resume mode - include actual file contents
+        additional_context = None
+        if is_resume_mode:
+            import json
+
+            # Read existing files to provide full context to AI
+            plan_content = ""
+            spec_content = ""
+            context_content = ""
+            requirements_content = ""
+            task_feature = ""
+            task_description = ""
+
+            try:
+                plan_text = (self.spec_dir / "implementation_plan.json").read_text(encoding="utf-8")
+                plan_content = plan_text
+                # Extract task info from plan
+                plan_data = json.loads(plan_text)
+                task_feature = plan_data.get("feature", "")
+                task_description = plan_data.get("description", "")
+            except Exception:
+                plan_content = "[File not found or unreadable]"
+
+            try:
+                spec_content = (self.spec_dir / "spec.md").read_text(encoding="utf-8")
+            except Exception:
+                spec_content = "[File not found or unreadable]"
+
+            try:
+                context_content = (self.spec_dir / "context.json").read_text(encoding="utf-8")
+            except Exception:
+                context_content = "[File not found or unreadable]"
+
+            try:
+                requirements_content = (self.spec_dir / "requirements.json").read_text(encoding="utf-8")
+            except Exception:
+                requirements_content = "[File not found or unreadable]"
+
+            # Get validation errors to show what failed
+            validation_errors = result.errors if result else ["phases array is empty"]
+
+            additional_context = f"""
+## 🎯 TASK DEFINITION (This is what you need to implement)
+
+**Task Title**: {task_feature}
+
+**Task Description**:
+{task_description}
+
+---
+
+## ⚠️ CURRENT STATUS: PLANNING PHASE INCOMPLETE
+
+The spec pipeline detected that the **planning phase** has not been completed successfully.
+
+**Validation Errors**:
+{chr(10).join(f"- {err}" for err in validation_errors)}
+
+**Spec Directory**: `{self.spec_dir}`
+
+---
+
+## 📁 EXISTING FILES (Read these to understand the task)
+
+### 1. implementation_plan.json (Current state - needs phases)
+```json
+{plan_content}
+```
+
+### 2. spec.md (Detailed specification for the task)
+```markdown
+{spec_content}
+```
+
+### 3. context.json (Files to modify/reference)
+```json
+{context_content}
+```
+
+### 4. requirements.json (Original requirements)
+```json
+{requirements_content}
+```
+
+---
+
+## ✅ YOUR MISSION
+
+**PHASE 0 - CODEBASE INVESTIGATION (MANDATORY)**:
+Before creating phases, you MUST investigate the project codebase!
+
+1. **Read files from context.json**:
+   - Read ALL files listed in `files_to_modify` to understand what needs to change
+   - Read ALL files listed in `files_to_reference` to understand existing patterns
+
+2. **Explore project structure** (if needed):
+   - Use `ls` and `find` to understand the directory structure
+   - Search for similar implementations using `grep`
+
+**DO NOT skip this step!** Plans created without codebase investigation will be inaccurate.
+
+**PHASE 1 - CREATE PHASES**:
+After completing investigation:
+
+1. **Understand the task**: The task is "{task_feature}"
+2. **Read the spec.md**: It contains the detailed implementation plan
+3. **Create phases with subtasks**: Break down the task into executable phases
+4. **Update implementation_plan.json**: Use **Edit tool** (not Write) to add the `phases` array
+5. **Preserve existing fields**: Keep `feature`, `description`, `created_at`, `status`, `planStatus` unchanged
+
+The goal is to make the planning phase validation pass by adding a valid `phases` array.
+"""
+
         for attempt in range(MAX_RETRIES):
             self.ui.print_status(
                 f"Running planner agent (attempt {attempt + 1})...", "progress"
@@ -75,6 +192,7 @@ class PlanningPhaseMixin:
 
             success, output = await self.run_agent_fn(
                 "planner.md",
+                additional_context=additional_context,
                 phase_name="planning",
             )
 

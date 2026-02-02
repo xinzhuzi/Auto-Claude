@@ -1,6 +1,7 @@
 import type { BrowserWindow } from "electron";
 import path from "path";
 import { existsSync } from "fs";
+import log from "electron-log/main.js";
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from "../../shared/constants";
 import {
   wouldPhaseRegress,
@@ -164,6 +165,9 @@ export function registerAgenteventsHandlers(
   });
 
   agentManager.on("exit", (taskId: string, code: number | null, processType: ProcessType) => {
+    // Log exit event to main.log for debugging
+    log.info(`[AgentEvents] Process exit event received: taskId=${taskId}, code=${code}, processType=${processType}`);
+
     // Get project info early for multi-project filtering (issue #723)
     const { project: exitProject } = findTaskAndProject(taskId);
     const exitProjectId = exitProject?.id;
@@ -172,6 +176,7 @@ export function registerAgenteventsHandlers(
     // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)
     const finalPlan = fileWatcher.getCurrentPlan(taskId);
     if (finalPlan) {
+      log.info(`[AgentEvents] Final plan status: ${finalPlan.status}, planStatus: ${finalPlan.planStatus}, phases: ${finalPlan.phases?.length || 0}`);
       safeSendToRenderer(
         getMainWindow,
         IPC_CHANNELS.TASK_PROGRESS,
@@ -184,9 +189,12 @@ export function registerAgenteventsHandlers(
     fileWatcher.unwatch(taskId);
 
     if (processType === "spec-creation") {
+      log.info(`[AgentEvents] Spec creation completed with code ${code}, returning early`);
       console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
       return;
     }
+
+    log.info(`[AgentEvents] processType is '${processType}', continuing with exit handler logic`);
 
     let task: Task | undefined;
     let project: Project | undefined;
@@ -259,8 +267,11 @@ export function registerAgenteventsHandlers(
           const hasIncompleteSubtasks =
             hasSubtasks && task.subtasks.some((s) => s.status !== "completed");
 
+          log.info(`[AgentEvents] Exit handler (code=0): taskStatus=${task.status}, isActiveStatus=${isActiveStatus}, hasSubtasks=${hasSubtasks}, subtasksCount=${task.subtasks?.length || 0}, hasIncompleteSubtasks=${hasIncompleteSubtasks}`);
+
           if (isActiveStatus && hasSubtasks && !hasIncompleteSubtasks) {
             // All subtasks completed - safe to move to human_review
+            log.info(`[AgentEvents] Moving to human_review (all subtasks completed)`);
             console.warn(
               `[Task ${taskId}] Fallback: Moving to human_review (process exited successfully, all ${task.subtasks.length} subtasks completed)`
             );
@@ -276,11 +287,13 @@ export function registerAgenteventsHandlers(
           } else if (isActiveStatus && !hasSubtasks) {
             // No subtasks yet - task is still in planning phase, don't change status
             // This prevents the bug where tasks jump to human_review before planning completes
+            log.info(`[AgentEvents] No subtasks yet - keeping current status (${task.status})`);
             console.warn(
               `[Task ${taskId}] Process exited but no subtasks created yet - keeping current status (${task.status})`
             );
           }
         } else {
+          log.warn(`[AgentEvents] Process failed (code=${code}), setting to human_review`);
           notificationService.notifyTaskFailed(taskTitle, project.id, taskId);
           persistStatus("human_review");
           // Include projectId for multi-project filtering (issue #723)

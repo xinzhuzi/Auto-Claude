@@ -410,6 +410,10 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   /**
    * Reloads implementation plan for an incomplete task to ensure subtasks are properly loaded.
    * This prevents the "Task Incomplete" infinite loop when resuming stuck tasks.
+   *
+   * IMPORTANT: If subtasks are empty after reload, we still return true to allow task start.
+   * The backend TASK_START handler will detect this (needsImplementation = true) and trigger
+   * the spec pipeline to run the planning phase, which will populate the phases array.
    */
   const reloadPlanForIncompleteTask = useCallback(async (): Promise<boolean> => {
     if (!selectedProject) {
@@ -453,8 +457,12 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
       // Validate the reloaded subtasks
       if (!validateTaskSubtasks(updatedTask)) {
-        console.error('[reloadPlanForIncompleteTask] Reloaded task still has invalid subtasks');
-        return false;
+        // Subtasks are still empty/invalid after reload
+        // This likely means the planning phase hasn't completed yet (phases array is empty)
+        // Allow task start - backend will detect needsImplementation and run planning phase
+        console.warn('[reloadPlanForIncompleteTask] Subtasks still empty after reload - planning phase incomplete');
+        console.log('[reloadPlanForIncompleteTask] Allowing task start - backend will trigger planning phase');
+        return true; // Allow start, backend will handle planning
       }
 
       console.log('[reloadPlanForIncompleteTask] Successfully reloaded plan with valid subtasks:', {

@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
+import log from 'electron-log/main.js';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -676,6 +677,9 @@ export class AgentProcessManager {
     });
 
     childProcess.on('exit', (code: number | null) => {
+      // Log process exit to main.log for debugging
+      log.info(`[AgentProcess] Process exited with code: ${code}, taskId: ${taskId}, processType: ${processType}`);
+
       if (stdoutBuffer.trim()) {
         this.emitter.emit('log', taskId, stdoutBuffer + '\n');
         processLog(stdoutBuffer);
@@ -689,10 +693,12 @@ export class AgentProcessManager {
 
       if (this.state.wasSpawnKilled(spawnId)) {
         this.state.clearKilledSpawn(spawnId);
+        log.info(`[AgentProcess] Process was killed intentionally, taskId: ${taskId}`);
         return;
       }
 
       if (code !== 0) {
+        log.warn(`[AgentProcess] Process failed with code: ${code}, taskId: ${taskId}`);
         console.log('[AgentProcess] Process failed with code:', code, 'for task:', taskId);
         const wasHandled = this.handleProcessFailure(taskId, allOutput, processType);
         if (wasHandled) {

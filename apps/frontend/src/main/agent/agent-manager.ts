@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import path from 'path';
 import { existsSync } from 'fs';
+import log from 'electron-log/main.js';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
@@ -167,9 +168,18 @@ export class AgentManager extends EventEmitter {
     }
 
     // Check if user requires review before coding
+    log.info('[AgentManager] startSpecCreation - metadata:', {
+      requireReviewBeforeCoding: metadata?.requireReviewBeforeCoding,
+      resumePlanning: metadata?.resumePlanning,
+      model: metadata?.model,
+      isAutoProfile: metadata?.isAutoProfile
+    });
     if (!metadata?.requireReviewBeforeCoding) {
       // Auto-approve: When user starts a task from the UI without requiring review
       args.push('--auto-approve');
+      log.info('[AgentManager] Adding --auto-approve flag (requireReviewBeforeCoding is falsy)');
+    } else {
+      log.info('[AgentManager] NOT adding --auto-approve flag (requireReviewBeforeCoding is true)');
     }
 
     // Pass model and thinking level configuration
@@ -191,8 +201,16 @@ export class AgentManager extends EventEmitter {
       args.push('--direct');
     }
 
+    // Resume planning mode: pass flag to tell spec_runner to provide full context at startup
+    if (metadata?.resumePlanning) {
+      args.push('--resume-planning');
+    }
+
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
+
+    // Log final args before spawning process
+    log.info('[AgentManager] startSpecCreation - spawning process with args:', args.join(' '));
 
     // Note: This is spec-creation but it chains to task-execution via run.py
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');

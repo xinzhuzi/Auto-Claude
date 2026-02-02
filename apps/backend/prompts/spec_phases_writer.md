@@ -5,25 +5,22 @@
 
 **核心原则**：
 - 你是一个"适配器"，不是新的模板来源
-- 所有格式和规范来自 spec_writer.md
+- 所有格式和规范来自 spec_writer.md（已在上下文中预加载）
 - 不要自己创新格式，严格遵循模板
 
 ---
 
-## CRITICAL: 必须先读取模板 (MANDATORY) ⚠️
+## CRITICAL: 模板已预加载 ⚠️
 
-**在执行任何操作之前**，你必须先读取完整模板：
+**spec_writer.md 模板内容已在上下文中提供，无需使用 Read 工具读取。**
 
-```bash
-Read(file_path="apps/backend/prompts/spec_writer.md")
-```
+直接在上方 "SPEC WRITER TEMPLATE (已预加载，无需读取)" 部分查找格式规范。
 
-❌ **如果你跳过这一步，任务将失败**
 ❌ **禁止使用"常规 Markdown 格式"**
 ❌ **禁止自己创新格式**
 ❌ **禁止使用 "Success Metrics" - 必须使用 "Success Criteria"**
 
-✅ **必须从 spec_writer.md 提取所有格式**
+✅ **必须从预加载的 spec_writer.md 模板提取所有格式**
 
 **章节名称严格要求**：
 - ✅ 正确：`## Success Criteria`
@@ -31,7 +28,7 @@ Read(file_path="apps/backend/prompts/spec_writer.md")
 - ❌ 错误：`## Success Criterion`
 - ❌ 错误：`## Acceptance Criteria`
 
-从 spec_writer.md 中提取：
+从预加载的 spec_writer.md 中提取：
 1. **章节模板结构** (PHASE 2: WRITE SPEC.MD 部分)
 2. **格式规范** (COMMON ISSUES TO AVOID 部分)
 3. **QA 要求** (QA Acceptance Criteria 部分)
@@ -47,14 +44,11 @@ Read(file_path="apps/backend/prompts/spec_writer.md")
 
 ## 你的执行流程（必须按顺序）
 
-### Step 1: 读取模板（MANDATORY）⚠️
+### Step 1: 查看预加载的模板
 
-**这是第一步，必须先执行！**
+**模板已在上下文中提供，无需读取文件！**
 
-使用 Read 工具读取：
-- `apps/backend/prompts/spec_writer.md` ⚠️ **必须第一步**
-
-确认你已读取后，才能继续。
+在上方找到 "SPEC WRITER TEMPLATE (已预加载，无需读取)" 部分，这就是 spec_writer.md 的完整内容。
 
 ### Step 2: 读取上下文文件
 
@@ -187,13 +181,11 @@ Implement OAuth2 authentication...
 
 ## ✅ 正确示例（必须这样做）
 
-### 步骤1：先读取 spec_writer.md
-```bash
-Read(file_path="apps/backend/prompts/spec_writer.md")
-```
+### 步骤1：查看预加载的模板
+在上下文中找到 "SPEC WRITER TEMPLATE (已预加载，无需读取)" 部分
 
 ### 步骤2：找到对应章节的模板
-在 spec_writer.md 中找到 "## Overview" 章节的模板
+在预加载的 spec_writer.md 中找到 "## Overview" 章节的模板
 
 ### 步骤3：按照模板格式填充内容
 ```markdown
@@ -227,13 +219,13 @@ Read(file_path="apps/backend/prompts/spec_writer.md")
 **关键点**：
 - ✅ 使用了模板中的列表格式（复选框）
 - ✅ 表格遵循模板格式
-- ✅ 先读取了 spec_writer.md
+- ✅ 使用了预加载的 spec_writer.md 模板
 
 ---
 
 ## CRITICAL RULES
 
-1. **ALWAYS read spec_writer.md first** - 使用 Read 工具读取完整模板
+1. **Use the preloaded spec_writer.md template** - 模板已在上下文中提供
 
 2. **Follow the spec_writer.md template exactly** - 不要自己创新格式
 
@@ -274,7 +266,7 @@ code here     ✓ 正确（闭合）
 ```
 ```
 
-### ❌ 错误2：没有读取 spec_writer.md
+### ❌ 错误2：没有使用预加载的模板
 
 **后果**：
 - 格式可能不正确
@@ -296,7 +288,7 @@ code here     ✓ 正确（闭合）
 
 **在写入 chunk 之前，确认**：
 
-- [ ] 我使用了 Read 工具读取了 spec_writer.md ⚠️ **必须**
+- [ ] 我查看了预加载的 spec_writer.md 模板 ⚠️ **必须**
 - [ ] 我找到了对应章节的模板
 - [ ] 我使用了模板中的列表格式
 - [ ] 我使用了模板中的表格格式
@@ -306,7 +298,7 @@ code here     ✓ 正确（闭合）
 - [ ] 我只写了分配到的章节
 - [ ] 我添加了正确的 PART 标记
 
-**如果任何一项是 ❌，重新阅读 spec_writer.md**
+**如果任何一项是 ❌，重新查看预加载的 spec_writer.md 模板**
 
 ---
 
@@ -327,7 +319,7 @@ code here     ✓ 正确（闭合）
 
 **执行流程**：
 
-1. **Read** `apps/backend/prompts/spec_writer.md` ⚠️ **必须第一步**
+1. **查看预加载的模板** - 在上下文中找到 "SPEC WRITER TEMPLATE" 部分
 
 2. **Read** `project_index.json`
 

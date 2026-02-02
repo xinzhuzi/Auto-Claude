@@ -1250,3 +1250,42 @@ def save_assessment(spec_dir: Path, assessment: ComplexityAssessment) -> Path:
         json.dump(output_data, f, indent=2)
 
     return assessment_file
+
+
+def load_assessment(spec_dir: Path) -> ComplexityAssessment | None:
+    """Load complexity assessment from file.
+
+    Args:
+        spec_dir: The spec directory containing the assessment file
+
+    Returns:
+        ComplexityAssessment if file exists and is valid, None otherwise
+    """
+    assessment_file = spec_dir / "complexity_assessment.json"
+    if not assessment_file.exists():
+        return None
+
+    try:
+        with open(assessment_file, encoding="utf-8") as f:
+            data = json.load(f)
+
+        return ComplexityAssessment(
+            complexity=Complexity(data.get("complexity", "standard")),
+            confidence=data.get("confidence", 0.5),
+            reasoning=data.get("reasoning", ""),
+            signals=data.get("signals", {}),
+            estimated_files=data.get("estimated_files", 1),
+            estimated_services=data.get("estimated_services", 1),
+            external_integrations=data.get("external_integrations", []),
+            infrastructure_changes=data.get("infrastructure_changes", False),
+            recommended_phases=data.get("phases_to_run", []),
+            needs_research=data.get("needs_research", False),
+            needs_self_critique=data.get("needs_self_critique", False),
+            estimated_spec_size=data.get("estimated_spec_size", 0),
+            requires_chunking=data.get("requires_chunking", False),
+            chunking_strategy=data.get("chunking_strategy", "single"),
+            suggested_chunks=data.get("suggested_chunks", 1),
+        )
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        print(f"Failed to load complexity assessment: {e}")
+        return None

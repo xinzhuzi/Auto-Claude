@@ -218,6 +218,11 @@ Examples:
         action="store_true",
         help="Build directly in project without worktree isolation (default: use isolated worktree)",
     )
+    parser.add_argument(
+        "--resume-planning",
+        action="store_true",
+        help="Resume planning phase - pass full context to AI at startup (for incomplete plans)",
+    )
 
     args = parser.parse_args()
 
@@ -289,10 +294,14 @@ Examples:
         thinking_level=args.thinking_level,
         complexity_override=args.complexity,
         use_ai_assessment=not args.no_ai_assessment,
+        resume_planning=args.resume_planning,
     )
 
     try:
         debug("spec_runner", "Starting spec orchestrator run...")
+        debug("spec_runner", f"auto_approve={args.auto_approve}, interactive={args.interactive or not task_description}")
+        print(f"[SPEC_RUNNER] Starting orchestrator.run() with auto_approve={args.auto_approve}", flush=True)
+
         success = asyncio.run(
             orchestrator.run(
                 interactive=args.interactive or not task_description,
@@ -300,8 +309,11 @@ Examples:
             )
         )
 
+        print(f"[SPEC_RUNNER] orchestrator.run() returned: {success}", flush=True)
+
         if not success:
             debug_error("spec_runner", "Spec creation failed")
+            print("[SPEC_RUNNER] orchestrator.run() returned False, exiting with code 1", flush=True)
             sys.exit(1)
 
         debug_success(
@@ -309,14 +321,19 @@ Examples:
             "Spec creation succeeded",
             spec_dir=str(orchestrator.spec_dir),
         )
+        print(f"[SPEC_RUNNER] Spec creation succeeded, spec_dir={orchestrator.spec_dir}", flush=True)
 
         # Auto-start build unless --no-build is specified
+        print(f"[SPEC_RUNNER] args.no_build={args.no_build}", flush=True)
         if not args.no_build:
             debug("spec_runner", "Checking if spec is approved for build...")
             # Verify spec is approved before starting build (defensive check)
             review_state = ReviewState.load(orchestrator.spec_dir)
+            print(f"[SPEC_RUNNER] review_state.is_approved()={review_state.is_approved()}, approved_by={review_state.approved_by}", flush=True)
+
             if not review_state.is_approved():
                 debug_error("spec_runner", "Spec not approved - cannot start build")
+                print("[SPEC_RUNNER] Spec not approved - cannot start build", flush=True)
                 print()
                 print_status("Build cannot start: spec not approved.", "error")
                 print()
@@ -335,6 +352,7 @@ Examples:
                 sys.exit(1)
 
             debug_success("spec_runner", "Spec approved - starting build")
+            print("[SPEC_RUNNER] Spec approved - starting build", flush=True)
             print()
             print_section("STARTING BUILD", Icons.LIGHTNING)
             print()
@@ -368,6 +386,7 @@ Examples:
                 "Executing run.py for build",
                 command=" ".join(run_cmd),
             )
+            print(f"[SPEC_RUNNER] About to execute run.py: {' '.join(run_cmd)}", flush=True)
             print(f"  {muted('Running:')} {' '.join(run_cmd)}")
             print()
 
@@ -396,8 +415,30 @@ Examples:
                     sys.exit(1)
             else:
                 # On Unix/macOS, os.execv() works correctly - replaces current process
-                os.execv(sys.executable, run_cmd)
+                debug(
+                    "spec_runner",
+                    "About to execute os.execv()",
+                    executable=sys.executable,
+                    run_cmd=run_cmd,
+                )
+                print(f"[SPEC_RUNNER] About to call os.execv()", flush=True)
+                print(f"[SPEC_RUNNER] executable={sys.executable}", flush=True)
+                print(f"[SPEC_RUNNER] run_cmd={run_cmd}", flush=True)
+                sys.stdout.flush()
+                sys.stderr.flush()
+                try:
+                    os.execv(sys.executable, run_cmd)
+                except Exception as e:
+                    debug_error("spec_runner", f"os.execv() failed: {e}")
+                    print(f"[SPEC_RUNNER] os.execv() failed: {e}", flush=True)
+                    print_status(f"os.execv() failed: {e}", "error")
+                    # Fallback to subprocess
+                    debug("spec_runner", "Falling back to subprocess.run()")
+                    print("[SPEC_RUNNER] Falling back to subprocess.run()", flush=True)
+                    result = subprocess.run(run_cmd)
+                    sys.exit(result.returncode)
 
+        print("[SPEC_RUNNER] Exiting with code 0 (no-build mode or after os.execv)", flush=True)
         sys.exit(0)
 
     except KeyboardInterrupt:

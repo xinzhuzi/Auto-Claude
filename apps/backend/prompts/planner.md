@@ -90,7 +90,7 @@ Find these critical sections:
 cat project_index.json
 ```
 
-**IF THIS FILE DOES NOT EXIST, YOU MUST CREATE IT USING THE WRITE TOOL.**
+**IF THIS FILE DOES NOT EXIST OR IS EMPTY, YOU MUST CREATE IT USING THE WRITE TOOL.**
 
 Based on your Phase 0 investigation, use the Write tool to create `project_index.json`:
 
@@ -130,32 +130,34 @@ This contains:
 cat context.json
 ```
 
-**IF THIS FILE DOES NOT EXIST, YOU MUST CREATE IT USING THE WRITE TOOL.**
+**IF THIS FILE DOES NOT EXIST OR HAS EMPTY `files_to_modify`/`files_to_reference`, YOU MUST CREATE IT USING THE WRITE TOOL.**
 
 Based on your Phase 0 investigation and the spec.md, use the Write tool to create `context.json`:
 
 ```json
 {
-  "files_to_modify": {
-    "backend": ["app/services/existing_service.py", "app/routes/api.py"]
-  },
-  "files_to_reference": ["app/services/similar_service.py"],
+  "task_description": "[from spec.md overview]",
+  "files_to_modify": [
+    {"path": "app/services/existing_service.py", "reason": "Add new method"},
+    {"path": "app/routes/api.py", "reason": "Add new endpoint"}
+  ],
+  "files_to_reference": [
+    {"path": "app/services/similar_service.py", "reason": "Pattern to follow"}
+  ],
+  "scoped_services": ["backend"],
   "patterns": {
-    "service_pattern": "All services inherit from BaseService and use dependency injection",
+    "service_pattern": "All services inherit from BaseService",
     "route_pattern": "Routes use APIRouter with prefix and tags"
-  },
-  "existing_implementations": {
-    "description": "Found existing caching in app/utils/cache.py using Redis",
-    "relevant_files": ["app/utils/cache.py", "app/config.py"]
   }
 }
 ```
 
 This contains:
-- `files_to_modify`: Files that need changes, grouped by service
-- `files_to_reference`: Files with patterns to copy (from Phase 0 investigation)
+- `task_description`: Brief description of the task
+- `files_to_modify`: Files that need changes with reasons
+- `files_to_reference`: Files with patterns to copy
+- `scoped_services`: Services involved in this task
 - `patterns`: Code conventions observed during investigation
-- `existing_implementations`: What you found related to this feature
 
 ---
 
@@ -201,16 +203,87 @@ Minimal overhead - just subtasks, no phases.
 
 ---
 
-## PHASE 3: CREATE implementation_plan.json
+## PHASE 3: CREATE/UPDATE implementation_plan.json
 
-**🚨 CRITICAL: YOU MUST USE THE WRITE TOOL TO CREATE THIS FILE 🚨**
+### 3.1: Check if File Already Exists
 
-You MUST use the Write tool to save the implementation plan to `implementation_plan.json`.
-Do NOT just describe what the file should contain - you must actually call the Write tool with the complete JSON content.
+```bash
+cat implementation_plan.json
+```
 
-**Required action:** Call the Write tool with:
-- file_path: `implementation_plan.json` (in the spec directory)
-- content: The complete JSON plan structure shown below
+**⚠️ CRITICAL: The file may already contain user requirements!**
+
+The `implementation_plan.json` file often contains important user-provided information:
+- `feature`: Task title from user
+- `description`: Detailed task description from user
+- `created_at`: Original creation timestamp
+- `status`, `planStatus`: Status tracking fields
+
+**Your job is to ADD the `phases` array, NOT replace the entire file!**
+
+| File State | Action |
+|------------|--------|
+| Does not exist | Create new file with **Write** tool |
+| Exists with empty `phases: []` | **Read first**, then use **Edit** tool to add phases while preserving other fields |
+| Exists with valid phases | Skip, proceed to next phase |
+
+### 3.2: Preserving Existing Fields (重要!)
+
+If the file exists, you MUST:
+
+1. **Read the file** using Read tool
+2. **Preserve these fields** from the existing file:
+   - `feature` (user's task title)
+   - `description` (user's detailed requirements)
+   - `created_at` (original timestamp)
+   - `status`, `planStatus` (if present)
+3. **Add/Update these fields**:
+   - `phases` (your main contribution)
+   - `workflow_type`, `workflow_rationale`
+   - `summary`, `verification_strategy`, `qa_acceptance`
+   - `updated_at` (set to current time)
+
+**Example Edit approach:**
+```
+1. Read implementation_plan.json → get existing content
+2. Keep: feature, description, created_at, status, planStatus
+3. Add: phases array with your planned subtasks
+4. Use Edit tool to update the file (NOT Write tool for existing files)
+```
+
+### 3.3: Incremental Writing Strategy (渐进式写入)
+
+**⚠️ IMPORTANT: For large plans, use incremental writing to avoid token limits!**
+
+If the plan has many phases/subtasks (>5 phases or >15 subtasks total):
+
+**For NEW files (file doesn't exist):**
+1. **First Write**: Create the file with basic structure + phase 1 only
+2. **Read the file**: Use Read tool to load current content
+3. **Subsequent Edits**: Add remaining phases one at a time using Edit tool
+4. **Verify after each edit**: Ensure JSON remains valid
+
+**For EXISTING files (file exists with empty phases):**
+1. **Read first**: Load existing content to preserve user fields
+2. **Edit incrementally**: Add phases one at a time using Edit tool
+3. **Verify after each edit**: Ensure JSON remains valid
+
+**Example incremental approach:**
+```
+Step 1: Read existing file (if exists) or Write new file with phases[0]
+Step 2: Read file, then Edit to add phase 2
+Step 3: Read file, then Edit to add phase 3
+...
+```
+
+**Why incremental?**
+- Avoids output token limits that cause truncation
+- Each edit is smaller and more reliable
+- Easier to recover if one edit fails
+- JSON validation can happen after each step
+- Preserves existing user data in the file
+
+**🚨 CRITICAL: Always Read before Edit/Write when updating an existing file! 🚨**
 
 Based on the workflow type and services involved, create the implementation plan.
 
@@ -693,9 +766,9 @@ Include parallelism analysis, verification strategy, and QA configuration in the
 
 **🚨 END OF PHASE 4 CHECKPOINT 🚨**
 
-Before proceeding to PHASE 5, verify you have:
+Before proceeding to PHASE 4, verify you have:
 1. ✅ Created the complete implementation_plan.json structure
-2. ✅ Used the Write tool to save it (not just described it)
+2. ✅ Used the Write tool (new file) or Edit tool (existing file) to save it
 3. ✅ Added the summary section with parallelism analysis
 4. ✅ Added the verification_strategy section
 5. ✅ Added the qa_acceptance section
