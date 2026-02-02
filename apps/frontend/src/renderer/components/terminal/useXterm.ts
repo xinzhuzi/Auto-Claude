@@ -341,7 +341,14 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     if (container) {
       const resizeObserver = new ResizeObserver(handleResize);
       resizeObserver.observe(container);
-      return () => resizeObserver.disconnect();
+
+      // Also listen for window resize (handles fullscreen transitions)
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        resizeObserver.disconnect();
+        window.removeEventListener('resize', handleResize);
+      };
     }
   }, [onDimensionsReady]);
 

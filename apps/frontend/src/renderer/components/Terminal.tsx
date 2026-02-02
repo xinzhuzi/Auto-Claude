@@ -209,6 +209,16 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     }
   }, [isActive, focus]);
 
+  // Refit terminal when it becomes active (container may have been hidden with display:none)
+  useEffect(() => {
+    if (isActive) {
+      const timeoutId = setTimeout(() => {
+        fit();
+      }, TERMINAL_DOM_UPDATE_DELAY_MS);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isActive, fit]);
+
   // Refit terminal when expansion state changes
   useEffect(() => {
     const timeoutId = setTimeout(() => {
