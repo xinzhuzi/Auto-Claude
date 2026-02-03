@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron';
+import log from 'electron-log/main.js';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, TaskStartOptions, TaskStatus, ImageAttachment } from '../../../shared/types';
 import path from 'path';
@@ -209,6 +210,22 @@ export function registerTaskExecutionHandlers(
 
       // Get base branch: task-level override takes precedence over project settings
       const baseBranch = task.metadata?.baseBranch || project.settings?.mainBranch;
+
+      // Persist task metadata to ensure configuration survives restarts
+      // This fixes the issue where useWorktree and other settings were lost on task resume
+      const metadataPath = path.join(specDir, 'task_metadata.json');
+      const persistedMetadata = {
+        ...task.metadata,
+        baseBranch,
+        // Ensure useWorktree is explicitly saved (default true for safety)
+        useWorktree: task.metadata?.useWorktree ?? true
+      };
+      try {
+        writeFileSync(metadataPath, JSON.stringify(persistedMetadata, null, 2));
+        log.info('[TASK_START] Persisted task_metadata.json with useWorktree:', persistedMetadata.useWorktree);
+      } catch (err) {
+        log.error('[TASK_START] Failed to persist task_metadata.json:', err);
+      }
 
       if (needsSpecCreation) {
         // No spec file - need to run spec_runner.py to create the spec

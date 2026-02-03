@@ -316,6 +316,9 @@ export function registerAgenteventsHandlers(
     const { task, project } = findTaskAndProject(taskId);
     const taskProjectId = project?.id;
 
+    // Log execution progress for debugging
+    log.info(`[AgentEvents] execution-progress received: taskId=${taskId}, phase=${progress.phase}, message=${progress.message}`);
+
     // Include projectId in execution progress event for multi-project filtering
     safeSendToRenderer(
       getMainWindow,
@@ -336,8 +339,14 @@ export function registerAgenteventsHandlers(
     };
 
     const newStatus = phaseToStatus[progress.phase];
+    // Log status transition attempt
+    log.info(`[AgentEvents] Status transition: phase=${progress.phase} -> newStatus=${newStatus}, currentTaskStatus=${task?.status}`);
+
     // FIX (ACS-55, ACS-71): Validate status transition before sending/persisting
     if (newStatus && validateStatusTransition(task, newStatus, progress.phase)) {
+      // Log successful status transition
+      log.info(`[AgentEvents] Status transition APPROVED: ${task?.status} -> ${newStatus} (phase: ${progress.phase})`);
+
       // Include projectId in status change event for multi-project filtering
       safeSendToRenderer(
         getMainWindow,

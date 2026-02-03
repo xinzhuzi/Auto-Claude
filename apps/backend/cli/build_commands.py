@@ -6,6 +6,7 @@ CLI commands for building specs and handling the main build flow.
 """
 
 import asyncio
+import json
 import sys
 from pathlib import Path
 
@@ -124,7 +125,16 @@ def handle_build_command(
 
     # Check human review approval
     review_state = ReviewState.load(spec_dir)
-    if not review_state.is_approval_valid(spec_dir):
+    debug_info(
+        "build",
+        "Review state loaded",
+        approved=review_state.approved,
+        approved_by=review_state.approved_by,
+        spec_hash=review_state.spec_hash,
+    )
+    is_valid = review_state.is_approval_valid(spec_dir)
+    debug_info("build", f"is_approval_valid={is_valid}")
+    if not is_valid:
         if force_bypass_approval:
             # User explicitly bypassed approval check
             print()
@@ -185,6 +195,21 @@ def handle_build_command(
     working_dir = project_dir
     worktree_manager = None
     source_spec_dir = None  # Track original spec dir for syncing back from worktree
+
+    # Read useWorktree from task_metadata.json if not forced via CLI
+    # This ensures the backend respects the frontend's workspace configuration
+    if not force_direct and not force_isolated:
+        metadata_path = spec_dir / "task_metadata.json"
+        if metadata_path.exists():
+            try:
+                with open(metadata_path, encoding="utf-8") as f:
+                    metadata = json.load(f)
+                use_worktree = metadata.get("useWorktree")
+                if use_worktree is False:
+                    force_direct = True
+                    debug("run.py", "Using direct mode from task_metadata.json (useWorktree=false)")
+            except (OSError, json.JSONDecodeError) as e:
+                debug("run.py", f"Could not read task_metadata.json: {e}")
 
     # Let user choose workspace mode (or auto-select if --auto-continue)
     workspace_mode = choose_workspace(

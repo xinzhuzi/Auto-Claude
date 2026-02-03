@@ -295,6 +295,9 @@ export class AgentManager extends EventEmitter {
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, specId, options, false);
 
+    // Log final args before spawning process
+    log.info('[AgentManager] startTaskExecution - spawning process with args:', args.join(' '));
+
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
   }
 

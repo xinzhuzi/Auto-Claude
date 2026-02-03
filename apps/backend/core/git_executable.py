@@ -53,6 +53,10 @@ def get_isolated_git_env(base_env: dict | None = None) -> dict:
     or other git configurations, preventing cross-worktree contamination
     and ensuring git operations target the intended repository.
 
+    Also ensures common binary directories (like Homebrew) are in PATH,
+    which is necessary for git-lfs and other tools when the app is launched
+    from Finder/Dock (which doesn't inherit the full shell environment).
+
     Args:
         base_env: Base environment dict to copy from. If None, uses os.environ.
 
@@ -68,7 +72,45 @@ def get_isolated_git_env(base_env: dict | None = None) -> dict:
     # to prevent double-hook execution and potential conflicts
     env["HUSKY"] = "0"
 
+    # Ensure common binary directories are in PATH for git-lfs and other tools
+    # This is necessary when the app is launched from Finder/Dock on macOS
+    _ensure_common_paths_in_env(env)
+
     return env
+
+
+def _ensure_common_paths_in_env(env: dict) -> None:
+    """
+    Ensure common binary directories are in PATH.
+
+    When Electrunch from Finder/Dock on macOS, they don't inherit
+    the full shell environment, so tools like git-lfs (installed via Homebrew)
+    may not be found. This function adds common binary directories to PATH.
+    """
+    import sys
+
+    if sys.platform != "darwin":
+        return  # Only needed on macOS
+
+    common_paths = [
+        "/opt/homebrew/bin",  # Apple Silicon Homebrew
+        "/usr/local/bin",     # Intel Homebrew / system
+        "/opt/homebrew/sbin",
+        "/usr/local/sbin",
+    ]
+
+    current_path = env.get("PATH", "")
+    path_parts = current_path.split(":") if current_path else []
+    path_set = set(path_parts)
+
+    paths_to_add = []
+    for p in common_paths:
+        if p not in path_set and os.path.isdir(p):
+            paths_to_add.append(p)
+
+    if paths_to_add:
+        # Prepend new paths so they take priority
+        env["PATH"] = ":".join(paths_to_add + path_parts)
 
 
 def get_git_executable() -> str:

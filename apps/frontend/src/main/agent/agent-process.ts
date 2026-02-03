@@ -222,6 +222,8 @@ export class AgentProcessManager {
     processType: ProcessType
   ): boolean {
     console.log('[AgentProcess] Checking for rate limit in output (last 500 chars):', allOutput.slice(-500));
+    // Log full output to main.log for debugging process failures
+    log.info(`[AgentProcess] handleProcessFailure for task ${taskId}, last 2000 chars of output:\n${allOutput.slice(-2000)}`);
 
     const rateLimitDetection = detectRateLimit(allOutput);
     console.log('[AgentProcess] Rate limit detection result:', {

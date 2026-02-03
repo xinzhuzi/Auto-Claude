@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from debug import debug_info
+
 # State file name
 REVIEW_STATE_FILE = "review_state.json"
 
@@ -118,14 +120,24 @@ class ReviewState:
         - spec.md or implementation_plan.json changed since approval
         """
         if not self.approved:
+            debug_info("review", "is_approval_valid: not approved")
             return False
 
         if not self.spec_hash:
             # Legacy approval without hash - treat as valid
+            debug_info("review", "is_approval_valid: no spec_hash (legacy), treating as valid")
             return True
 
         current_hash = _compute_spec_hash(spec_dir)
-        return self.spec_hash == current_hash
+        is_valid = self.spec_hash == current_hash
+        debug_info(
+            "review",
+            "is_approval_valid hash comparison",
+            stored_hash=self.spec_hash,
+            current_hash=current_hash,
+            match=is_valid,
+        )
+        return is_valid
 
     def approve(
         self,
