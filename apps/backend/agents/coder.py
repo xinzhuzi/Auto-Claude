@@ -59,6 +59,7 @@ from ui import (
 from .base import AUTO_CONTINUE_DELAY_SECONDS, HUMAN_INTERVENTION_FILE
 from .memory_manager import debug_memory_system_status, get_graphiti_context
 from .session import post_session_processing, run_agent_session
+from .subtask_validator import auto_split_subtask, detect_empty_param_error
 from .utils import (
     find_phase_for_subtask,
     get_commit_count,
@@ -422,6 +423,7 @@ async def run_autonomous_agent(
             status, response = await run_agent_session(
                 client, prompt, spec_dir, verbose, phase=current_log_phase
             )
+        empty_write_error = status == "error" and detect_empty_param_error(response)
 
         plan_validated = False
         if is_planning_phase and status != "error":
@@ -478,6 +480,20 @@ async def run_autonomous_agent(
                 status_manager=status_manager,
                 source_spec_dir=source_spec_dir,
             )
+
+            if empty_write_error:
+                plan_path = spec_dir / "implementation_plan.json"
+                if auto_split_subtask(plan_path, subtask_id):
+                    print_status(
+                        f"Auto-split {subtask_id} after empty Write error",
+                        "success",
+                    )
+                    status = "continue"
+                else:
+                    print_status(
+                        f"Auto-split failed for {subtask_id}; manual split required",
+                        "warning",
+                    )
 
             # Check for stuck subtasks
             attempt_count = recovery_manager.get_attempt_count(subtask_id)

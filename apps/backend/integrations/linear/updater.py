@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from core.sdk_config import DEFAULT_MAX_BUFFER_SIZE
 
 # Linear status constants (matching Valma AI team setup)
 STATUS_TODO = "Todo"
@@ -143,6 +144,7 @@ def _create_linear_client() -> ClaudeSDKClient:
             },
             max_turns=10,  # Should complete in 1-3 turns
             env=sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
+            max_buffer_size=DEFAULT_MAX_BUFFER_SIZE,  # 100MB buffer for Linear API responses
         )
     )
 

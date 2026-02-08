@@ -25,7 +25,9 @@ import logging
 from pathlib import Path
 
 from agents.tools_pkg import get_agent_config, get_default_thinking_level
+from core.sdk_config import DEFAULT_MAX_BUFFER_SIZE
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from claude_agent_sdk.types import HookMatcher
 from core.auth import (
     get_sdk_env_vars,
     require_auth_token,
@@ -33,6 +35,13 @@ from core.auth import (
 )
 from core.platform import validate_cli_path
 from phase_config import get_thinking_budget
+from security import (
+    context_compression_reset_hook,
+    edit_large_content_guard_hook,
+    read_large_file_guard_hook,
+    write_large_content_guard_hook,
+    write_empty_param_hook,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +116,21 @@ def create_simple_client(
         "max_turns": max_turns,
         "cwd": str(cwd.resolve()) if cwd else None,
         "env": sdk_env,
+        "max_buffer_size": DEFAULT_MAX_BUFFER_SIZE,  # 100MB buffer for large tool results
+        "hooks": {
+            "PreToolUse": [
+                HookMatcher(matcher="Read", hooks=[read_large_file_guard_hook]),
+                HookMatcher(
+                    matcher="Write",
+                    hooks=[
+                        write_empty_param_hook,
+                        context_compression_reset_hook,
+                        write_large_content_guard_hook,
+                    ],
+                ),
+                HookMatcher(matcher="Edit", hooks=[edit_large_content_guard_hook]),
+            ],
+        },
     }
 
     # Only add max_thinking_tokens if not None (Haiku doesn't support extended thinking)

@@ -336,6 +336,10 @@ def detect_empty_param_error(error_message: str) -> bool:
         r"required parameter.*file_path.*missing",
         r"required parameter.*content.*missing",
         r"InputValidationError.*Write failed",
+        r"missing required args.*file_path",
+        r"missing required args.*content",
+        r"Write missing required args",
+        r"tool_call_error.*Write missing required args",
     ]
 
     for pattern in patterns:

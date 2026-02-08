@@ -35,7 +35,15 @@ from project_analyzer import (
     needs_validation,
 )
 
-from .hooks import bash_security_hook, validate_command
+from .hooks import (
+    bash_security_hook,
+    context_compression_reset_hook,
+    edit_large_content_guard_hook,
+    read_large_file_guard_hook,
+    validate_command,
+    write_large_content_guard_hook,
+    write_empty_param_hook,
+)
 
 # Command parsing utilities
 from .parser import (
@@ -84,7 +92,12 @@ from .validator import (
 __all__ = [
     # Main API
     "bash_security_hook",
+    "context_compression_reset_hook",
+    "edit_large_content_guard_hook",
+    "read_large_file_guard_hook",
     "validate_command",
+    "write_large_content_guard_hook",
+    "write_empty_param_hook",
     "get_security_profile",
     "reset_profile_cache",
     # Parsing utilities

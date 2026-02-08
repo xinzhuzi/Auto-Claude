@@ -8,7 +8,10 @@ from typing import Any
 
 try:
     from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+    from claude_agent_sdk.types import HookMatcher
+    from core.sdk_config import DEFAULT_MAX_BUFFER_SIZE
     from phase_config import resolve_model_id
+    from security import read_large_file_guard_hook
 
     CLAUDE_SDK_AVAILABLE = True
 except ImportError:
@@ -117,6 +120,12 @@ class ClaudeAnalysisClient:
                 max_turns=self.MAX_TURNS,
                 cwd=str(self.project_dir.resolve()),
                 settings=str(settings_file.resolve()),
+                max_buffer_size=DEFAULT_MAX_BUFFER_SIZE,  # 100MB buffer for code analysis results
+                hooks={
+                    "PreToolUse": [
+                        HookMatcher(matcher="Read", hooks=[read_large_file_guard_hook]),
+                    ],
+                },
             )
         )
 

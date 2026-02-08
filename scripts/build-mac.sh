@@ -30,7 +30,7 @@ echo ""
 
 # 检查是否有签名证书
 echo "步骤 2/4: 检查签名证书..."
-CERT_COUNT=$(security find-identity -v -p codesigning 2>/dev/null | grep -c "Auto-Claude" || echo "0")
+CERT_COUNT=$(security find-identity -v -p codesigning 2>/dev/null | grep -c "Auto-Claude" || true)
 
 if [ "$CERT_COUNT" -gt 0 ]; then
     echo "  ✓ 找到签名证书，将进行代码签名"

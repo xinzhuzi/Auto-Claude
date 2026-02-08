@@ -383,6 +383,17 @@ Verify:""")
         instructions = verification.get("instructions", "Manual verification required")
         sections.append(f"**Manual Verification:**\n{instructions}\n")
 
+    # Incremental IO rules (prevent tool call truncation)
+    sections.append("""## Incremental IO Rules (Required)
+
+To avoid tool call truncation and missing parameters, you MUST work in small chunks:
+- For large files, Read with offset/limit (never read the entire file at once).
+- Write large outputs incrementally: start with a short skeleton, then Edit in small sections.
+- Keep each Write/Edit content chunk small (target <= 1-2k Chinese chars or <= 3k English chars).
+- If you feel context is getting large, write a short note to a spec _analysis_XX.md file and continue.
+- If a task is too large, split it into smaller steps before writing.
+""")
+
     # Instructions
     sections.append(f"""## Instructions
 

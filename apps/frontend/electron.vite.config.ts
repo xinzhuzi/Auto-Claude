@@ -52,7 +52,18 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts')
         },
         // Only node-pty needs to be external (native module rebuilt by electron-builder)
-        external: ['@lydell/node-pty']
+        external: ['@lydell/node-pty'],
+        onwarn(warning, warn) {
+          const message = String(warning.message || '');
+          if (
+            warning.code === 'UNUSED_EXTERNAL_IMPORT' &&
+            message.includes('chokidar') &&
+            message.includes('node:fs')
+          ) {
+            return;
+          }
+          warn(warning);
+        }
       }
     }
   },

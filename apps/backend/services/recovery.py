@@ -172,9 +172,27 @@ class RecoveryManager:
         if any(ve in error_lower for ve in verification_errors):
             return FailureType.VERIFICATION_FAILED
 
-        # Check for context exhaustion
-        context_errors = ["context", "token limit", "maximum length"]
-        if any(ce in error_lower for ce in context_errors):
+        # Check for context exhaustion (including large file errors and buffer size issues)
+        from core.sdk_config import BUFFER_ERROR_PATTERNS
+
+        context_errors = [
+            "context",
+            "token limit",
+            "maximum length",
+            "exceeds maximum allowed tokens",
+            "file too large",
+        ]
+        buffer_error = any(
+            pattern in error_lower
+            for pattern in BUFFER_ERROR_PATTERNS
+            if pattern != "failed to decode json"
+        )
+        json_decode = "failed to decode json" in error_lower
+        json_decode_with_buffer = json_decode and any(
+            marker in error_lower
+            for marker in ("max_buffer_size", "message too large", "payload too large")
+        )
+        if any(ce in error_lower for ce in context_errors) or buffer_error or json_decode_with_buffer:
             return FailureType.CONTEXT_EXHAUSTED
 
         # Check for circular fixes (will be determined by attempt history)

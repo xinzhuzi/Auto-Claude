@@ -35,6 +35,7 @@ from ui import (
 )
 
 from .memory_manager import save_session_memory
+from .subtask_validator import detect_empty_param_error
 from .utils import (
     find_subtask_in_plan,
     get_commit_count,
@@ -350,6 +351,8 @@ async def run_agent_session(
     current_tool = None
     message_count = 0
     tool_count = 0
+    empty_write_error: str | None = None
+    empty_write_text_error: str | None = None
 
     try:
         # Send the query
@@ -377,6 +380,10 @@ async def run_agent_session(
                     if block_type == "TextBlock" and hasattr(block, "text"):
                         response_text += block.text
                         print(block.text, end="", flush=True)
+                        if empty_write_text_error is None and detect_empty_param_error(
+                            block.text
+                        ):
+                            empty_write_text_error = block.text
                         # Log text to task logger (persist without double-printing)
                         if task_logger and block.text.strip():
                             task_logger.log(
@@ -465,12 +472,17 @@ async def run_agent_session(
                         elif is_error:
                             # Show errors (truncated)
                             error_str = str(result_content)[:500]
+                            error_full = str(result_content)
                             debug_error(
                                 "session",
                                 f"Tool error: {current_tool}",
                                 error=error_str[:200],
                             )
                             print(f"   [Error] {error_str}", flush=True)
+                            if empty_write_error is None and detect_empty_param_error(
+                                error_full
+                            ):
+                                empty_write_error = error_full
                             if task_logger and current_tool:
                                 # Store full error in detail for expandable view
                                 task_logger.tool_end(
@@ -519,6 +531,22 @@ async def run_agent_session(
                         current_tool = None
 
         print("\n" + "-" * 70 + "\n")
+
+        if empty_write_text_error:
+            debug_error(
+                "session",
+                "Empty Write parameters detected in text output - ending session",
+                error=str(empty_write_text_error)[:300],
+            )
+            return "error", str(empty_write_text_error)
+
+        if empty_write_error:
+            debug_error(
+                "session",
+                "Empty Write parameters detected - ending session",
+                error=str(empty_write_error)[:300],
+            )
+            return "error", str(empty_write_error)
 
         # Check if build is complete
         if is_build_complete(spec_dir):

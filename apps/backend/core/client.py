@@ -25,6 +25,7 @@ from core.platform import (
     is_windows,
     validate_cli_path,
 )
+from core.sdk_config import DEFAULT_MAX_BUFFER_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,14 @@ from core.auth import (
 )
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
-from security import bash_security_hook
+from security import (
+    bash_security_hook,
+    context_compression_reset_hook,
+    edit_large_content_guard_hook,
+    read_large_file_guard_hook,
+    write_large_content_guard_hook,
+    write_empty_param_hook,
+)
 
 
 def _validate_custom_mcp_server(server: dict) -> bool:
@@ -802,10 +810,20 @@ def create_client(
     base_prompt += (
         f"\n\n## Context Management Rules\n"
         f"To prevent context overflow and ensure task completion:\n\n"
+        f"**Large File Handling (CRITICAL):**\n"
+        f"- Files >500 lines: MUST use Read tool with offset/limit parameters\n"
+        f"- Read in chunks: 300-500 lines per read, process before next chunk\n"
+        f"- If you see 'exceeds maximum allowed tokens': Use offset=0, limit=300, then increment offset\n"
+        f"- Extract key info from each chunk immediately, don't accumulate raw content\n\n"
         f"**Reading Strategy:**\n"
         f"- Batch reading: Read 5-10 files, then pause to process\n"
         f"- Large files (>300 lines): Summarize key points after reading, don't hold raw content\n"
         f"- After reading 20+ files: MUST compress context before continuing\n\n"
+        f"**Progressive Work (REQUIRED):**\n"
+        f"- Read, write, and edit in small batches to avoid context spikes\n"
+        f"- Prefer incremental edits: make a small change, verify, then continue\n"
+        f"- If tool output is large: summarize immediately and discard raw content\n"
+        f"- Proactively compress context before it feels full\n\n"
         f"**Context Compression:**\n"
         f"- When context feels heavy: Write analysis notes to your task's spec folder\n"
         f"- Use numbered files: `_analysis_01.md`, `_analysis_02.md`, etc.\n"
@@ -844,6 +862,16 @@ def create_client(
         "hooks": {
             "PreToolUse": [
                 HookMatcher(matcher="Bash", hooks=[bash_security_hook]),
+                HookMatcher(matcher="Read", hooks=[read_large_file_guard_hook]),
+                HookMatcher(
+                    matcher="Write",
+                    hooks=[
+                        write_empty_param_hook,
+                        context_compression_reset_hook,
+                        write_large_content_guard_hook,
+                    ],
+                ),
+                HookMatcher(matcher="Edit", hooks=[edit_large_content_guard_hook]),
             ],
         },
         "max_turns": 1000,
@@ -851,9 +879,7 @@ def create_client(
         "settings": str(settings_file.resolve()),
         "env": sdk_env,  # Pass ANTHROPIC_BASE_URL etc. to subprocess
         "max_thinking_tokens": max_thinking_tokens,  # Extended thinking budget
-        "max_buffer_size": 10
-        * 1024
-        * 1024,  # 10MB buffer (default: 1MB) - fixes large tool results
+        "max_buffer_size": DEFAULT_MAX_BUFFER_SIZE,  # 100MB buffer - fixes large tool results
         # Enable file checkpointing to track file read/write state across tool calls
         # This prevents "File has not been read yet" errors in recovery sessions
         "enable_file_checkpointing": True,

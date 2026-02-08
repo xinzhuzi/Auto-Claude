@@ -32,12 +32,14 @@ if env_file.exists():
 
 try:
     from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+    from claude_agent_sdk.types import HookMatcher
 
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
     ClaudeAgentOptions = None
     ClaudeSDKClient = None
+    HookMatcher = None
 
 from core.auth import ensure_claude_code_oauth_token, get_auth_token
 from debug import (
@@ -48,6 +50,7 @@ from debug import (
     debug_success,
 )
 from phase_config import get_thinking_budget, resolve_model_id
+from security import read_large_file_guard_hook
 
 
 def load_project_context(project_dir: str) -> str:
@@ -191,12 +194,20 @@ Current question: {message}"""
 
     try:
         # Build options dict - only include max_thinking_tokens if not None
+        from core.sdk_config import DEFAULT_MAX_BUFFER_SIZE
+
         options_kwargs = {
             "model": resolve_model_id(model),  # Resolve via API Profile if configured
             "system_prompt": system_prompt,
             "allowed_tools": ["Read", "Glob", "Grep"],
             "max_turns": 30,  # Allow sufficient turns for codebase exploration
             "cwd": str(project_path),
+            "max_buffer_size": DEFAULT_MAX_BUFFER_SIZE,  # 100MB buffer for large codebase analysis
+            "hooks": {
+                "PreToolUse": [
+                    HookMatcher(matcher="Read", hooks=[read_large_file_guard_hook]),
+                ],
+            },
         }
 
         # Only add thinking tokens if the thinking level is not "none"

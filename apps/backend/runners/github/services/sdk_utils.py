@@ -10,6 +10,7 @@ parallel orchestrator and follow-up reviewers.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from collections.abc import Callable
@@ -439,11 +440,17 @@ async def process_sdk_stream(
                             if on_tool_result:
                                 on_tool_result(tool_id, is_error, result_content)
 
-            except (AttributeError, TypeError, KeyError) as msg_error:
+            except (AttributeError, TypeError, KeyError, json.JSONDecodeError) as msg_error:
                 # Log individual message processing errors but continue
                 logger.warning(
                     f"[{context_name}] Error processing message #{msg_count}: {msg_error}"
                 )
+                # Enhanced error logging for JSON decode errors
+                if isinstance(msg_error, json.JSONDecodeError):
+                    logger.error(
+                        f"[{context_name}] JSON parse error at line {msg_error.lineno}, "
+                        f"column {msg_error.colno}: {msg_error.msg}"
+                    )
                 if DEBUG_MODE:
                     safe_print(
                         f"[DEBUG {context_name}] Message processing error: {msg_error}"
