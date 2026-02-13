@@ -159,9 +159,16 @@ class AgentRunner:
                                 response_text += block.text
                                 print(block.text, end="", flush=True)
                                 if self.task_logger and block.text.strip():
+                                    # Detect API errors in text output
+                                    text_lower = block.text.lower()
+                                    is_api_error = (
+                                        "api error" in text_lower
+                                        or "overloaded" in text_lower
+                                        or "rate limit" in text_lower
+                                    )
                                     self.task_logger.log(
                                         block.text,
-                                        LogEntryType.TEXT,
+                                        LogEntryType.ERROR if is_api_error else LogEntryType.TEXT,
                                         LogPhase.PLANNING,
                                         print_to_console=False,
                                     )
