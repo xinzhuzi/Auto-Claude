@@ -205,7 +205,8 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false, // Prevent terminal lag when window loses focus
-      spellcheck: true // Enable spell check for text inputs
+      spellcheck: true, // Enable spell check for text inputs
+      webviewTag: true // Enable webview tag for VSCode embed
     }
   });
 

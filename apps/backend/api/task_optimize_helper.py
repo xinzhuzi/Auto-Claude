@@ -59,26 +59,84 @@ class OptimizeTaskResponse(BaseModel):
 # 系统提示词
 # ============================================================
 
-OPTIMIZE_TASK_SYSTEM_PROMPT = """你是一个任务描述优化专家。你的工作是：
-1. 优化用户的任务描述，使其更清晰、更具体、更易于执行
-2. 分析任务特征，判断是否需要使用 worktree 隔离模式
+OPTIMIZE_TASK_SYSTEM_PROMPT = """你是一个 AI 编码代理的任务需求优化专家。你的目标是将用户的简短任务描述转化为结构化的、可执行的任务需求，使 AI 编码代理（如 Claude Code）能高效完成任务。
 
-优化规则：
-- 保持原意，但使描述更具体
-- 添加必要的上下文信息
-- 如果涉及文件路径，确保路径清晰
-- 使用结构化的格式（如编号列表）
+## 你的核心能力
 
-Worktree 推荐规则：
-1. 如果是设计/文档类任务，且目标文件夹包含大量文本内容（>50个文件），推荐使用
-2. 如果涉及大面积重构、迁移、架构修改，推荐使用
-3. 如果任务复杂度高（涉及多模块、多文件），推荐使用
-4. 如果用户描述中明确提到 worktree/隔离/独立分支，推荐使用
-5. 简单的单文件修改、bug 修复，不需要使用
+1. **任务分类** — 识别任务类型并应用对应的优化模板
+2. **需求补全** — 从简短描述中推断缺失的关键信息
+3. **约束明确** — 添加必要的技术约束和边界条件
+4. **验收标准** — 定义清晰的完成标准
 
-返回 JSON 格式：
+## 任务类型与优化策略
+
+### Bug 修复类（关键词：修复、fix、bug、报错、崩溃、异常）
+优化重点：
+- 明确问题现象和期望行为
+- 指出可能的问题位置（如果用户提供了线索）
+- 要求修复后不引入新问题
+
+### 新功能类（关键词：添加、新增、实现、开发、创建）
+优化重点：
+- 明确功能的输入/输出/交互方式
+- 指定技术实现约束（复用现有组件、遵循现有架构）
+- 定义功能边界（做什么、不做什么）
+
+### 重构/优化类（关键词：重构、优化、改进、性能、清理）
+优化重点：
+- 明确重构范围和目标
+- 要求保持现有功能不变
+- 指定性能指标（如果是性能优化）
+
+### 文档/设计类（关键词：文档、设计、说明、README）
+优化重点：
+- 明确文档的目标读者和用途
+- 指定格式和结构要求
+- 要求与代码保持一致
+
+## 优化原则
+
+1. **保持原意** — 不改变用户的核心意图
+2. **结构化输出** — 使用清晰的层级结构
+3. **可执行性** — 每个要求都应该是可验证的
+4. **适度补全** — 只补充明显缺失的关键信息，不过度发挥
+5. **技术准确** — 如果提供了项目上下文，确保技术术语准确
+
+## 输出格式
+
+优化后的描述应包含以下结构（根据任务类型灵活调整）：
+
+```
+## 任务目标
+[一句话概括]
+
+## 具体要求
+1. [要求1]
+2. [要求2]
+...
+
+## 技术约束
+- [约束1]
+- [约束2]
+
+## 验收标准
+- [ ] [标准1]
+- [ ] [标准2]
+```
+
+## Worktree 推荐规则
+
+1. 设计/文档类任务，且目标文件夹包含大量文件（>50个）→ 推荐
+2. 大面积重构、迁移、架构修改 → 推荐
+3. 任务复杂度高（涉及多模块、多文件联动修改）→ 推荐
+4. 用户明确提到 worktree/隔离/独立分支 → 推荐
+5. 简单的单文件修改、bug 修复 → 不需要
+
+## 返回格式
+
+严格返回以下 JSON（不要包含其他内容）：
 {
-    "optimized_description": "优化后的描述",
+    "optimized_description": "优化后的结构化描述（Markdown格式）",
     "improvements": ["改进点1", "改进点2"],
     "worktree_analysis": {
         "use_worktree": true/false,
@@ -245,6 +303,54 @@ def _is_doc_task(description: str) -> bool:
     return any(p in desc_lower for p in doc_patterns)
 
 
+def _collect_project_context(project_path: str) -> str:
+    """
+    收集项目上下文信息，帮助 AI 更好地理解项目
+
+    按优先级读取：CLAUDE.md > README.md > package.json
+    每个文件最多取前 80 行，总上下文不超过 300 行
+    """
+    context_parts = []
+    total_lines = 0
+    max_total_lines = 300
+    max_per_file = 80
+
+    project_dir = Path(project_path)
+
+    # 优先级文件列表
+    context_files = [
+        (".claude/CLAUDE.md", "项目规范 (CLAUDE.md)"),
+        ("CLAUDE.md", "项目规范 (CLAUDE.md)"),
+        ("README.md", "项目说明 (README.md)"),
+        ("package.json", "项目配置 (package.json)"),
+        ("pyproject.toml", "项目配置 (pyproject.toml)"),
+        ("Cargo.toml", "项目配置 (Cargo.toml)"),
+    ]
+
+    for rel_path, label in context_files:
+        if total_lines >= max_total_lines:
+            break
+
+        file_path = project_dir / rel_path
+        if not file_path.is_file():
+            continue
+
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="ignore")
+            lines = content.splitlines()[:max_per_file]
+            if lines:
+                snippet = "\n".join(lines)
+                context_parts.append(f"### {label}\n```\n{snippet}\n```")
+                total_lines += len(lines) + 3  # 加上标题和代码块标记
+        except (PermissionError, OSError):
+            continue
+
+    if not context_parts:
+        return ""
+
+    return "## 项目上下文\n\n" + "\n\n".join(context_parts)
+
+
 # ============================================================
 # 主函数
 # ============================================================
@@ -262,16 +368,27 @@ async def optimize_task_description(
     Returns:
         优化后的描述和 worktree 推荐
     """
+    # 收集项目上下文
+    project_context = _collect_project_context(request.project_path)
+
     # 构建提示词
-    prompt = f"""请优化以下任务描述：
+    prompt_parts = [
+        "请优化以下任务描述，使其成为 AI 编码代理可高效执行的结构化需求。",
+        "",
+        f"## 原始任务描述\n{request.task_description}",
+        "",
+        f"## 项目路径\n{request.project_path}",
+    ]
 
-原始描述:
-{request.task_description}
+    if request.target_paths:
+        paths_str = "\n".join(f"- {p}" for p in request.target_paths)
+        prompt_parts.append(f"\n## 引用的文件/文件夹\n{paths_str}")
 
-项目路径: {request.project_path}
-引用的文件/文件夹: {request.target_paths or "无"}
+    if project_context:
+        prompt_parts.append(f"\n{project_context}")
 
-请返回 JSON 格式的优化结果。"""
+    prompt_parts.append("\n请严格返回 JSON 格式的优化结果，不要包含其他内容。")
+    prompt = "\n".join(prompt_parts)
 
     # 调用 AI
     response_text = await _call_claude_for_optimization(prompt)

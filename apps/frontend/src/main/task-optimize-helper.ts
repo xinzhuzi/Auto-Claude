@@ -215,7 +215,8 @@ export async function optimizeTaskDescription(
         PYTHONPATH: combinedPythonPath,
         PYTHONUNBUFFERED: '1',
         PYTHONIOENCODING: 'utf-8',
-        PYTHONUTF8: '1'
+        PYTHONUTF8: '1',
+        CLAUDECODE: '',  // Clear to avoid nested session detection
       }
     });
 

@@ -8,7 +8,7 @@
  * - Logs management (get, watch, unwatch)
  */
 
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import { AgentManager } from '../../agent';
 import { PythonEnvManager } from '../../python-env-manager';
 import { registerTaskCRUDHandlers } from './crud-handlers';
@@ -16,6 +16,8 @@ import { registerTaskExecutionHandlers } from './execution-handlers';
 import { registerWorktreeHandlers } from './worktree-handlers';
 import { registerTaskLogsHandlers } from './logs-handlers';
 import { registerTaskArchiveHandlers } from './archive-handlers';
+import { optimizeTaskDescription } from '../../task-optimize-helper';
+import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 
 /**
  * Register all task-related IPC handlers
@@ -39,6 +41,11 @@ export function registerTaskHandlers(
 
   // Register archive handlers (archive, unarchive)
   registerTaskArchiveHandlers();
+
+  // Register task optimize description handler
+  ipcMain.handle(IPC_CHANNELS.TASK_OPTIMIZE_DESCRIPTION, async (_event, request) => {
+    return optimizeTaskDescription(request);
+  });
 }
 
 // Export shared utilities for use by other modules if needed

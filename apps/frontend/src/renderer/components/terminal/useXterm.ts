@@ -88,6 +88,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     debugLog(`[useXterm] Initializing xterm for terminal: ${terminalId}`);
 
     const xterm = new XTerm({
+      allowTransparency: true,
       cursorBlink: fontSettings.cursorBlink,
       cursorStyle: fontSettings.cursorStyle,
       fontSize: fontSettings.fontSize,
@@ -96,9 +97,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       lineHeight: fontSettings.lineHeight,
       letterSpacing: fontSettings.letterSpacing,
       theme: {
-        background: '#282C34',
+        background: '#282C34CC',
         foreground: '#ABB2BF',
         cursor: '#D6D876',
+        cursorAccent: fontSettings.cursorAccentColor,
         selectionBackground: '#D6D87640',
         selectionForeground: '#E8E6E3',
         black: '#1A1A1F',
@@ -117,7 +119,6 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
         brightMagenta: '#DEB3FF',
         brightCyan: '#A6E8FF',
         brightWhite: '#FFFFFF',
-        cursorAccent: fontSettings.cursorAccentColor,
       },
       allowProposedApi: true,
       scrollback: fontSettings.scrollback,

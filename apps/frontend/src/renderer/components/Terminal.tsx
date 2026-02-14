@@ -8,6 +8,7 @@ import { useSettingsStore } from '../stores/settings-store';
 import { useToast } from '../hooks/use-toast';
 import type { TerminalProps } from './terminal/types';
 import type { TerminalWorktreeConfig } from '../../shared/types';
+import { TERMINAL_DOM_UPDATE_DELAY_MS } from '../../shared/constants/config';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { CreateWorktreeDialog } from './terminal/CreateWorktreeDialog';
 import { useXterm } from './terminal/useXterm';
@@ -783,7 +784,7 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
     <div
       ref={setDropRef}
       className={cn(
-        'flex h-full flex-col rounded-lg border bg-[#282C34] overflow-hidden transition-all relative shadow-lg',
+        'flex h-full flex-col rounded-lg border bg-[#282C34]/80 overflow-hidden transition-all relative shadow-lg',
         // Default border states
         isActive ? 'border-white/10 ring-1 ring-white/5' : 'border-white/5',
         // File drop overlay
