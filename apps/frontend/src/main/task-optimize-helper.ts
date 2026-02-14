@@ -203,21 +203,26 @@ export async function optimizeTaskDescription(
 
   return new Promise((resolve) => {
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+
+    // Build clean env without CLAUDECODE to avoid nested session detection
+    const cleanEnv = {
+      ...process.env,
+      ...pythonEnv,
+      ...autoBuildEnv,
+      ...profileEnv,
+      ...apiProfileEnv,
+      ...oauthModeClearVars,
+      PYTHONPATH: combinedPythonPath,
+      PYTHONUNBUFFERED: '1',
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONUTF8: '1',
+    };
+    // Must delete, not just set empty — Claude CLI checks key existence
+    delete cleanEnv.CLAUDECODE;
+
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
       cwd: autoBuildSource,
-      env: {
-        ...process.env,
-        ...pythonEnv,  // Include Python environment (PYTHONPATH for bundled packages)
-        ...autoBuildEnv,
-        ...profileEnv,
-        ...apiProfileEnv,
-        ...oauthModeClearVars,
-        PYTHONPATH: combinedPythonPath,
-        PYTHONUNBUFFERED: '1',
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONUTF8: '1',
-        CLAUDECODE: '',  // Clear to avoid nested session detection
-      }
+      env: cleanEnv,
     });
 
     let output = '';
