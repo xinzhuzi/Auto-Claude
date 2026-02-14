@@ -99,7 +99,6 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
         background: '#282C34',
         foreground: '#ABB2BF',
         cursor: '#D6D876',
-        cursorAccent: '#282C34',
         selectionBackground: '#D6D87640',
         selectionForeground: '#E8E6E3',
         black: '#1A1A1F',

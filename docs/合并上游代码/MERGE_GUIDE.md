@@ -1,315 +1,236 @@
-# 上游代码合并完整指南
+# 上游代码合并指南
 
-**版本**: 1.0
-**最后更新**: 2026-01-27
+**上游仓库**: `https://github.com/AndyMik90/Auto-Claude.git`
+**本地仓库**: `https://github.com/zhengbingjin/Auto-Claude.git`
+**项目路径**: `/Users/zhengbingjin/Project/Github/Auto-Claude`
 
----
-
-## 📋 目录
-
-1. [概念理解](#概念理解)
-2. [首次设置](#首次设置)
-3. [合并流程](#合并流程)
-4. [合并策略选择](#合并策略选择)
-5. [回滚操作](#回滚操作)
+> **不要重新 Fork！** 重新 Fork 会覆盖所有本地修改。使用 `git merge` 合并上游更新。
 
 ---
 
-## 🎯 概念理解
-
-### Fork vs Clone vs Remote
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         GitHub 云端                              │
-│                                                                  │
-│  ┌─────────────────────┐      ┌─────────────────────┐          │
-│  │  上游仓库 (upstream) │      │  你的仓库 (origin)   │          │
-│  │  AndyMik90/Auto-Claude│◄────│  zhengbingjin/Auto-Claude│     │
-│  └─────────────────────┘  Fork └─────────────────────┘          │
-│                                         │                        │
-└─────────────────────────────────────────┼────────────────────────┘
-                                          │ clone/push/pull
-                                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         本地电脑                                 │
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  本地仓库                                                    ││
-│  │  /Users/zhengbingjin/Project/Github/Auto-Claude             ││
-│  │                                                              ││
-│  │  remotes:                                                    ││
-│  │    origin   → zhengbingjin/Auto-Claude (你的仓库)           ││
-│  │    upstream → AndyMik90/Auto-Claude (上游仓库)              ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 为什么不能重新 Fork?
-
-- **Fork** 是在 GitHub 上创建仓库的完整副本
-- 重新 Fork 会**覆盖**你仓库中的所有内容
-- 你的本地修改、提交历史都会丢失
-
-### 正确的做法
-
-- 使用 `git remote add upstream` 添加上游仓库
-- 使用 `git fetch upstream` 获取上游更新
-- 使用 `git merge upstream/main` 合并更新
-- 这样可以**保留**你的所有本地修改
-
----
-
-## 🔧 首次设置
-
-### 步骤 1: 检查当前 remote 配置
+## 1. 首次设置（只需一次）
 
 ```bash
 cd /Users/zhengbingjin/Project/Github/Auto-Claude
-git remote -v
-```
 
-**预期输出**:
-```
-origin  https://github.com/zhengbingjin/Auto-Claude.git (fetch)
-origin  https://github.com/zhengbingjin/Auto-Claude.git (push)
-```
-
-### 步骤 2: 添加上游仓库
-
-```bash
+# 添加上游仓库
 git remote add upstream https://github.com/AndyMik90/Auto-Claude.git
-```
 
-### 步骤 3: 验证配置
-
-```bash
+# 验证（应看到 origin + upstream 两个 remote）
 git remote -v
-```
-
-**预期输出**:
-```
-origin    https://github.com/zhengbingjin/Auto-Claude.git (fetch)
-origin    https://github.com/zhengbingjin/Auto-Claude.git (push)
-upstream  https://github.com/AndyMik90/Auto-Claude.git (fetch)
-upstream  https://github.com/AndyMik90/Auto-Claude.git (push)
-```
-
-### 步骤 4: 获取上游分支信息
-
-```bash
-git fetch upstream
-```
-
-### 步骤 5: 查看所有分支
-
-```bash
-git branch -a
-```
-
-**预期输出**:
-```
-* main
-  remotes/origin/main
-  remotes/upstream/main
 ```
 
 ---
 
-## 🔄 合并流程
+## 2. 合并流程
 
-### 完整合并流程 (推荐)
+### 阶段 A：准备
 
 ```bash
-# ============================================
-# 阶段 1: 准备工作
-# ============================================
-
-# 1.1 确保工作目录干净
+# A1. 确保工作目录干净
 git status
 
-# 如果有未提交的修改，先暂存
+# A2. 暂存未完成的工作（如果有）
 git stash save "合并前暂存"
 
-# 1.2 切换到主分支
+# A3. 切换到主分支并拉取最新
 git checkout main
-
-# 1.3 确保本地主分支是最新的
 git pull origin main
 
-# ============================================
-# 阶段 2: 获取上游更新
-# ============================================
+# A4. 创建备份分支（重要！）
+git branch backup-before-merge-$(date +%Y%m%d)
+```
 
-# 2.1 获取上游所有更新
+### 阶段 B：预览变更
+
+```bash
+# B1. 获取上游更新
 git fetch upstream
 
-# 2.2 查看上游有哪些新提交
+# B2. 查看上游新提交
 git log main..upstream/main --oneline
 
-# 2.3 查看会有哪些文件变化 (预览)
+# B3. 查看文件变化统计
 git diff main upstream/main --stat
+```
 
-# ============================================
-# 阶段 3: 创建备份分支 (重要!)
-# ============================================
+### 阶段 C：执行合并
 
-# 3.1 创建备份分支
-git branch backup-before-merge-$(date +%Y%m%d)
-
-# 3.2 验证备份分支已创建
-git branch | grep backup
-
-# ============================================
-# 阶段 4: 执行合并
-# ============================================
-
-# 4.1 合并上游更新
+```bash
+# C1. 合并
 git merge upstream/main
 
-# 如果出现冲突，参考 CONFLICT_RESOLUTION.md
+# 如果出现冲突 → 跳到第 3 节处理
+# 如果无冲突 → 继续
+```
 
-# ============================================
-# 阶段 5: 验证和推送
-# ============================================
+### 阶段 D：验证 & 推送
 
-# 5.1 检查合并结果
+```bash
+# D1. 检查合并结果
 git status
 git log --oneline -10
 
-# 5.2 运行测试确保没有破坏
-cd apps/frontend
-npm run build
+# D2. 确认无残留冲突标记
+grep -r "<<<<<<" . --include="*.ts" --include="*.tsx" --include="*.json" --include="*.py"
 
-# 5.3 推送到你的仓库
+# D3. 构建验证
+cd apps/frontend && npm run build && cd ../..
+
+# D4. 推送
 git push origin main
 
-# ============================================
-# 阶段 6: 清理
-# ============================================
-
-# 6.1 恢复之前暂存的修改 (如果有)
+# D5. 恢复暂存（如果有）
 git stash pop
-
-# 6.2 删除旧的备份分支 (可选，建议保留最近 3 个)
-# git branch -d backup-before-merge-20260101
-```
-
-### 简化版流程 (熟练后使用)
-
-```bash
-# 一键合并脚本
-git fetch upstream && \
-git checkout main && \
-git branch backup-$(date +%Y%m%d) && \
-git merge upstream/main && \
-git push origin main
 ```
 
 ---
 
-## 📊 合并策略选择
+## 3. 冲突解决
 
-### 策略 1: Merge (推荐)
+### 3.1 冲突处理优先级
 
+1. **安全/稳定性修复** → 优先引入上游，再恢复本地定制
+2. **核心流程可用性** → 以可用性为第一目标，再逐步回填本地扩展
+3. **功能并存** → 合并两边实现，必要时加 feature flag
+4. **依赖/配置** → 对齐上游版本，保留本地新增项
+
+### 3.2 处理顺序
+
+1. 后端核心：`apps/backend/agents/*`, `core/*`, `spec/*`
+2. 前端主流程：`apps/frontend/src/main/*`
+3. 渲染层 UI：`apps/frontend/src/renderer/*`
+4. 共享类型：`apps/frontend/src/shared/*`, `preload/*`
+5. 工具链：`scripts/`, `.github/`, `package.json`
+
+### 3.3 按文件类型处理
+
+**翻译文件 (JSON)** — 手动合并，保留双方的翻译 key
 ```bash
-git merge upstream/main
+# 中文翻译优先保留本地版本
 ```
 
-**优点**:
-- 保留完整的提交历史
-- 合并冲突容易理解
-- 可以清楚看到哪些是上游的，哪些是本地的
-
-**缺点**:
-- 会产生合并提交
-- 历史记录可能看起来复杂
-
-**适用场景**: 日常合并，推荐使用
-
-### 策略 2: Rebase
-
+**i18n 配置** — 保留本地版本
 ```bash
-git rebase upstream/main
+git checkout --ours apps/frontend/src/shared/i18n/index.ts
+git add apps/frontend/src/shared/i18n/index.ts
 ```
 
-**优点**:
-- 历史记录线性，更干净
-- 没有合并提交
+**package.json** — 手动合并依赖，合并后运行 `npm install`
 
-**缺点**:
-- 会改写提交历史
-- 冲突解决更复杂
-- 如果已经推送过，需要 force push
-
-**适用场景**: 个人分支，未推送的提交
-
-### 策略 3: Cherry-pick (选择性合并)
-
+**组件文件 (TSX/TS)**
 ```bash
-# 只合并特定的提交
-git cherry-pick <commit-hash>
+# 上游新增组件 → 保留上游
+git checkout --theirs <file>
+# 本地定制组件 → 保留本地
+git checkout --ours <file>
+# 双方都改 → 手动合并
 ```
 
-**适用场景**: 只需要上游的某几个特定功能
+**文档 (MD)** — 保留本地中文文档
+```bash
+git checkout --ours docs/中文/*.md
+git add docs/中文/*.md
+```
+
+### 3.4 解决后标记
+
+```bash
+git add <已解决的文件>
+# 所有冲突解决后
+git commit
+```
+
+### 3.5 冲突解决检查
+
+- [ ] 所有 `<<<<<<<` / `=======` / `>>>>>>>` 标记已清除
+- [ ] 代码可编译 (`npm run build`)
+- [ ] 翻译文件是有效 JSON
+- [ ] 本地定制功能正常
 
 ---
 
-## ⏪ 回滚操作
+## 4. 本地定制文件清单（合并时特别注意）
 
-### 情况 1: 合并后发现问题，还没推送
+| 文件 | 冲突策略 |
+|------|---------|
+| `apps/frontend/src/shared/i18n/index.ts` | 保留本地 |
+| `apps/cc-wf-studio/src/i18n/locales/zh-CN/*` | 合并双方 |
+| `docs/中文/*`, `docs/编辑器/*`, `docs/cc-wf-studio/*` | 保留本地 |
+| `docs/合并上游代码/*` | 保留本地 |
+| `.gitignore`, `package.json` | 合并双方 |
 
-```bash
-# 回滚到合并前
-git reset --hard backup-before-merge-20260127
+---
 
-# 或者使用 ORIG_HEAD
-git reset --hard ORIG_HEAD
-```
+## 5. 回滚操作
 
-### 情况 2: 合并后已经推送
-
-```bash
-# 创建一个撤销合并的提交
-git revert -m 1 <merge-commit-hash>
-git push origin main
-```
-
-### 情况 3: 恢复到备份分支
+### 还没推送
 
 ```bash
-# 查看所有备份分支
+# 查看备份分支
 git branch | grep backup
 
-# 切换到备份分支
-git checkout backup-before-merge-20260127
+# 回滚（替换为实际分支名）
+git reset --hard backup-before-merge-YYYYMMDD
+```
 
-# 如果确定要用备份替换 main
-git checkout main
-git reset --hard backup-before-merge-20260127
-git push origin main --force  # 危险操作，确保没有其他人在用
+### 已经推送
+
+```bash
+# 方法 1：撤销提交（推荐）
+git revert -m 1 <merge-commit-hash>
+git push origin main
+
+# 方法 2：强制回滚（危险，确保无他人使用）
+git reset --hard backup-before-merge-YYYYMMDD
+git push origin main --force
 ```
 
 ---
 
-## 📅 合并频率建议
+## 6. 冲突记录模板
 
-| 频率 | 适用情况 | 风险 |
-|------|---------|------|
-| 每天 | 上游非常活跃 | 低，冲突少 |
-| 每周 | 推荐 | 低 |
-| 每月 | 上游不太活跃 | 中，可能有较多冲突 |
-| 超过一个月 | 不推荐 | 高，冲突可能很多 |
+每个冲突文件需记录以下信息，写入 `CONFLICT_RESOLUTION_LOG_<日期>.md`：
 
----
-
-## 🔗 相关文档
-
-- [CONFLICT_RESOLUTION.md](./CONFLICT_RESOLUTION.md) - 冲突解决策略
-- [CHECKLIST.md](./CHECKLIST.md) - 合并检查清单
+```markdown
+## `<文件路径>`
+- **选择**：上游 / 本地 / 融合
+- **原因**：
+- **关键改动**：
+- **风险**：
+- **验证项**：
+```
 
 ---
 
-**文档维护者**: Auto-Claude Team
-**最后更新**: 2026-01-27
+## 7. 工具
+
+```bash
+# VS Code 合并工具
+git config --global merge.tool vscode
+git config --global mergetool.vscode.cmd 'code --wait $MERGED'
+git mergetool
+
+# 三方对比
+git diff --cc <file>
+
+# 查看本地/上游版本
+git show :2:<file>   # 本地
+git show :3:<file>   # 上游
+
+# 批量处理
+git checkout --ours <dir>/* && git add <dir>/*
+git checkout --theirs <dir>/* && git add <dir>/*
+```
+
+---
+
+## 8. 历次合并记录
+
+| 日期 | 计划 | 决策记录 | 函数分析 |
+|------|------|---------|---------|
+| 2026-02-13 | [MERGE_PLAN](./MERGE_PLAN_2026-02-13.md) | [RESOLUTION_LOG](./CONFLICT_RESOLUTION_LOG_FULL_2026-02-13.md) | [后端](./FUNCTION_FUSION_BACKEND_2026-02-13.md) / [前端](./FUNCTION_FUSION_FRONTEND_MAIN_2026-02-13.md) |
+
+---
+
+**最后更新**: 2026-02-14
