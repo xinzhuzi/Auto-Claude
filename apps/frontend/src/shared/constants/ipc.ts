@@ -16,6 +16,10 @@ export const IPC_CHANNELS = {
   TAB_STATE_GET: 'tabState:get',
   TAB_STATE_SAVE: 'tabState:save',
 
+  // Kanban preferences (per-project column collapse state)
+  KANBAN_PREFS_GET: 'kanbanPrefs:get',
+  KANBAN_PREFS_SAVE: 'kanbanPrefs:save',
+
   // Task operations
   TASK_LIST: 'task:list',
   TASK_CREATE: 'task:create',
@@ -28,6 +32,9 @@ export const IPC_CHANNELS = {
   TASK_RECOVER_STUCK: 'task:recoverStuck',
   TASK_CHECK_RUNNING: 'task:checkRunning',
   TASK_OPTIMIZE_DESCRIPTION: 'task:optimizeDescription',
+  TASK_RESUME_PAUSED: 'task:resumePaused',  // Resume a rate-limited or auth-paused task
+  TASK_LOAD_IMAGE_THUMBNAIL: 'task:loadImageThumbnail',
+  TASK_CHECK_WORKTREE_CHANGES: 'task:checkWorktreeChanges',
 
   // Workspace management (for human review)
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
@@ -36,6 +43,7 @@ export const IPC_CHANNELS = {
   TASK_WORKTREE_MERGE: 'task:worktreeMerge',
   TASK_WORKTREE_MERGE_PREVIEW: 'task:worktreeMergePreview',  // Preview merge conflicts before merging
   TASK_WORKTREE_DISCARD: 'task:worktreeDiscard',
+  TASK_WORKTREE_DISCARD_ORPHAN: 'task:worktreeDiscardOrphan',  // Delete orphaned worktree by spec name (no task association)
   TASK_WORKTREE_CREATE_PR: 'task:worktreeCreatePR',
   TASK_WORKTREE_OPEN_IN_IDE: 'task:worktreeOpenInIDE',
   TASK_WORKTREE_OPEN_IN_TERMINAL: 'task:worktreeOpenInTerminal',
@@ -58,6 +66,7 @@ export const IPC_CHANNELS = {
   TASK_LOGS_UNWATCH: 'task:logsUnwatch',   // Stop watching for log changes
   TASK_LOGS_CHANGED: 'task:logsChanged',   // Event: logs changed (main -> renderer)
   TASK_LOGS_STREAM: 'task:logsStream',     // Event: streaming log chunk (main -> renderer)
+  TASK_MERGE_PROGRESS: 'task:mergeProgress',  // Event: merge progress update (main -> renderer)
 
   // Terminal operations
   TERMINAL_CREATE: 'terminal:create',
@@ -142,6 +151,7 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
+  SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS: 'settings:claudeCode:getOnboardingStatus',  // Check hasCompletedOnboarding from ~/.claude.json
 
   // API Profile management (custom Anthropic-compatible endpoints)
   PROFILES_GET: 'profiles:get',
@@ -381,6 +391,7 @@ export const IPC_CHANNELS = {
 
   // GitHub PR Review operations
   GITHUB_PR_LIST: 'github:pr:list',
+  GITHUB_PR_LIST_MORE: 'github:pr:listMore',  // Load more PRs (pagination)
   GITHUB_PR_GET: 'github:pr:get',
   GITHUB_PR_GET_DIFF: 'github:pr:getDiff',
   GITHUB_PR_REVIEW: 'github:pr:review',
@@ -403,9 +414,15 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW_PROGRESS: 'github:pr:reviewProgress',
   GITHUB_PR_REVIEW_COMPLETE: 'github:pr:reviewComplete',
   GITHUB_PR_REVIEW_ERROR: 'github:pr:reviewError',
+  GITHUB_PR_LOGS_UPDATED: 'github:pr:logsUpdated',
 
   // GitHub PR Logs (for viewing AI review logs)
   GITHUB_PR_GET_LOGS: 'github:pr:getLogs',
+
+  // GitHub PR Status Polling (production system checks)
+  GITHUB_PR_STATUS_POLL_START: 'github:pr:statusPollStart',   // Start polling PR status
+  GITHUB_PR_STATUS_POLL_STOP: 'github:pr:statusPollStop',     // Stop polling PR status
+  GITHUB_PR_STATUS_UPDATE: 'github:pr:statusUpdate',          // Event: PR status updated (main -> renderer)
 
   // GitHub PR Memory operations (saves review insights to memory layer)
   GITHUB_PR_MEMORY_GET: 'github:pr:memory:get',        // Get PR review memories
@@ -487,6 +504,7 @@ export const IPC_CHANNELS = {
   INSIGHTS_STREAM_CHUNK: 'insights:streamChunk',
   INSIGHTS_STATUS: 'insights:status',
   INSIGHTS_ERROR: 'insights:error',
+  INSIGHTS_SESSION_UPDATED: 'insights:sessionUpdated',  // Event: session updated (main -> renderer)
 
   // File explorer operations
   FILE_EXPLORER_LIST: 'fileExplorer:list',
@@ -494,6 +512,7 @@ export const IPC_CHANNELS = {
 
   // Git operations
   GIT_GET_BRANCHES: 'git:getBranches',
+  GIT_GET_BRANCHES_WITH_INFO: 'git:getBranchesWithInfo',
   GIT_GET_CURRENT_BRANCH: 'git:getCurrentBranch',
   GIT_DETECT_MAIN_BRANCH: 'git:detectMainBranch',
   GIT_CHECK_STATUS: 'git:checkStatus',
@@ -513,6 +532,7 @@ export const IPC_CHANNELS = {
   APP_UPDATE_PROGRESS: 'app-update:progress',
   APP_UPDATE_ERROR: 'app-update:error',
   APP_UPDATE_STABLE_DOWNGRADE: 'app-update:stable-downgrade',  // Stable version available for downgrade from beta
+  APP_UPDATE_READONLY_VOLUME: 'app-update:readonly-volume',  // App running from read-only volume (DMG), needs to be moved
 
   // Release operations
   RELEASE_SUGGEST_VERSION: 'release:suggestVersion',
@@ -529,6 +549,7 @@ export const IPC_CHANNELS = {
   DEBUG_COPY_DEBUG_INFO: 'debug:copyDebugInfo',
   DEBUG_GET_RECENT_ERRORS: 'debug:getRecentErrors',
   DEBUG_LIST_LOG_FILES: 'debug:listLogFiles',
+  DEBUG_SIMULATE_RATE_LIMIT: 'debug:simulateRateLimit',  // Simulate rate limit for testing auto-swap
 
   // Claude Code CLI operations
   CLAUDE_CODE_CHECK_VERSION: 'claudeCode:checkVersion',
@@ -555,6 +576,9 @@ export const IPC_CHANNELS = {
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)
   GET_SENTRY_CONFIG: 'sentry:get-config',        // Get full Sentry config (DSN + sample rates)
 
+  // Spell check
+  SPELLCHECK_SET_LANGUAGES: 'spellcheck:setLanguages',  // Set spell check language (syncs with i18n)
+
   // Screenshot capture
   SCREENSHOT_GET_SOURCES: 'screenshot:getSources',  // Get available screens/windows
   SCREENSHOT_CAPTURE: 'screenshot:capture',          // Capture screenshot from source
@@ -562,6 +586,7 @@ export const IPC_CHANNELS = {
   // Queue routing (rate limit recovery)
   QUEUE_GET_RUNNING_TASKS_BY_PROFILE: 'queue:getRunningTasksByProfile',
   QUEUE_GET_BEST_PROFILE_FOR_TASK: 'queue:getBestProfileForTask',
+  QUEUE_GET_BEST_UNIFIED_ACCOUNT: 'queue:getBestUnifiedAccount', // Unified OAuth + API account selection
   QUEUE_ASSIGN_PROFILE_TO_TASK: 'queue:assignProfileToTask',
   QUEUE_UPDATE_TASK_SESSION: 'queue:updateTaskSession',
   QUEUE_GET_TASK_SESSION: 'queue:getTaskSession',

@@ -15,6 +15,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from core.platform import get_where_exe_path
+
 # Git environment variables that can interfere with worktree operations
 # when set by pre-commit hooks or other git configurations.
 # These must be cleared to prevent cross-worktree contamination.
@@ -31,15 +33,6 @@ GIT_ENV_VARS_TO_CLEAR = [
     "GIT_COMMITTER_NAME",
     "GIT_COMMITTER_EMAIL",
     "GIT_COMMITTER_DATE",
-    # Config variables that could override repository settings
-    "GIT_CONFIG",
-    "GIT_CONFIG_GLOBAL",
-    "GIT_CONFIG_SYSTEM",
-    "GIT_CONFIG_NOSYSTEM",
-    # Additional variables that could affect git behavior
-    "GIT_EXEC_PATH",
-    "GIT_TEMPLATE_DIR",
-    "GIT_CEILING_DIRECTORIES",
 ]
 
 _cached_git_path: str | None = None
@@ -52,10 +45,6 @@ def get_isolated_git_env(base_env: dict | None = None) -> dict:
     Clears git environment variables that may be set by pre-commit hooks
     or other git configurations, preventing cross-worktree contamination
     and ensuring git operations target the intended repository.
-
-    Also ensures common binary directories (like Homebrew) are in PATH,
-    which is necessary for git-lfs and other tools when the app is launched
-    from Finder/Dock (which doesn't inherit the full shell environment).
 
     Args:
         base_env: Base environment dict to copy from. If None, uses os.environ.
@@ -72,45 +61,7 @@ def get_isolated_git_env(base_env: dict | None = None) -> dict:
     # to prevent double-hook execution and potential conflicts
     env["HUSKY"] = "0"
 
-    # Ensure common binary directories are in PATH for git-lfs and other tools
-    # This is necessary when the app is launched from Finder/Dock on macOS
-    _ensure_common_paths_in_env(env)
-
     return env
-
-
-def _ensure_common_paths_in_env(env: dict) -> None:
-    """
-    Ensure common binary directories are in PATH.
-
-    When Electrunch from Finder/Dock on macOS, they don't inherit
-    the full shell environment, so tools like git-lfs (installed via Homebrew)
-    may not be found. This function adds common binary directories to PATH.
-    """
-    import sys
-
-    if sys.platform != "darwin":
-        return  # Only needed on macOS
-
-    common_paths = [
-        "/opt/homebrew/bin",  # Apple Silicon Homebrew
-        "/usr/local/bin",     # Intel Homebrew / system
-        "/opt/homebrew/sbin",
-        "/usr/local/sbin",
-    ]
-
-    current_path = env.get("PATH", "")
-    path_parts = current_path.split(":") if current_path else []
-    path_set = set(path_parts)
-
-    paths_to_add = []
-    for p in common_paths:
-        if p not in path_set and os.path.isdir(p):
-            paths_to_add.append(p)
-
-    if paths_to_add:
-        # Prepend new paths so they take priority
-        env["PATH"] = ":".join(paths_to_add + path_parts)
 
 
 def get_git_executable() -> str:
@@ -175,21 +126,19 @@ def _find_git_executable() -> str:
             except OSError:
                 continue
 
-        # 4. Try 'where' command without shell=True (safer approach)
-        # Note: Using list form to avoid shell injection vulnerabilities
+        # 4. Try 'where' command with full path (works even when System32 isn't in PATH)
         try:
             result = subprocess.run(
-                ["where", "git"],
+                [get_where_exe_path(), "git"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                shell=False,
             )
             if result.returncode == 0 and result.stdout.strip():
                 found_path = result.stdout.strip().split("\n")[0].strip()
                 if found_path and os.path.isfile(found_path):
                     return found_path
-        except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
+        except (subprocess.TimeoutExpired, OSError):
             pass  # 'where' command failed - fall through to default
 
     # Default fallback - let subprocess handle it (may fail)

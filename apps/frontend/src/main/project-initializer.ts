@@ -164,13 +164,18 @@ const GITIGNORE_ENTRIES = ['.auto-claude/'];
 function ensureGitignoreEntries(projectPath: string, entries: string[]): void {
   const gitignorePath = path.join(projectPath, '.gitignore');
 
+  // Read existing content atomically (no TOCTOU)
   let content = '';
-  let existingLines: string[] = [];
-
-  if (existsSync(gitignorePath)) {
+  let fileExists = false;
+  try {
     content = readFileSync(gitignorePath, 'utf-8');
-    existingLines = content.split('\n').map(line => line.trim());
+    fileExists = true;
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    // File doesn't exist - content stays empty
   }
+
+  const existingLines = content ? content.split('\n').map(line => line.trim()) : [];
 
   // Find entries that need to be added
   const entriesToAdd: string[] = [];
@@ -191,23 +196,23 @@ function ensureGitignoreEntries(projectPath: string, entries: string[]): void {
     return;
   }
 
-  // Build the content to append
-  let appendContent = '';
+  if (fileExists) {
+    // Build the content to append
+    let appendContent = '';
 
-  // Ensure file ends with newline before adding our entries
-  if (content && !content.endsWith('\n')) {
-    appendContent += '\n';
-  }
+    // Ensure file ends with newline before adding our entries
+    if (content && !content.endsWith('\n')) {
+      appendContent += '\n';
+    }
 
-  appendContent += '\n# AI员工 data directory\n';
-  for (const entry of entriesToAdd) {
-    appendContent += entry + '\n';
-  }
+    appendContent += '\n# Auto Claude data directory\n';
+    for (const entry of entriesToAdd) {
+      appendContent += entry + '\n';
+    }
 
-  if (existsSync(gitignorePath)) {
     appendFileSync(gitignorePath, appendContent);
   } else {
-    writeFileSync(gitignorePath, '# AI员工 data directory\n' + entriesToAdd.join('\n') + '\n');
+    writeFileSync(gitignorePath, '# Auto Claude data directory\n' + entriesToAdd.join('\n') + '\n', 'utf-8');
   }
 
   debug('Added entries to .gitignore', { entries: entriesToAdd });
@@ -283,13 +288,13 @@ export function initializeProject(projectPath: string): InitializationResult {
     };
   }
 
-  // Check git status - AI员工 requires git for worktree-based builds
+  // Check git status - Auto Claude requires git for worktree-based builds
   const gitStatus = checkGitStatus(projectPath);
   if (!gitStatus.isGitRepo || !gitStatus.hasCommits) {
     debug('Git check failed', { gitStatus });
     return {
       success: false,
-      error: gitStatus.error || 'Git repository required. AI员工 uses git worktrees for isolated builds.'
+      error: gitStatus.error || 'Git repository required. Auto Claude uses git worktrees for isolated builds.'
     };
   }
 
@@ -315,7 +320,7 @@ export function initializeProject(projectPath: string): InitializationResult {
       const dirPath = path.join(dotAutoBuildPath, dataDir);
       debug('Creating data directory', { dataDir, dirPath });
       mkdirSync(dirPath, { recursive: true });
-      writeFileSync(path.join(dirPath, '.gitkeep'), '');
+      writeFileSync(path.join(dirPath, '.gitkeep'), '', 'utf-8');
     }
 
     // Update .gitignore to exclude .auto-claude/
@@ -353,7 +358,7 @@ export function ensureDataDirectories(projectPath: string): InitializationResult
       if (!existsSync(dirPath)) {
         debug('Creating missing data directory', { dataDir, dirPath });
         mkdirSync(dirPath, { recursive: true });
-        writeFileSync(path.join(dirPath, '.gitkeep'), '');
+        writeFileSync(path.join(dirPath, '.gitkeep'), '', 'utf-8');
       }
     }
     return { success: true };
@@ -370,7 +375,7 @@ export function ensureDataDirectories(projectPath: string): InitializationResult
  *
  * IMPORTANT: Only .auto-claude/ is considered a valid "installed" auto-claude.
  * The auto-claude/ folder (if it exists) is the SOURCE CODE being developed,
- * not an installation. This allows AI员工 to be used to develop itself.
+ * not an installation. This allows Auto Claude to be used to develop itself.
  */
 export function getAutoBuildPath(projectPath: string): string | null {
   const dotAutoBuildPath = path.join(projectPath, '.auto-claude');

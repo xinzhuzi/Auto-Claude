@@ -18,6 +18,7 @@ import {
   Globe,
   Code,
   Bug,
+  Terminal,
   Users,
   Gamepad2
 } from 'lucide-react';
@@ -51,6 +52,7 @@ import { GeneralSettings } from './GeneralSettings';
 import { AdvancedSettings } from './AdvancedSettings';
 import { DevToolsSettings } from './DevToolsSettings';
 import { DebugSettings } from './DebugSettings';
+import { TerminalFontSettings } from './terminal-font-settings/TerminalFontSettings';
 import { AccountSettings } from './AccountSettings';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
@@ -67,7 +69,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'accounts' | 'updates' | 'notifications' | 'debug';
+export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'terminal-fonts' | 'agent' | 'paths' | 'integrations' | 'accounts' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
 
 // Support-level sections
 export type SupportSection = 'daojie';
@@ -82,6 +84,7 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'display', icon: Monitor },
   { id: 'language', icon: Globe },
   { id: 'devtools', icon: Code },
+  { id: 'terminal-fonts', icon: Terminal },
   { id: 'agent', icon: Bot },
   { id: 'paths', icon: FolderOpen },
   { id: 'accounts', icon: Users },
@@ -195,6 +198,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <LanguageSettings settings={settings} onSettingsChange={setSettings} />;
       case 'devtools':
         return <DevToolsSettings settings={settings} onSettingsChange={setSettings} />;
+      case 'terminal-fonts':
+        return <TerminalFontSettings />;
       case 'agent':
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" />;
       case 'paths':
@@ -418,7 +423,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Main content */}
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-full">
-                <div className={activeTopLevel === 'support' ? 'p-8' : 'p-8 max-w-2xl'}>
+                <div className={(activeTopLevel === 'support' || appSection === 'terminal-fonts') ? 'p-8' : 'p-8 max-w-2xl'}>
                   {renderContent()}
                 </div>
               </ScrollArea>

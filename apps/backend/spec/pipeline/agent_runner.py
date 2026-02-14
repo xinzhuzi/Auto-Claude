@@ -54,6 +54,7 @@ class AgentRunner:
         additional_context: str = "",
         interactive: bool = False,
         thinking_budget: int | None = None,
+        thinking_level: str = "medium",
         prior_phase_summaries: str | None = None,
         phase_name: str | None = None,
     ) -> tuple[bool, str]:
@@ -64,6 +65,7 @@ class AgentRunner:
             additional_context: Additional context to add to the prompt
             interactive: Whether to run in interactive mode
             thinking_budget: Token budget for extended thinking (None = disabled)
+            thinking_level: Thinking level string (low, medium, high)
             prior_phase_summaries: Summaries from previous phases for context
             phase_name: Name of the phase (for chunked mode detection)
 
@@ -123,12 +125,31 @@ class AgentRunner:
         )
         # Lazy import to avoid circular import with core.client
         from core.client import create_client
+        from phase_config import (
+            get_fast_mode,
+            get_model_betas,
+            get_thinking_kwargs_for_model,
+            resolve_model_id,
+        )
+
+        betas = get_model_betas(self.model)
+        fast_mode = get_fast_mode(self.spec_dir)
+        debug(
+            "agent_runner",
+            f"[Fast Mode] {'ENABLED' if fast_mode else 'disabled'} for spec pipeline agent",
+        )
+        resolved_model = resolve_model_id(self.model)
+        thinking_kwargs = get_thinking_kwargs_for_model(
+            resolved_model, thinking_level or "medium"
+        )
 
         client = create_client(
             self.project_dir,
             self.spec_dir,
-            self.model,
-            max_thinking_tokens=thinking_budget,
+            resolved_model,
+            betas=betas,
+            fast_mode=fast_mode,
+            **thinking_kwargs,
         )
 
         current_tool = None

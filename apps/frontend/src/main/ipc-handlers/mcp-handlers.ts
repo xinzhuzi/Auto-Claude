@@ -8,15 +8,9 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { CustomMcpServer, McpHealthCheckResult, McpHealthStatus, McpTestConnectionResult } from '../../shared/types/project';
 import { spawn } from 'child_process';
-import { createLogger } from '../lib/logger';
-
-const logger = createLogger('MCP');
+import { appLog } from '../app-logger';
 import { isWindows } from '../platform';
-import { getAugmentedEnv } from '../env-utils';
-// Import custom MetaMCP handler (won't be overwritten by upstream merges)
-import { isMetaMcpServer, testMetaMcpConnection, checkMetaMcpHealth } from '../custom/metamcp-handler';
-// Import tool description translator
-import { toolDescriptionTranslator } from '../tool-description-translator';
+import { getWhereExePath } from '../utils/windows-paths';
 
 /**
  * Defense-in-depth: Frontend-side command validation
@@ -80,11 +74,6 @@ async function checkMcpHealth(server: CustomMcpServer): Promise<McpHealthCheckRe
   const startTime = Date.now();
 
   if (server.type === 'http') {
-    // Check if this is a MetaMCP server and use custom handler
-    if (isMetaMcpServer(server)) {
-      logger.info('[MCP] Detected MetaMCP server for health check, using custom handler');
-      return checkMetaMcpHealth(server);
-    }
     return checkHttpHealth(server, startTime);
   } else {
     return checkCommandHealth(server, startTime);
@@ -109,7 +98,7 @@ async function checkHttpHealth(server: CustomMcpServer, startTime: number): Prom
     const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
     const headers: Record<string, string> = {
-      'Accept': 'application/json, text/event-stream',
+      'Accept': 'application/json',
     };
 
     // Add custom headers if configured
@@ -206,13 +195,10 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
       });
     }
 
-    const command = isWindows() ? 'where' : 'which';
-    // 使用增强的 PATH，确保打包后的应用能找到 /opt/homebrew/bin 等目录中的命令
-    const augmentedEnv = getAugmentedEnv();
-    logger.info(`[MCP] checkCommandHealth PATH: ${augmentedEnv.PATH?.substring(0, 200)}`);
+    const command = isWindows() ? getWhereExePath() : 'which';
     const proc = spawn(command, [server.command!], {
       timeout: 5000,
-      env: augmentedEnv,
+      windowsHide: true,
     });
 
     let found = false;
@@ -243,12 +229,24 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
       found = true;
     });
 
-    proc.on('error', () => {
+    proc.on('error', (error: Error) => {
       const responseTime = Date.now() - startTime;
+      const errCode = (error as NodeJS.ErrnoException).code;
+      let message = `Failed to check command '${server.command}'`;
+
+      // Provide actionable error messages for common failures
+      if (errCode === 'ENOENT') {
+        message = isWindows()
+          ? `System utility 'where.exe' not found. Check Windows installation.`
+          : `System utility 'which' not found. Check system PATH configuration.`;
+      } else if (errCode === 'EACCES') {
+        message = `Permission denied checking command '${server.command}'`;
+      }
+
       resolve({
         serverId: server.id,
         status: 'unhealthy',
-        message: `Failed to check command '${server.command}'`,
+        message,
         responseTime,
         checkedAt: new Date().toISOString(),
       });
@@ -262,224 +260,11 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
  */
 async function testMcpConnection(server: CustomMcpServer): Promise<McpTestConnectionResult> {
   const startTime = Date.now();
-  logger.info(`[MCP] testMcpConnection called for server: ${server.id}, name: ${server.name}, type: ${server.type}, url: ${server.url || 'none'}, command: ${server.command || 'none'}`);
 
   if (server.type === 'http') {
-    // Check if this is a MetaMCP server and use custom handler
-    if (isMetaMcpServer(server)) {
-      logger.info('[MCP] Detected MetaMCP server, using custom handler');
-      return testMetaMcpConnection(server);
-    }
-    logger.info(`[MCP] Using HTTP connection test for ${server.id}`);
-    const result = await testHttpConnection(server, startTime);
-    logger.info(`[MCP] HTTP test result for ${server.id}: success=${result.success}, message=${result.message}, error=${result.error || 'none'}`);
-    return result;
+    return testHttpConnection(server, startTime);
   } else {
-    logger.info(`[MCP] Using command connection test for ${server.id}`);
-    const result = await testCommandConnection(server, startTime);
-    logger.info(`[MCP] Command test result for ${server.id}: success=${result.success}, message=${result.message}, error=${result.error || 'none'}`);
-    return result;
-  }
-}
-
-/**
- * Test HTTP MCP server connection with a specific URL.
- * Handles both JSON and SSE (text/event-stream) response formats.
- * Supports session ID for servers like Unity MCP that require it.
- */
-async function testHttpConnectionWithUrl(
-  serverId: string,
-  url: string,
-  startTime: number,
-  headers?: Record<string, string>
-): Promise<McpTestConnectionResult> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-    const requestHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream',
-      ...headers,
-    };
-
-    // Send MCP initialize request
-    const initRequest = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: {
-        protocolVersion: '2024-11-05',
-        capabilities: {},
-        clientInfo: {
-          name: 'auto-claude-health-check',
-          version: '1.0.0',
-        },
-      },
-    };
-
-    logger.info(`[MCP] testHttpConnectionWithUrl: sending initialize to ${url}`);
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: requestHeaders,
-      body: JSON.stringify(initRequest),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-    const responseTime = Date.now() - startTime;
-
-    // Get session ID from response headers (required by Unity MCP)
-    const sessionId = response.headers.get('mcp-session-id');
-    logger.info(`[MCP] testHttpConnectionWithUrl: status=${response.status}, sessionId=${sessionId}`);
-
-    // For SSE responses, 200 OK is success even if body parsing fails
-    if (!response.ok) {
-      // Special case: 400 might mean server needs session - try to read error
-      const errorText = await response.text().catch(() => '');
-      return {
-        serverId,
-        success: false,
-        message: `HTTP ${response.status}`,
-        error: errorText || undefined,
-        responseTime,
-      };
-    }
-
-    // Try to parse response - handle both JSON and SSE formats
-    const contentType = response.headers.get('content-type') || '';
-    let data;
-    
-    try {
-      const text = await response.text();
-      
-      if (contentType.includes('text/event-stream') || text.includes('event:')) {
-        // SSE format: look for "data:" lines
-        const lines = text.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data:')) {
-            const jsonStr = line.substring(5).trim();
-            if (jsonStr) {
-              data = JSON.parse(jsonStr);
-              break;
-            }
-          }
-        }
-      } else {
-        // Regular JSON response
-        data = JSON.parse(text);
-      }
-    } catch (parseError) {
-      // If we got 200 OK but can't parse, still consider it a success
-      // (server is reachable)
-      return {
-        serverId,
-        success: true,
-        message: 'Server reachable (response parse warning)',
-        responseTime,
-      };
-    }
-
-    if (data?.error) {
-      return {
-        serverId,
-        success: false,
-        message: 'MCP error',
-        error: data.error.message || JSON.stringify(data.error),
-        responseTime,
-      };
-    }
-
-    if (data?.result || data?.id) {
-      // Now try to list tools using session ID if available
-      let tools: string[] = [];
-
-      if (sessionId) {
-        try {
-          const toolsRequest = {
-            jsonrpc: '2.0',
-            id: 2,
-            method: 'tools/list',
-            params: {},
-          };
-
-          const toolsHeaders = {
-            ...requestHeaders,
-            'mcp-session-id': sessionId,
-          };
-
-          const toolsResponse = await fetch(url, {
-            method: 'POST',
-            headers: toolsHeaders,
-            body: JSON.stringify(toolsRequest),
-          });
-
-          if (toolsResponse.ok) {
-            const toolsContentType = toolsResponse.headers.get('content-type') || '';
-            let toolsData;
-            const toolsText = await toolsResponse.text();
-
-            if (toolsContentType.includes('text/event-stream') || toolsText.includes('event:')) {
-              const dataLine = toolsText.split('\n').find(line => line.startsWith('data:'));
-              if (dataLine) {
-                const jsonStr = dataLine.substring(5).trim();
-                toolsData = JSON.parse(jsonStr);
-              }
-            } else {
-              toolsData = JSON.parse(toolsText);
-            }
-
-            if (toolsData?.result?.tools) {
-              tools = toolsData.result.tools.map((t: { name: string }) => t.name);
-            }
-          }
-        } catch (toolsError) {
-          logger.info(`[MCP] testHttpConnectionWithUrl: failed to get tools: ${toolsError}`);
-        }
-      }
-
-      // Extract server info if available
-      const serverInfo = data?.result?.serverInfo;
-      const message = tools.length > 0
-        ? `Connected to ${serverInfo?.name || 'MCP server'}, ${tools.length} tools available`
-        : serverInfo?.name
-          ? `Connected to ${serverInfo.name} v${serverInfo.version || '?'}`
-          : 'Connected successfully';
-      return {
-        serverId,
-        success: true,
-        message,
-        tools,
-        responseTime,
-      };
-    }
-
-    return {
-      serverId,
-      success: false,
-      message: 'Invalid MCP response',
-      responseTime,
-    };
-  } catch (error) {
-    const responseTime = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : 'Connection failed';
-    
-    // Provide more helpful error messages
-    let message = 'Connection failed';
-    if (errorMessage.includes('ECONNREFUSED')) {
-      message = 'Server not running';
-    } else if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
-      message = 'Connection timed out';
-    }
-    
-    return {
-      serverId,
-      success: false,
-      message,
-      error: errorMessage,
-      responseTime,
-    };
+    return testCommandConnection(server, startTime);
   }
 }
 
@@ -487,8 +272,6 @@ async function testHttpConnectionWithUrl(
  * Test HTTP MCP server connection by sending an MCP initialize request.
  */
 async function testHttpConnection(server: CustomMcpServer, startTime: number): Promise<McpTestConnectionResult> {
-  logger.info(`[MCP] testHttpConnection called for ${server.id}, url: ${server.url}`);
-
   if (!server.url) {
     return {
       serverId: server.id,
@@ -503,7 +286,7 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream',
+      'Accept': 'application/json',
     };
 
     if (server.headers) {
@@ -535,10 +318,6 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
     clearTimeout(timeout);
     const responseTime = Date.now() - startTime;
 
-    logger.info(`[MCP] Initialize response: status=${response.status}, contentType=${response.headers.get('content-type')}, sessionId=${response.headers.get('mcp-session-id')}`);
-
-    const contentType = response.headers.get('content-type') || '';
-
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         return {
@@ -558,36 +337,7 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
       };
     }
 
-    // Parse response - handle both JSON and SSE (text/event-stream) formats
-    let data;
-    if (contentType.includes('text/event-stream')) {
-      // SSE format: extract data from lines like "data: {...}"
-      const text = await response.text();
-      const dataLine = text.split('\n').find(line => line.startsWith('data:'));
-      if (dataLine) {
-        const jsonStr = dataLine.substring(5).trim(); // Remove "data:" prefix
-        try {
-          data = JSON.parse(jsonStr);
-        } catch {
-          return {
-            serverId: server.id,
-            success: false,
-            message: 'Failed to parse SSE response',
-            responseTime,
-          };
-        }
-      } else {
-        return {
-          serverId: server.id,
-          success: false,
-          message: 'No data in SSE response',
-          responseTime,
-        };
-      }
-    } else {
-      // Regular JSON response
-      data = await response.json();
-    }
+    const data = await response.json();
 
     if (data.error) {
       return {
@@ -599,9 +349,6 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
       };
     }
 
-    // Get session ID from response headers (required by some MCP servers like Unity MCP)
-    const sessionId = response.headers.get('mcp-session-id');
-
     // Now try to list tools
     const toolsRequest = {
       jsonrpc: '2.0',
@@ -610,38 +357,16 @@ async function testHttpConnection(server: CustomMcpServer, startTime: number): P
       params: {},
     };
 
-    // Add session ID to headers if available
-    const toolsHeaders = { ...headers };
-    if (sessionId) {
-      toolsHeaders['mcp-session-id'] = sessionId;
-    }
-
     const toolsResponse = await fetch(server.url, {
       method: 'POST',
-      headers: toolsHeaders,
+      headers,
       body: JSON.stringify(toolsRequest),
     });
 
     let tools: string[] = [];
     if (toolsResponse.ok) {
-      const toolsContentType = toolsResponse.headers.get('content-type') || '';
-      let toolsData;
-      if (toolsContentType.includes('text/event-stream')) {
-        // Parse SSE format
-        const text = await toolsResponse.text();
-        const dataLine = text.split('\n').find(line => line.startsWith('data:'));
-        if (dataLine) {
-          const jsonStr = dataLine.substring(5).trim();
-          try {
-            toolsData = JSON.parse(jsonStr);
-          } catch {
-            // Failed to parse, skip
-          }
-        }
-      } else {
-        toolsData = await toolsResponse.json();
-      }
-      if (toolsData?.result?.tools) {
+      const toolsData = await toolsResponse.json();
+      if (toolsData.result?.tools) {
         tools = toolsData.result.tools.map((t: { name: string }) => t.name);
       }
     }
@@ -707,16 +432,11 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
 
     const args = server.args || [];
 
-    // 使用增强的 PATH，确保打包后的应用能找到 /opt/homebrew/bin 等目录中的命令
-    const augmentedEnv = getAugmentedEnv();
-    logger.info(`[MCP] testCommandConnection PATH: ${augmentedEnv.PATH?.substring(0, 200)}`);
-
     // On Windows, use shell: true to properly handle .cmd/.bat scripts like npx
     const proc = spawn(server.command!, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 15000, // OS-level timeout for reliable process termination
       shell: isWindows(), // Required for Windows to run npx.cmd
-      env: augmentedEnv,
     });
 
     let stdout = '';
@@ -755,7 +475,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
     proc.stdin.write(initRequest);
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      stdout += data.toString('utf-8');
 
       // Try to parse JSON response
       try {
@@ -784,7 +504,7 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      stderr += data.toString('utf-8');
     });
 
     proc.on('error', (error) => {
@@ -832,17 +552,13 @@ async function testCommandConnection(server: CustomMcpServer, startTime: number)
  * Register MCP IPC handlers.
  */
 export function registerMcpHandlers(): void {
-  logger.info('[MCP] ========== Registering MCP handlers ==========');
-
   // Quick health check
   ipcMain.handle(IPC_CHANNELS.MCP_CHECK_HEALTH, async (_event, server: CustomMcpServer) => {
-    logger.info('[MCP] MCP_CHECK_HEALTH called for server:', server.id);
     try {
       const result = await checkMcpHealth(server);
-      logger.info('[MCP] MCP_CHECK_HEALTH result:', result);
       return { success: true, data: result };
     } catch (error) {
-      logger.error('[MCP] MCP health check error:', error);
+      appLog.error('MCP health check error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Health check failed',
@@ -852,44 +568,14 @@ export function registerMcpHandlers(): void {
 
   // Full connection test
   ipcMain.handle(IPC_CHANNELS.MCP_TEST_CONNECTION, async (_event, server: CustomMcpServer) => {
-    logger.info(`[MCP] MCP_TEST_CONNECTION called for server: ${server.id}, ${server.name}, ${server.type}`);
     try {
       const result = await testMcpConnection(server);
-      logger.info('[MCP] MCP_TEST_CONNECTION result:', result);
       return { success: true, data: result };
     } catch (error) {
-      logger.error('[MCP] MCP connection test error:', error);
+      appLog.error('MCP connection test error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Connection test failed',
-      };
-    }
-  });
-
-  // Translate tool descriptions
-  ipcMain.handle(IPC_CHANNELS.MCP_TRANSLATE_DESCRIPTIONS, async (_event, descriptions: { name: string; description: string }[]) => {
-    try {
-      const result = await toolDescriptionTranslator.translateDescriptions(descriptions);
-      return { success: true, data: result };
-    } catch (error) {
-      logger.error('MCP description translation error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Translation failed',
-      };
-    }
-  });
-
-  // Clear translation cache
-  ipcMain.handle(IPC_CHANNELS.MCP_CLEAR_TRANSLATION_CACHE, async () => {
-    try {
-      toolDescriptionTranslator.clearCache();
-      return { success: true };
-    } catch (error) {
-      logger.error('MCP clear translation cache error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to clear cache',
       };
     }
   });

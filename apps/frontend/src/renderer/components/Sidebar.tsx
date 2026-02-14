@@ -20,6 +20,7 @@ import {
   GitBranch,
   Workflow,
   HelpCircle,
+  Heart,
   Wrench,
   Code,
   PanelLeft,
@@ -59,7 +60,7 @@ import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import { UpdateBanner } from './UpdateBanner';
-import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
+import type { Project, GitStatus } from '../../shared/types';
 
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'workflow-studio' | 'worktrees' | 'agent-tools' | 'editor';
 
@@ -456,6 +457,26 @@ export function Sidebar({
               <TooltipContent side={isCollapsed ? "right" : "top"}>{t('tooltips.help')}</TooltipContent>
             </Tooltip>
           </div>
+
+          {/* Sponsor link */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => window.open('https://github.com/sponsors/AndyMik90', '_blank')}
+                className={cn(
+                  'flex w-full items-center text-xs transition-colors',
+                  'text-amber-500/70 hover:text-amber-400',
+                  isCollapsed ? 'justify-center' : 'gap-1.5 px-3'
+                )}
+              >
+                <Heart className="h-3.5 w-3.5" />
+                {!isCollapsed && <span>{t('actions.sponsor')}</span>}
+              </button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">{t('actions.sponsor')}</TooltipContent>
+            )}
+          </Tooltip>
 
           {/* New Task button */}
           <Tooltip>

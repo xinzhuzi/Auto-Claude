@@ -3,6 +3,7 @@
  */
 
 import type { IPCResult } from './common';
+import type { KanbanPreferences } from './kanban';
 import type { SupportedIDE, SupportedTerminal } from './settings';
 import type {
   Project,
@@ -25,6 +26,7 @@ import type {
   McpHealthCheckResult,
   McpTestConnectionResult
 } from './project';
+import type { ScreenshotSource } from './screenshot';
 import type {
   Task,
   TaskStatus,
@@ -43,7 +45,9 @@ import type {
   TaskMetadata,
   TaskLogs,
   TaskLogStreamChunk,
-  ImageAttachment
+  ImageAttachment,
+  ReviewReason,
+  MergeProgress
 } from './task';
 import type {
   OptimizeTaskRequest,
@@ -74,7 +78,7 @@ import type {
   TerminalProfileChangedEvent
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
-import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent } from './app-update';
+import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent, AppUpdateErrorEvent } from './app-update';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -140,6 +144,34 @@ import type {
 } from './integrations';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
 
+// ============================================
+// Branch Types
+// ============================================
+
+/**
+ * Branch type indicator for distinguishing local from remote branches
+ */
+export type GitBranchType = 'local' | 'remote';
+
+/**
+ * Structured branch information for UI display with type indicators
+ * Used in branch selection dropdowns to distinguish local vs remote branches
+ */
+export interface GitBranchDetail {
+  /** The branch name (e.g., 'main', 'origin/main') */
+  name: string;
+  /** Whether this is a local or remote branch */
+  type: GitBranchType;
+  /** Display name for UI (e.g., 'main' for local, 'origin/main' for remote) */
+  displayName: string;
+  /** Whether this is the currently checked out branch */
+  isCurrent?: boolean;
+}
+
+// ============================================
+// Electron API
+// ============================================
+
 // Electron API exposed via contextBridge
 // Tab state interface (persisted in main process)
 export interface TabState {
@@ -161,6 +193,10 @@ export interface ElectronAPI {
   getTabState: () => Promise<IPCResult<TabState>>;
   saveTabState: (tabState: TabState) => Promise<IPCResult>;
 
+  // Kanban preferences (per-project column collapse state)
+  getKanbanPreferences: (projectId: string) => Promise<IPCResult<KanbanPreferences | null>>;
+  saveKanbanPreferences: (projectId: string, preferences: KanbanPreferences) => Promise<IPCResult>;
+
   // Task operations
   getTasks: (projectId: string, options?: { forceRefresh?: boolean }) => Promise<IPCResult<Task[]>>;
   createTask: (projectId: string, title: string, description: string, metadata?: TaskMetadata) => Promise<IPCResult<Task>>;
@@ -172,6 +208,13 @@ export interface ElectronAPI {
   updateTaskStatus: (taskId: string, status: TaskStatus, options?: { forceCleanup?: boolean }) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (taskId: string, options?: TaskRecoveryOptions) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
+  resumePausedTask: (taskId: string) => Promise<IPCResult>;
+
+  // Image operations
+  loadImageThumbnail: (projectPath: string, specId: string, imagePath: string) => Promise<IPCResult<string>>;
+
+  // Worktree change detection
+  checkWorktreeChanges: (taskId: string) => Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>>;
 
   // Task optimization (AI-powered)
   optimizeTaskDescription: (request: OptimizeTaskRequest) => Promise<IPCResult<OptimizeTaskResponse>>;
@@ -184,8 +227,9 @@ export interface ElectronAPI {
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
   discardWorktree: (taskId: string, skipStatusChange?: boolean) => Promise<IPCResult<WorktreeDiscardResult>>;
+  discardOrphanedWorktree: (projectId: string, specName: string) => Promise<IPCResult<WorktreeDiscardResult>>;
   clearStagedState: (taskId: string) => Promise<IPCResult<{ cleared: boolean }>>;
-  listWorktrees: (projectId: string) => Promise<IPCResult<WorktreeListResult>>;
+  listWorktrees: (projectId: string, options?: { includeStats?: boolean }) => Promise<IPCResult<WorktreeListResult>>;
   worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
   worktreeOpenInTerminal: (worktreePath: string, terminal: SupportedTerminal, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
   worktreeDetectTools: () => Promise<IPCResult<{ ides: Array<{ id: string; name: string; path: string; installed: boolean }>; terminals: Array<{ id: string; name: string; path: string; installed: boolean }> }>>;
@@ -195,17 +239,17 @@ export interface ElectronAPI {
   unarchiveTasks: (projectId: string, taskIds: string[]) => Promise<IPCResult<boolean>>;
 
   // Event listeners
-  onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
-  onTaskError: (callback: (taskId: string, error: string) => void) => () => void;
-  onTaskLog: (callback: (taskId: string, log: string) => void) => () => void;
-  onTaskStatusChange: (callback: (taskId: string, status: TaskStatus) => void) => () => void;
-  onTaskExecutionProgress: (callback: (taskId: string, progress: ExecutionProgress) => void) => () => void;
+  onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan, projectId?: string) => void) => () => void;
+  onTaskError: (callback: (taskId: string, error: string, projectId?: string) => void) => () => void;
+  onTaskLog: (callback: (taskId: string, log: string, projectId?: string) => void) => () => void;
+  onTaskStatusChange: (callback: (taskId: string, status: TaskStatus, projectId?: string, reviewReason?: ReviewReason) => void) => () => void;
+  onTaskExecutionProgress: (callback: (taskId: string, progress: ExecutionProgress, projectId?: string) => void) => () => void;
 
   // Terminal operations
   createTerminal: (options: TerminalCreateOptions) => Promise<IPCResult>;
   destroyTerminal: (id: string) => Promise<IPCResult>;
   sendTerminalInput: (id: string, data: string) => void;
-  resizeTerminal: (id: string, cols: number, rows: number) => void;
+  resizeTerminal: (id: string, cols: number, rows: number) => Promise<IPCResult<{ success: boolean }>>;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
   setTerminalTitle: (id: string, title: string) => void;
@@ -339,6 +383,9 @@ export interface ElectronAPI {
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
 
+  // Spell check
+  setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;
+
   // Sentry error reporting
   notifySentryStateChanged: (enabled: boolean) => void;
   getSentryDsn: () => Promise<string>;
@@ -348,8 +395,11 @@ export interface ElectronAPI {
     python: import('./cli').ToolDetectionResult;
     git: import('./cli').ToolDetectionResult;
     gh: import('./cli').ToolDetectionResult;
+    glab: import('./cli').ToolDetectionResult;
     claude: import('./cli').ToolDetectionResult;
   }>>;
+  /** Check if Claude Code onboarding is complete (reads ~/.claude.json) */
+  getClaudeCodeOnboardingStatus: () => Promise<IPCResult<{ hasCompletedOnboarding: boolean }>>;
 
   // API Profile management (custom Anthropic-compatible endpoints)
   getAPIProfiles: () => Promise<IPCResult<ProfilesFile>>;
@@ -670,6 +720,12 @@ export interface ElectronAPI {
   onAppUpdateStableDowngrade: (
     callback: (info: AppUpdateInfo) => void
   ) => () => void;
+  onAppUpdateReadOnlyVolume: (
+    callback: (info: { appPath: string }) => void
+  ) => () => void;
+  onAppUpdateError: (
+    callback: (error: AppUpdateErrorEvent) => void
+  ) => () => void;
 
   // Shell operations
   openExternal: (url: string) => Promise<void>;
@@ -683,7 +739,7 @@ export interface ElectronAPI {
   // Changelog operations
   getChangelogDoneTasks: (projectId: string, tasks?: Task[]) => Promise<IPCResult<ChangelogTask[]>>;
   loadTaskSpecs: (projectId: string, taskIds: string[]) => Promise<IPCResult<TaskSpecContent[]>>;
-  generateChangelog: (request: ChangelogGenerationRequest) => void; // Async with progress events
+  generateChangelog: (request: ChangelogGenerationRequest) => Promise<IPCResult<void>>; // Async with progress events
   saveChangelog: (request: ChangelogSaveRequest) => Promise<IPCResult<ChangelogSaveResult>>;
   readExistingChangelog: (projectId: string) => Promise<IPCResult<ExistingChangelog>>;
   suggestChangelogVersion: (
@@ -751,6 +807,9 @@ export interface ElectronAPI {
   onInsightsError: (
     callback: (projectId: string, error: string) => void
   ) => () => void;
+  onInsightsSessionUpdated: (
+    callback: (projectId: string, session: InsightsSession) => void
+  ) => () => void;
 
   // Task logs operations
   getTaskLogs: (projectId: string, specId: string) => Promise<IPCResult<TaskLogs | null>>;
@@ -764,13 +823,19 @@ export interface ElectronAPI {
   onTaskLogsStream: (
     callback: (specId: string, chunk: TaskLogStreamChunk) => void
   ) => () => void;
+  onMergeProgress: (
+    callback: (taskId: string, progress: MergeProgress) => void
+  ) => () => void;
 
   // File explorer operations
   listDirectory: (dirPath: string) => Promise<IPCResult<FileNode[]>>;
   readFile: (filePath: string) => Promise<IPCResult<string>>;
 
   // Git operations
+  /** @deprecated Will return GitBranchDetail[] in future - see getGitBranchesWithInfo */
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
+  /** Get branches with structured type information (local vs remote) */
+  getGitBranchesWithInfo: (projectPath: string) => Promise<IPCResult<GitBranchDetail[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
@@ -861,11 +926,7 @@ export interface ElectronAPI {
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
 
   // Screenshot capture operations
-  getSources: () => Promise<IPCResult<Array<{
-    id: string;
-    name: string;
-    thumbnail: string;
-  }>>>;
+  getSources: () => Promise<IPCResult<ScreenshotSource[]> & { devMode?: boolean }>;
   capture: (options: { sourceId: string }) => Promise<IPCResult<string>>;
 
   // Queue Routing API (rate limit recovery)
@@ -892,9 +953,18 @@ export interface ElectronAPI {
   }) => Promise<IPCResult<{ skillPath: string }>>;
 }
 
+/** Platform information exposed via contextBridge for platform-specific behavior */
+export interface PlatformInfo {
+  isWindows: boolean;
+  isMacOS: boolean;
+  isLinux: boolean;
+  isUnix: boolean;
+}
+
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
     DEBUG: boolean;
+    platform?: PlatformInfo;
   }
 }
