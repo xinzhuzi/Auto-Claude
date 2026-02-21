@@ -594,11 +594,9 @@ app.whenReady().then(() => {
   });
 });
 
-// Quit when all windows are closed (except on macOS)
+// Quit when all windows are closed (all platforms)
 app.on('window-all-closed', () => {
-  if (!isMacOS()) {
-    app.quit();
-  }
+  app.quit();
 });
 
 // Cleanup before quit — uses event.preventDefault() to allow async PTY cleanup

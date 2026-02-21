@@ -14,6 +14,7 @@ Supported node types:
 - AskUserQuestion: Request user input
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -75,6 +76,23 @@ class NodeExecutor:
         
         # Initialize logger with execution context
         self.logger = create_logger(__name__, execution_id=execution_id, workflow_id=workflow_id)
+
+    def _get_last_result(self, context: ExecutionContext) -> Any:
+        """Return the most recently stored node result, if any."""
+        if not context.node_results:
+            return None
+        return next(reversed(context.node_results.values()))
+
+    def _normalize_for_match(self, value: Any) -> str:
+        """Normalize values to a comparable string for simple condition matching."""
+        if value is None:
+            return ""
+        if isinstance(value, (dict, list)):
+            try:
+                return json.dumps(value, ensure_ascii=False)
+            except Exception:
+                return str(value)
+        return str(value)
 
     async def execute_node(
         self,
@@ -198,16 +216,17 @@ class NodeExecutor:
 
         try:
             # Invoke MCP tool with retry logic
-            result = await retry_async(
-                invoke_mcp_tool,
-                client=self.client,
-                server_name=server_name,
-                tool_name=tool_name,
-                parameters=parameters,
-                project_dir=self.project_dir,
-                policy=retry_policy,
-                operation_name=f"mcp_{server_name}_{tool_name}",
-            )
+            async with self.client:
+                result = await retry_async(
+                    invoke_mcp_tool,
+                    client=self.client,
+                    server_name=server_name,
+                    tool_name=tool_name,
+                    parameters=parameters,
+                    project_dir=self.project_dir,
+                    policy=retry_policy,
+                    operation_name=f"mcp_{server_name}_{tool_name}",
+                )
 
             # Parse and return result
             parsed_result = parse_mcp_tool_result(result)
@@ -253,13 +272,14 @@ class NodeExecutor:
         try:
             # Execute skill with retry logic
             async def _run_skill():
-                status, response = await run_agent_session(
-                    client=self.client,
-                    message=prompt or f"Execute skill: {skill_name}",
-                    spec_dir=self.spec_dir,
-                    verbose=False,
-                )
-                if status != "success":
+                async with self.client:
+                    status, response, _ = await run_agent_session(
+                        client=self.client,
+                        message=prompt or f"Execute skill: {skill_name}",
+                        spec_dir=self.spec_dir,
+                        verbose=False,
+                    )
+                if status == "error":
                     raise RuntimeError(f"Skill execution failed: {response}")
                 return response
 
@@ -311,17 +331,22 @@ class NodeExecutor:
         retry_policy = create_retry_policy("subAgent")
 
         try:
+            async def _run_subagent():
+                async with self.client:
+                    return await launch_subagent(
+                        client=self.client,
+                        agent_name=agent_name,
+                        prompt=prompt,
+                        description=description,
+                        project_dir=self.project_dir,
+                        spec_dir=self.spec_dir,
+                        model=subagent_config.get("model", "claude-sonnet-4-5-20250929"),
+                        timeout=subagent_config.get("timeout"),
+                    )
+
             # Launch subagent with retry logic
             result = await retry_async(
-                launch_subagent,
-                client=self.client,
-                agent_name=agent_name,
-                prompt=prompt,
-                description=description,
-                project_dir=self.project_dir,
-                spec_dir=self.spec_dir,
-                model=subagent_config.get("model", "claude-sonnet-4-5-20250929"),
-                timeout=subagent_config.get("timeout"),
+                _run_subagent,
                 policy=retry_policy,
                 operation_name=f"subagent_{agent_name}",
             )
@@ -370,12 +395,16 @@ class NodeExecutor:
             )
 
         # Send prompt and get response
-        status, response = await run_agent_session(
-            client=self.client,
-            message=prompt,
-            spec_dir=self.spec_dir,
-            verbose=False,
-        )
+        async with self.client:
+            status, response, _ = await run_agent_session(
+                client=self.client,
+                message=prompt,
+                spec_dir=self.spec_dir,
+                verbose=False,
+            )
+
+        if status == "error":
+            raise RuntimeError(f"Prompt execution failed: {response}")
 
         return response
 
@@ -385,18 +414,38 @@ class NodeExecutor:
 
         Evaluates a condition and returns the branch to take.
         """
-        condition = node.get("data", {}).get("condition", "")
-        true_branch = node.get("data", {}).get("trueBranch", "true")
-        false_branch = node.get("data", {}).get("falseBranch", "false")
+        data = node.get("data", {})
+        evaluation_target = data.get("evaluationTarget") or data.get("condition") or ""
+        branches = data.get("branches") or [
+            {"label": data.get("trueBranch", "true")},
+            {"label": data.get("falseBranch", "false")},
+        ]
 
-        debug("node_executor", f"Evaluating condition: {condition}")
+        debug("node_executor", f"Evaluating condition: {evaluation_target}")
 
-        # TODO: Implement condition evaluation
-        # For now, default to true branch
-        result = true_branch
-        context.set_branch(result)
+        last_result = self._get_last_result(context)
+        last_text = self._normalize_for_match(last_result).lower()
+        target_text = self._normalize_for_match(evaluation_target).lower()
 
-        return result
+        if not branches:
+            branches = [{"label": "true"}, {"label": "false"}]
+
+        # Simple heuristic: match evaluation target against last result if provided,
+        # otherwise fall back to truthiness of last result.
+        if target_text:
+            matched = target_text in last_text
+        else:
+            matched = bool(last_result)
+
+        selected_index = 0 if matched else 1
+        if selected_index >= len(branches):
+            selected_index = 0
+
+        branch_handle = f"branch-{selected_index}"
+        context.set_branch(branch_handle)
+        if node.get("id"):
+            context.set_variable(f"branch:{node.get('id')}", branch_handle)
+        return branch_handle
 
     async def _execute_switch_node(self, node: Dict[str, Any], context: ExecutionContext) -> str:
         """
@@ -404,17 +453,52 @@ class NodeExecutor:
 
         Evaluates an expression and returns matching case.
         """
-        expression = node.get("data", {}).get("expression", "")
-        cases = node.get("data", {}).get("cases", [])
+        data = node.get("data", {})
+        evaluation_target = data.get("evaluationTarget") or data.get("expression") or ""
+        branches = data.get("branches")
+        cases = data.get("cases") or []
 
-        debug("node_executor", f"Evaluating switch: {expression}")
+        if not branches and cases:
+            branches = [
+                {"label": case.get("branch", f"case-{i}"), "condition": case.get("value")}
+                for i, case in enumerate(cases)
+            ]
 
-        # TODO: Implement switch evaluation
-        # For now, default to first case
-        result = cases[0].get("branch", "default") if cases else "default"
-        context.set_branch(result)
+        branches = branches or []
 
-        return result
+        debug("node_executor", f"Evaluating switch: {evaluation_target}")
+
+        last_result = self._get_last_result(context)
+        last_text = self._normalize_for_match(last_result).lower()
+        target_text = self._normalize_for_match(evaluation_target).lower() or last_text
+
+        default_index = None
+        selected_index = None
+
+        for i, branch in enumerate(branches):
+            if branch.get("isDefault"):
+                default_index = i
+                continue
+            condition_text = self._normalize_for_match(branch.get("condition", "")).lower()
+            label_text = self._normalize_for_match(branch.get("label", "")).lower()
+            if condition_text and condition_text in target_text:
+                selected_index = i
+                break
+            if label_text and label_text in target_text:
+                selected_index = i
+                break
+
+        if selected_index is None:
+            selected_index = default_index if default_index is not None else 0
+
+        if selected_index >= len(branches):
+            selected_index = 0
+
+        branch_handle = f"branch-{selected_index}"
+        context.set_branch(branch_handle)
+        if node.get("id"):
+            context.set_variable(f"branch:{node.get('id')}", branch_handle)
+        return branch_handle
 
     async def _execute_ask_user_node(self, node: Dict[str, Any], context: ExecutionContext) -> Any:
         """

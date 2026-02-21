@@ -168,13 +168,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
       );
 
-      const updatedWorkflow = { ...activeWorkflow, nodes: updatedNodes };
+      const updatedWorkflow = { ...activeWorkflow, nodes: updatedNodes } as any;
       const updatedWorkflows = state.workflows.map((w) =>
         w.id === activeWorkflow.id ? updatedWorkflow : w
       );
 
       return {
-        workflows: updatedWorkflows,
+        workflows: updatedWorkflows as any,
         activeWorkflow: updatedWorkflow,  // Also update activeWorkflow for cc-wf-studio compatibility
       };
     }),

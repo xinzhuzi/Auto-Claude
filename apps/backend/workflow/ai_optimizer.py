@@ -72,62 +72,63 @@ async def optimize_workflow(
             conversation_history=conversation_history or [],
         )
 
-        # Call Claude SDK
-        status, response = await run_agent_session(
-            client=client,
-            message=optimization_prompt,
-            spec_dir=spec_dir,
-            verbose=False,
-        )
+        async with client:
+            # Call Claude SDK
+            status, response, _ = await run_agent_session(
+                client=client,
+                message=optimization_prompt,
+                spec_dir=spec_dir,
+                verbose=False,
+            )
 
-        if status != "success":
-            raise RuntimeError(f"AI optimization failed: {response}")
+            if status == "error":
+                raise RuntimeError(f"AI optimization failed: {response}")
 
-        # Extract optimization result from response
-        optimization_result = extract_json_from_response(response)
+            # Extract optimization result from response
+            optimization_result = extract_json_from_response(response)
 
-        if not optimization_result:
-            raise ValueError("Failed to extract valid JSON from AI response")
+            if not optimization_result:
+                raise ValueError("Failed to extract valid JSON from AI response")
 
-        # Extract components
-        summary = optimization_result.get("summary", "Workflow optimized")
-        optimized_workflow = optimization_result.get("workflow")
-        improvements = optimization_result.get("improvements", [])
+            # Extract components
+            summary = optimization_result.get("summary", "Workflow optimized")
+            optimized_workflow = optimization_result.get("workflow")
+            improvements = optimization_result.get("improvements", [])
 
-        if not optimized_workflow:
-            raise ValueError("No workflow in optimization result")
+            if not optimized_workflow:
+                raise ValueError("No workflow in optimization result")
 
-        debug("ai_optimizer", f"Optimization complete: {summary}")
+            debug("ai_optimizer", f"Optimization complete: {summary}")
 
-        # Validate optimized workflow
-        validation_result = await validate_workflow(
-            workflow=optimized_workflow,
-            client=client,
-            spec_dir=spec_dir,
-        )
+            # Validate optimized workflow
+            validation_result = await validate_workflow(
+                workflow=optimized_workflow,
+                client=client,
+                spec_dir=spec_dir,
+            )
 
-        if not validation_result.get("valid"):
-            debug_error("ai_optimizer", "Optimized workflow failed validation")
+            if not validation_result.get("valid"):
+                debug_error("ai_optimizer", "Optimized workflow failed validation")
+                return {
+                    "success": False,
+                    "error": "Optimized workflow failed validation",
+                    "validation_errors": validation_result.get("errors", []),
+                }
+
+            # Preserve metadata
+            optimized_workflow["id"] = workflow.get("id") or str(uuid.uuid4())
+            optimized_workflow["createdAt"] = workflow.get("createdAt")
+            optimized_workflow["updatedAt"] = None
+
+            debug_success("ai_optimizer", "Workflow optimization complete")
+
             return {
-                "success": False,
-                "error": "Optimized workflow failed validation",
-                "validation_errors": validation_result.get("errors", []),
+                "success": True,
+                "workflow": optimized_workflow,
+                "summary": summary,
+                "improvements": improvements,
+                "suggestions": validation_result.get("suggestions", []),
             }
-
-        # Preserve metadata
-        optimized_workflow["id"] = workflow.get("id") or str(uuid.uuid4())
-        optimized_workflow["createdAt"] = workflow.get("createdAt")
-        optimized_workflow["updatedAt"] = None
-
-        debug_success("ai_optimizer", f"Workflow optimization complete")
-
-        return {
-            "success": True,
-            "workflow": optimized_workflow,
-            "summary": summary,
-            "improvements": improvements,
-            "suggestions": validation_result.get("suggestions", []),
-        }
 
     except Exception as e:
         error_msg = f"Failed to optimize workflow: {str(e)}"
@@ -203,36 +204,37 @@ Format as JSON:
 }}
 """
 
-        # Call Claude SDK
-        status, response = await run_agent_session(
-            client=client,
-            message=analysis_prompt,
-            spec_dir=spec_dir,
-            verbose=False,
-        )
+        async with client:
+            # Call Claude SDK
+            status, response, _ = await run_agent_session(
+                client=client,
+                message=analysis_prompt,
+                spec_dir=spec_dir,
+                verbose=False,
+            )
 
-        if status != "success":
-            raise RuntimeError(f"AI analysis failed: {response}")
+            if status == "error":
+                raise RuntimeError(f"AI analysis failed: {response}")
 
-        # Extract analysis result
-        analysis_result = extract_json_from_response(response)
+            # Extract analysis result
+            analysis_result = extract_json_from_response(response)
 
-        if not analysis_result:
-            # Fallback to basic metrics
-            analysis_result = {
-                "insights": [],
-                "suggestions": [],
-                "metrics": calculate_basic_metrics(workflow),
+            if not analysis_result:
+                # Fallback to basic metrics
+                analysis_result = {
+                    "insights": [],
+                    "suggestions": [],
+                    "metrics": calculate_basic_metrics(workflow),
+                }
+
+            debug_success("ai_optimizer", "Workflow analysis complete")
+
+            return {
+                "success": True,
+                "insights": analysis_result.get("insights", []),
+                "suggestions": analysis_result.get("suggestions", []),
+                "metrics": analysis_result.get("metrics", {}),
             }
-
-        debug_success("ai_optimizer", "Workflow analysis complete")
-
-        return {
-            "success": True,
-            "insights": analysis_result.get("insights", []),
-            "suggestions": analysis_result.get("suggestions", []),
-            "metrics": analysis_result.get("metrics", {}),
-        }
 
     except Exception as e:
         error_msg = f"Failed to analyze workflow: {str(e)}"
@@ -348,32 +350,36 @@ Format as JSON:
 }}
 """
 
-        # Call Claude SDK
-        status, response = await run_agent_session(
-            client=client,
-            message=suggestion_prompt,
-            spec_dir=spec_dir,
-            verbose=False,
-        )
+        async with client:
+            # Call Claude SDK
+            status, response, _ = await run_agent_session(
+                client=client,
+                message=suggestion_prompt,
+                spec_dir=spec_dir,
+                verbose=False,
+            )
 
-        if status != "success":
-            raise RuntimeError(f"AI suggestion failed: {response}")
+            if status == "error":
+                raise RuntimeError(f"AI suggestion failed: {response}")
 
-        # Extract suggestions
-        result = extract_json_from_response(response)
+            # Extract suggestions
+            result = extract_json_from_response(response)
 
-        if not result:
+            if not result:
+                return {
+                    "success": True,
+                    "suggestions": [],
+                }
+
+            debug_success(
+                "ai_optimizer",
+                f"Generated {len(result.get('suggestions', []))} suggestions",
+            )
+
             return {
                 "success": True,
-                "suggestions": [],
+                "suggestions": result.get("suggestions", []),
             }
-
-        debug_success("ai_optimizer", f"Generated {len(result.get('suggestions', []))} suggestions")
-
-        return {
-            "success": True,
-            "suggestions": result.get("suggestions", []),
-        }
 
     except Exception as e:
         error_msg = f"Failed to get suggestions: {str(e)}"

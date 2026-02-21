@@ -123,7 +123,10 @@ class PhaseExecutor:
 
         for i, result in enumerate(results):
             ideation_type = self.enabled_types[i]
-            if isinstance(result, Exception):
+            if isinstance(result, asyncio.CancelledError):
+                errors.append(f"{ideation_type}: cancelled")
+                hints_by_type[ideation_type] = []
+            elif isinstance(result, Exception):
                 errors.append(f"{ideation_type}: {str(result)}")
                 hints_by_type[ideation_type] = []
             else:

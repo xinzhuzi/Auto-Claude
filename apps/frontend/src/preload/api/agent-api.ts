@@ -4,6 +4,7 @@
  * This file serves as the main entry point for agent APIs, combining:
  * - Roadmap operations
  * - Ideation operations
+ * - Novel operations
  * - Insights operations
  * - Changelog operations
  * - Linear integration
@@ -13,6 +14,7 @@
 
 import { createRoadmapAPI, RoadmapAPI } from './modules/roadmap-api';
 import { createIdeationAPI, IdeationAPI } from './modules/ideation-api';
+import { createNovelAPI, NovelAPI } from './modules/novel-api';
 import { createInsightsAPI, InsightsAPI } from './modules/insights-api';
 import { createChangelogAPI, ChangelogAPI } from './modules/changelog-api';
 import { createLinearAPI, LinearAPI } from './modules/linear-api';
@@ -27,6 +29,7 @@ import { createShellAPI, ShellAPI } from './modules/shell-api';
 export interface AgentAPI extends
   RoadmapAPI,
   IdeationAPI,
+  NovelAPI,
   InsightsAPI,
   ChangelogAPI,
   LinearAPI,
@@ -42,6 +45,7 @@ export interface AgentAPI extends
 export const createAgentAPI = (): AgentAPI => {
   const roadmapAPI = createRoadmapAPI();
   const ideationAPI = createIdeationAPI();
+  const novelAPI = createNovelAPI();
   const insightsAPI = createInsightsAPI();
   const changelogAPI = createChangelogAPI();
   const linearAPI = createLinearAPI();
@@ -55,6 +59,9 @@ export const createAgentAPI = (): AgentAPI => {
 
     // Ideation API
     ...ideationAPI,
+
+    // Novel API
+    ...novelAPI,
 
     // Insights API
     ...insightsAPI,
@@ -80,6 +87,7 @@ export const createAgentAPI = (): AgentAPI => {
 export type {
   RoadmapAPI,
   IdeationAPI,
+  NovelAPI,
   InsightsAPI,
   ChangelogAPI,
   LinearAPI,

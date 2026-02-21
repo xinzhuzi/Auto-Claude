@@ -750,6 +750,11 @@ Report findings with specific file paths, line numbers, and code evidence.
         agents_invoked: list[str] = []
 
         for result in results:
+            if isinstance(result, asyncio.CancelledError):
+                logger.error(
+                    "[ParallelOrchestrator] Specialist task cancelled",
+                )
+                continue
             if isinstance(result, Exception):
                 logger.error(f"[ParallelOrchestrator] Specialist task failed: {result}")
                 continue

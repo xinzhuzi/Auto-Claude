@@ -24,6 +24,7 @@ import { registerLinearHandlers } from './linear-handlers';
 import { registerGithubHandlers } from './github-handlers';
 import { registerGitlabHandlers } from './gitlab-handlers';
 import { registerIdeationHandlers } from './ideation-handlers';
+import { registerNovelHandlers } from './novel-handlers';
 import { registerChangelogHandlers } from './changelog-handlers';
 import { registerInsightsHandlers } from './insights-handlers';
 import { registerMemoryHandlers } from './memory-handlers';
@@ -98,6 +99,9 @@ export function setupIpcHandlers(
 
   // Ideation handlers
   registerIdeationHandlers(agentManager, getMainWindow);
+
+  // Novel handlers
+  registerNovelHandlers(agentManager, getMainWindow);
 
   // Changelog handlers
   registerChangelogHandlers(getMainWindow);

@@ -432,7 +432,9 @@ class PRReviewEngine:
 
         # Collect results from all parallel passes
         for i, result in enumerate(results):
-            if isinstance(result, Exception):
+            if isinstance(result, asyncio.CancelledError):
+                safe_print(f"[AI] Pass '{task_names[i]}' cancelled")
+            elif isinstance(result, Exception):
                 safe_print(f"[AI] Pass '{task_names[i]}' failed: {result}")
             elif isinstance(result, tuple):
                 pass_type, data = result

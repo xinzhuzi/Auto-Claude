@@ -202,7 +202,7 @@
     "aiTerminalNaming": "AI Terminal Naming",
     "aiTerminalNamingDescription": "Automatically name terminals based on commands (uses Haiku)",
     "featureModelSettings": "Feature Model Settings",
-    "featureModelSettingsDescription": "Model and thinking level for Insights, Ideation, and Roadmap",
+    "featureModelSettingsDescription": "Model and thinking level for Insights, Ideation, Roadmap, and Novel",
     "model": "Model",
     "thinkingLevel": "Thinking Level",
     "paths": "Paths",

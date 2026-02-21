@@ -481,7 +481,7 @@ export function registerWorkflowHandlers(): void {
 
           const resultExecutionId = await executeWorkflowOnBackend(
             workflow,
-            config,
+            { ...config, projectPath },
             projectPath,
             (progress: { progress: number; status?: string; current_node?: string }) => {
             // Log progress to execution record

@@ -110,7 +110,7 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ className }) => {
           </div>
 
           {/* Node-specific properties */}
-          {renderNodeProperties(selectedNode, handleUpdate, t)}
+          {renderNodeProperties(selectedNode, handleUpdate, (key, fallback) => t(key, fallback as any) as string)}
         </div>
       </div>
     </Card>
@@ -139,7 +139,7 @@ function getNodeTitle(type: string): string {
 function renderNodeProperties(
   node: WorkflowNode,
   handleUpdate: (updates: Partial<WorkflowNode['data']>) => void,
-  t: (key: string, fallback?: string) => string
+  t: (key: string, fallback?: string) => string = (key, fallback) => fallback || key
 ) {
   switch (node.type) {
     case NodeType.SubAgent:
@@ -594,6 +594,8 @@ function renderNodeProperties(
                   aiToolSelectionConfig: {
                     ...node.data.aiToolSelectionConfig,
                     taskDescription: e.target.value,
+                    availableTools: node.data.aiToolSelectionConfig?.availableTools || [],
+                    timestamp: node.data.aiToolSelectionConfig?.timestamp || new Date().toISOString(),
                   },
                 })}
                 placeholder={t('properties.taskDescriptionPlaceholder', 'Describe the task for AI')}
@@ -612,6 +614,7 @@ function renderNodeProperties(
                   aiParameterConfig: {
                     ...node.data.aiParameterConfig,
                     description: e.target.value,
+                    timestamp: node.data.aiParameterConfig?.timestamp || new Date().toISOString(),
                   },
                 })}
                 placeholder={t('properties.paramDescriptionPlaceholder', 'Describe parameters for AI')}

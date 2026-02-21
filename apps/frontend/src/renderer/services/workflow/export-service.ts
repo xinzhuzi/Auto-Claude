@@ -78,29 +78,30 @@ export function generateMermaidFlowchart(workflow: Workflow): string {
   for (const node of nodes) {
     const nodeId = sanitizeNodeId(node.id);
     const nodeType = node.type as string;
+    const nodeData = node.data as any;
 
     if (nodeType === 'start') {
       lines.push(`    ${nodeId}([Start])`);
     } else if (nodeType === 'end') {
       lines.push(`    ${nodeId}([End])`);
     } else if (nodeType === 'prompt') {
-      const promptText = node.data?.prompt?.split('\n')[0] || node.name || 'Prompt';
+      const promptText = nodeData?.prompt?.split('\n')[0] || node.name || 'Prompt';
       const label = promptText.length > 30 ? `${promptText.substring(0, 27)}...` : promptText;
       lines.push(`    ${nodeId}[${escapeLabel(label)}]`);
     } else if (nodeType === 'skill') {
-      const skillName = node.data?.name || node.name || 'Skill';
+      const skillName = nodeData?.name || node.name || 'Skill';
       lines.push(`    ${nodeId}[[${escapeLabel(`Skill: ${skillName}`)}]]`);
     } else if (nodeType === 'mcp') {
-      const mcpLabel = node.data?.toolName ? `MCP: ${node.data.toolName}` : 'MCP Tool';
+      const mcpLabel = nodeData?.toolName ? `MCP: ${nodeData.toolName}` : 'MCP Tool';
       lines.push(`    ${nodeId}[[${escapeLabel(mcpLabel)}]]`);
     } else if (nodeType === 'command') {
-      const commandName = node.data?.commandName || 'Command';
+      const commandName = nodeData?.commandName || 'Command';
       lines.push(`    ${nodeId}[[${escapeLabel(`/${commandName}`)}]]`);
     } else if (nodeType === 'subAgent') {
       const agentName = node.name || 'Sub-Agent';
       lines.push(`    ${nodeId}[${escapeLabel(agentName)}]`);
     } else if (nodeType === 'askUserQuestion') {
-      const questionText = node.data?.questionText || 'Question';
+      const questionText = nodeData?.questionText || 'Question';
       lines.push(`    ${nodeId}{${escapeLabel(`AskUserQuestion:<br/>${questionText}`)}}`);
     } else if (nodeType === 'ifElse' || nodeType === 'branch' || nodeType === 'switch') {
       lines.push(`    ${nodeId}{${escapeLabel('Conditional Branch')}}`);
@@ -206,15 +207,16 @@ export function generateExecutionInstructions(workflow: Workflow): string {
       const node = executableNodes[i];
       const nodeId = sanitizeNodeId(node.id);
       const nodeType = node.type as string;
+      const nodeData = node.data as any;
       let nodeLabel = node.name || node.id;
 
       if (nodeType === 'prompt') {
-        nodeLabel = node.data?.prompt?.split('\n')[0] || 'Prompt';
+        nodeLabel = nodeData?.prompt?.split('\n')[0] || 'Prompt';
         if (nodeLabel.length > 40) nodeLabel = `${nodeLabel.substring(0, 37)}...`;
       } else if (nodeType === 'command') {
-        nodeLabel = `/${node.data?.commandName || 'command'}`;
+        nodeLabel = `/${nodeData?.commandName || 'command'}`;
       } else if (nodeType === 'skill') {
-        nodeLabel = `Skill: ${node.data?.name || 'Skill'}`;
+        nodeLabel = `Skill: ${nodeData?.name || 'Skill'}`;
       }
 
       sections.push(`**Step ${i + 1}**: ${nodeLabel}`);

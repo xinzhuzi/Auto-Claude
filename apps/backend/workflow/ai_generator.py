@@ -75,17 +75,18 @@ async def generate_workflow_from_description(
         validation_result = {}
         iterations = 0
 
-        for iteration in range(max_iterations):
-            iterations += 1
-            debug("ai_generator", f"Generation iteration {iteration + 1}/{max_iterations}")
+        async with client:
+            for iteration in range(max_iterations):
+                iterations += 1
+                debug("ai_generator", f"Generation iteration {iteration + 1}/{max_iterations}")
 
-            # Generate workflow
-            if iteration == 0:
-                # First iteration: generate from scratch
-                prompt = generation_prompt
-            else:
-                # Subsequent iterations: refine based on validation errors
-                prompt = f"""The previous workflow had validation errors. Please fix them and regenerate.
+                # Generate workflow
+                if iteration == 0:
+                    # First iteration: generate from scratch
+                    prompt = generation_prompt
+                else:
+                    # Subsequent iterations: refine based on validation errors
+                    prompt = f"""The previous workflow had validation errors. Please fix them and regenerate.
 
 Previous workflow:
 {json.dumps(workflow, indent=2)}
@@ -95,37 +96,43 @@ Validation errors:
 
 Generate a corrected workflow JSON."""
 
-            # Call Claude SDK
-            status, response = await run_agent_session(
-                client=client,
-                message=prompt,
-                spec_dir=spec_dir,
-                verbose=False,
-            )
+                # Call Claude SDK
+                status, response, _ = await run_agent_session(
+                    client=client,
+                    message=prompt,
+                    spec_dir=spec_dir,
+                    verbose=False,
+                )
 
-            if status != "success":
-                raise RuntimeError(f"AI generation failed: {response}")
+                if status == "error":
+                    raise RuntimeError(f"AI generation failed: {response}")
 
-            # Extract JSON from response
-            workflow = extract_json_from_response(response)
+                # Extract JSON from response
+                workflow = extract_json_from_response(response)
 
-            if not workflow:
-                raise ValueError("Failed to extract valid JSON from AI response")
+                if not workflow:
+                    raise ValueError("Failed to extract valid JSON from AI response")
 
-            debug("ai_generator", f"Generated workflow: {workflow.get('name', 'Unnamed')}")
+                debug("ai_generator", f"Generated workflow: {workflow.get('name', 'Unnamed')}")
 
-            # Validate workflow
-            validation_result = await validate_workflow(
-                workflow=workflow,
-                client=client,
-                spec_dir=spec_dir,
-            )
+                # Validate workflow
+                validation_result = await validate_workflow(
+                    workflow=workflow,
+                    client=client,
+                    spec_dir=spec_dir,
+                )
 
-            if validation_result.get("valid"):
-                debug_success("ai_generator", f"Workflow validated successfully after {iterations} iterations")
-                break
+                if validation_result.get("valid"):
+                    debug_success(
+                        "ai_generator",
+                        f"Workflow validated successfully after {iterations} iterations",
+                    )
+                    break
 
-            debug("ai_generator", f"Validation failed, refining... ({len(validation_result.get('errors', []))} errors)")
+                debug(
+                    "ai_generator",
+                    f"Validation failed, refining... ({len(validation_result.get('errors', []))} errors)",
+                )
 
         # Final validation check
         if not validation_result.get("valid"):
@@ -195,14 +202,14 @@ async def validate_workflow(
         # AI-powered validation for logic and best practices
         validation_prompt = format_workflow_validation_prompt(workflow)
 
-        status, response = await run_agent_session(
+        status, response, _ = await run_agent_session(
             client=client,
             message=validation_prompt,
             spec_dir=spec_dir,
             verbose=False,
         )
 
-        if status != "success":
+        if status == "error":
             # If AI validation fails, fall back to structural validation only
             debug("ai_generator", "AI validation failed, using structural validation only")
             return {

@@ -5,6 +5,7 @@ import { SettingsAPI, createSettingsAPI } from './settings-api';
 import { FileAPI, createFileAPI } from './file-api';
 import { AgentAPI, createAgentAPI } from './agent-api';
 import type { IdeationAPI } from './modules/ideation-api';
+import type { NovelAPI } from './modules/novel-api';
 import type { InsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { GitHubAPI, createGitHubAPI } from './modules/github-api';
@@ -27,6 +28,7 @@ export interface ElectronAPI extends
   FileAPI,
   AgentAPI,
   IdeationAPI,
+  NovelAPI,
   InsightsAPI,
   AppUpdateAPI,
   GitLabAPI,
@@ -96,6 +98,7 @@ export type {
   FileAPI,
   AgentAPI,
   IdeationAPI,
+  NovelAPI,
   InsightsAPI,
   AppUpdateAPI,
   ProfileAPI,

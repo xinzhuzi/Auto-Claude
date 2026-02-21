@@ -232,6 +232,33 @@ export const IPC_CHANNELS = {
   IDEATION_STOPPED: 'ideation:stopped',
   IDEATION_TYPE_COMPLETE: 'ideation:typeComplete',
   IDEATION_TYPE_FAILED: 'ideation:typeFailed',
+  // Novel operations
+  NOVEL_GET: 'novel:get',
+  NOVEL_SAVE: 'novel:save',
+  NOVEL_GENERATE: 'novel:generate',
+  NOVEL_STOP: 'novel:stop',
+  NOVEL_CONFIG_GET: 'novel:config:get',
+  NOVEL_CONFIG_SAVE: 'novel:config:save',
+  NOVEL_PROMPTS_GET: 'novel:prompts:get',
+  NOVEL_PROMPTS_SAVE: 'novel:prompts:save',
+  NOVEL_PROMPTS_IMPORT: 'novel:prompts:import',
+  NOVEL_PROMPTS_EXPORT: 'novel:prompts:export',
+  NOVEL_EXPORT_MARKDOWN: 'novel:export:markdown',
+  NOVEL_OVERVIEW_PREFACE_GET: 'novel:overview:preface:get',
+  NOVEL_CHARACTERS_LOAD_FROM_DOCS: 'novel:characters:loadFromDocs',
+  NOVEL_CHARACTER_DOC_CREATE: 'novel:characters:createDoc',
+
+  // Novel events (main -> renderer)
+  NOVEL_PROGRESS: 'novel:progress',
+  NOVEL_COMPLETE: 'novel:complete',
+  NOVEL_ERROR: 'novel:error',
+  NOVEL_STOPPED: 'novel:stopped',
+
+  // Novel Workflow operations
+  NOVEL_WORKFLOWS_GET: 'novel:workflows:get',
+  NOVEL_WORKFLOW_SAVE: 'novel:workflow:save',
+  NOVEL_WORKFLOW_DELETE: 'novel:workflow:delete',
+  WORKFLOW_STEP_EXECUTE: 'workflow:step:execute',
 
   // Linear integration
   LINEAR_GET_TEAMS: 'linear:getTeams',

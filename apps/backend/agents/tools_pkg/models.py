@@ -350,6 +350,12 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "high",
     },
+    "novel": {
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "high",
+    },
 }
 
 

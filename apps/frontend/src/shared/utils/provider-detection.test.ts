@@ -64,6 +64,59 @@ describe('provider-detection', () => {
         expect(result).toBe('unknown');
       });
     });
+
+    describe('Edge cases', () => {
+      it('should work with HTTP (not HTTPS)', () => {
+        const result = detectProvider('http://api.anthropic.com');
+        expect(result).toBe('anthropic');
+      });
+
+      it('should handle URL with port', () => {
+        const result = detectProvider('https://api.anthropic.com:8080/v1');
+        expect(result).toBe('anthropic');
+      });
+
+      it('should handle URL with query parameters', () => {
+        const result = detectProvider('https://api.anthropic.com/v1?api_key=test');
+        expect(result).toBe('anthropic');
+      });
+
+      it('should handle URL with fragment', () => {
+        const result = detectProvider('https://api.z.ai/api#section');
+        expect(result).toBe('zai');
+      });
+
+      it('should handle localhost', () => {
+        const result = detectProvider('http://localhost:3000/api');
+        expect(result).toBe('unknown');
+      });
+
+      it('should handle IP address', () => {
+        const result = detectProvider('https://192.168.1.1/api');
+        expect(result).toBe('unknown');
+      });
+
+      it('should handle empty string', () => {
+        const result = detectProvider('');
+        expect(result).toBe('unknown');
+      });
+
+      it('should handle URL with username and password', () => {
+        const result = detectProvider('https://user:pass@api.anthropic.com/v1');
+        expect(result).toBe('anthropic');
+      });
+
+      it('should handle domain with subdomain prefix', () => {
+        // sub.api.anthropic.com should match because it ends with .api.anthropic.com
+        const result = detectProvider('https://sub.api.anthropic.com');
+        expect(result).toBe('anthropic');
+      });
+
+      it('should handle trailing slash', () => {
+        const result = detectProvider('https://api.anthropic.com/');
+        expect(result).toBe('anthropic');
+      });
+    });
   });
 
   describe('getProviderLabel', () => {

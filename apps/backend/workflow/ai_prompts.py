@@ -70,13 +70,12 @@ Available Node Types:
    - data.model: Model to use (optional)
 
 7. **ifElse** - Conditional branching
-   - data.condition: Condition expression
-   - data.trueBranch: Branch name for true
-   - data.falseBranch: Branch name for false
+   - Preferred: data.evaluationTarget + data.branches (array of {label, condition, id?})
+   - Legacy: data.condition, data.trueBranch, data.falseBranch
 
 8. **switch** - Multi-way branching
-   - data.expression: Expression to evaluate
-   - data.cases: Array of {value, branch}
+   - Preferred: data.evaluationTarget + data.branches (array of {label, condition, isDefault?})
+   - Legacy: data.expression + data.cases (array of {value, branch})
 
 9. **askUserQuestion** - Request user input
    - data.question: Question text

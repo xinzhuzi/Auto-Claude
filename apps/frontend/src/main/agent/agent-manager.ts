@@ -13,7 +13,7 @@ import {
   TaskExecutionOptions,
   RoadmapConfig
 } from './types';
-import type { IdeationConfig } from '../../shared/types';
+import type { IdeationConfig, NovelGenerateRequest } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
@@ -478,6 +478,17 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
+   * Start novel generation process
+   */
+  startNovelGeneration(
+    projectId: string,
+    projectPath: string,
+    request: NovelGenerateRequest
+  ): void {
+    this.queueManager.startNovelGeneration(projectId, projectPath, request);
+  }
+
+  /**
    * Kill a specific task's process
    */
   killTask(taskId: string): boolean {
@@ -496,6 +507,20 @@ export class AgentManager extends EventEmitter {
    */
   isIdeationRunning(projectId: string): boolean {
     return this.queueManager.isIdeationRunning(projectId);
+  }
+
+  /**
+   * Stop novel generation for a project
+   */
+  stopNovel(projectId: string): boolean {
+    return this.queueManager.stopNovel(projectId);
+  }
+
+  /**
+   * Check if novel generation is running for a project
+   */
+  isNovelRunning(projectId: string): boolean {
+    return this.queueManager.isNovelRunning(projectId);
   }
 
   /**

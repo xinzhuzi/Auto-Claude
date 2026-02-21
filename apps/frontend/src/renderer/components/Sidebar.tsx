@@ -24,7 +24,8 @@ import {
   Wrench,
   Code,
   PanelLeft,
-  PanelLeftClose
+  PanelLeftClose,
+  PenTool
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -62,7 +63,7 @@ import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import { UpdateBanner } from './UpdateBanner';
 import type { Project, GitStatus } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'workflow-studio' | 'worktrees' | 'agent-tools' | 'editor';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'novel-studio' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'workflow-studio' | 'worktrees' | 'agent-tools' | 'editor';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -78,18 +79,23 @@ interface NavItem {
   shortcut?: string;
 }
 
-// Base nav items always shown
+// Base nav items always shown (excluding bottom items)
 const baseNavItems: NavItem[] = [
   { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K' },
   { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A' },
-  { id: 'workflow-studio', labelKey: 'navigation:items.workflowStudio', icon: Workflow, shortcut: 'O' },
   { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
   { id: 'roadmap', labelKey: 'navigation:items.roadmap', icon: Map, shortcut: 'D' },
   { id: 'ideation', labelKey: 'navigation:items.ideation', icon: Lightbulb, shortcut: 'I' },
   { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
   { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' },
   { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' },
-  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' },
+  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' }
+];
+
+// Bottom nav items (must remain at the end)
+const bottomNavItems: NavItem[] = [
+  { id: 'workflow-studio', labelKey: 'navigation:items.workflowStudio', icon: Workflow, shortcut: 'O' },
+  { id: 'novel-studio', labelKey: 'navigation:items.novelStudio', icon: PenTool, shortcut: 'V' },
   { id: 'editor', labelKey: 'navigation:items.editor', icon: Code, shortcut: 'E' }
 ];
 
@@ -151,8 +157,15 @@ export function Sidebar({
       items.push(...gitlabNavItems);
     }
 
+    items.push(...bottomNavItems);
+
     return items;
   }, [githubEnabled, gitlabEnabled]);
+
+  const visibleFlatNavItems = useMemo(
+    () => visibleNavItems,
+    [visibleNavItems]
+  );
 
   // Load envConfig when project changes to ensure store is populated
   useEffect(() => {
@@ -204,7 +217,7 @@ export function Sidebar({
       const key = e.key.toUpperCase();
 
       // Find matching nav item from visible items only
-      const matchedItem = visibleNavItems.find((item) => item.shortcut === key);
+      const matchedItem = visibleFlatNavItems.find((item) => item.shortcut === key);
 
       if (matchedItem) {
         e.preventDefault();
@@ -214,7 +227,7 @@ export function Sidebar({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedProjectId, onViewChange, visibleNavItems]);
+  }, [selectedProjectId, onViewChange, visibleFlatNavItems]);
 
   // Check git status when project changes
   useEffect(() => {
@@ -297,22 +310,25 @@ export function Sidebar({
   const renderNavItem = (item: NavItem) => {
     const isActive = activeView === item.id;
     const Icon = item.icon;
+    const spacingClass = isCollapsed
+      ? 'justify-center px-2 py-2.5'
+      : 'gap-3 px-3 py-2.5';
 
     const button = (
       <button
-        key={item.id}
         onClick={() => handleNavClick(item.id)}
         disabled={!selectedProjectId}
         aria-keyshortcuts={item.shortcut}
         className={cn(
-          'flex w-full items-center rounded-lg text-sm transition-all duration-200',
+          'flex w-full items-center rounded-lg transition-all duration-200',
           'hover:bg-accent hover:text-accent-foreground',
           'disabled:pointer-events-none disabled:opacity-50',
           isActive && 'bg-accent text-accent-foreground',
-          isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+          'text-sm',
+          spacingClass
         )}
       >
-        <Icon className="h-4 w-4 shrink-0" />
+        <Icon className={cn('h-4 w-4', 'shrink-0')} />
         {!isCollapsed && (
           <>
             <span className="flex-1 text-left">{t(item.labelKey)}</span>
@@ -329,7 +345,7 @@ export function Sidebar({
     // Wrap in tooltip when collapsed
     if (isCollapsed) {
       return (
-        <Tooltip key={item.id}>
+        <Tooltip>
           <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent side="right">
             <span>{t(item.labelKey)}</span>
@@ -345,6 +361,13 @@ export function Sidebar({
 
     return button;
   };
+
+  const renderNavItems = (items: NavItem[]) =>
+    items.map((item) => (
+      <div key={item.id}>
+        {renderNavItem(item)}
+      </div>
+    ));
 
   return (
     <TooltipProvider>
@@ -405,7 +428,7 @@ export function Sidebar({
                 </h3>
               )}
               <nav className="space-y-1">
-                {visibleNavItems.map(renderNavItem)}
+                {renderNavItems(visibleNavItems)}
               </nav>
             </div>
           </div>

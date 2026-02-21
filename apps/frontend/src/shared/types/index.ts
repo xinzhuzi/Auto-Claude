@@ -22,6 +22,7 @@ export * from './app-update';
 export * from './cli';
 export * from './workflow';
 export * from './pr-status';
+export * from './novel';
 
 // IPC types (must be last to use types from other modules)
 export * from './ipc';

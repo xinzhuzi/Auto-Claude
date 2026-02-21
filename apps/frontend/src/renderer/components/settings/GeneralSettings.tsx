@@ -175,8 +175,8 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               </div>
 
               {(Object.keys(FEATURE_LABELS) as Array<keyof FeatureModelConfig>).map((feature) => {
-                const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-                const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+                const featureModels = { ...DEFAULT_FEATURE_MODELS, ...(settings.featureModels || {}) };
+                const featureThinking = { ...DEFAULT_FEATURE_THINKING, ...(settings.featureThinking || {}) };
 
                 return (
                   <div key={feature} className="space-y-2">

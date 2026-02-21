@@ -92,8 +92,8 @@ export function useResolvedAgentSettings(settings: AppSettings): ResolvedAgentSe
     const phaseThinking = settings.customPhaseThinking || profilePhaseThinking;
 
     // Feature settings (not tied to profiles, use custom or defaults)
-    const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-    const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
+    const featureModels = { ...DEFAULT_FEATURE_MODELS, ...(settings.featureModels || {}) };
+    const featureThinking = { ...DEFAULT_FEATURE_THINKING, ...(settings.featureThinking || {}) };
 
     return {
       phaseModels,

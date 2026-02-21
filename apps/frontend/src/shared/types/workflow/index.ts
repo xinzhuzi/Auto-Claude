@@ -26,6 +26,7 @@ export enum NodeType {
   Skill = 'skill', // Claude Code Skill integration
   Mcp = 'mcp', // MCP (Model Context Protocol) tool integration
   SubAgentFlow = 'subAgentFlow', // Sub-Agent Flow reference node
+  Command = 'command', // Slash Command node
 }
 
 // ============================================================================
@@ -188,6 +189,7 @@ export interface SkillNodeData {
   description: string;
   skillPath: string;
   scope: 'user' | 'project' | 'local';
+  source?: string;
   allowedTools?: string;
   validationStatus: 'valid' | 'missing' | 'invalid';
   outputPorts: 1;
@@ -222,12 +224,22 @@ export interface SubAgentFlow {
 
 export interface SubAgentFlowNodeData {
   subAgentFlowId: string;
+  name?: string;
   label: string;
   description?: string;
   outputPorts: 1;
   model?: 'sonnet' | 'opus' | 'haiku' | 'inherit';
   tools?: string;
   color?: keyof typeof SUB_AGENT_COLORS;
+}
+
+export interface CommandNodeData {
+  commandName: string;
+  commandPath?: string;
+  args?: string;
+  description?: string;
+  validationStatus?: 'valid' | 'missing' | 'invalid';
+  outputPorts?: 1;
 }
 
 export interface McpNodeData {
@@ -319,6 +331,11 @@ export interface SubAgentFlowNode extends BaseNode {
   data: SubAgentFlowNodeData;
 }
 
+export interface CommandNode extends BaseNode {
+  type: NodeType.Command;
+  data: CommandNodeData;
+}
+
 export type WorkflowNode =
   | SubAgentNode
   | AskUserQuestionNode
@@ -330,7 +347,8 @@ export type WorkflowNode =
   | PromptNode
   | SkillNode
   | McpNode
-  | SubAgentFlowNode;
+  | SubAgentFlowNode
+  | CommandNode;
 
 // ============================================================================
 // Connection Type

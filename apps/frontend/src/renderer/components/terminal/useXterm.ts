@@ -432,13 +432,13 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       resizeObserver.observe(container);
 
       // Also listen for window resize (handles fullscreen transitions)
-      window.addEventListener('resize', handleResize);
+      window.addEventListener('resize', handleResize.fn);
 
       return () => {
         // Cancel any pending debounced call before disconnecting
         handleResize.cancel();
         resizeObserver.disconnect();
-        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('resize', handleResize.fn);
       };
     }
   }, [onDimensionsReady]);

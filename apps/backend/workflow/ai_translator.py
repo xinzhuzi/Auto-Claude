@@ -58,15 +58,16 @@ async def translate_to_chinese(
 描述列表：
 """ + "\n".join([f"{i+1}. {text}" for i, text in enumerate(texts)])
 
-        # Call Claude SDK
-        status, response = await run_agent_session(
-            client=client,
-            message=prompt,
-            spec_dir=spec_dir,
-            verbose=False,
-        )
+        async with client:
+            # Call Claude SDK
+            status, response, _ = await run_agent_session(
+                client=client,
+                message=prompt,
+                spec_dir=spec_dir,
+                verbose=False,
+            )
 
-        if status != "success":
+        if status == "error":
             logger.error(f"Translation failed: {response}")
             return texts
 

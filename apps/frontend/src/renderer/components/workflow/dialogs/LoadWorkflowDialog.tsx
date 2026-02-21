@@ -87,8 +87,8 @@ export const LoadWorkflowDialog: React.FC<LoadWorkflowDialogProps> = ({
       const { nodes, edges } = deserializeWorkflow(unwrappedWorkflow);
       log.info('Deserialized workflow', { nodesCount: nodes.length, edgesCount: edges.length });
 
-      // 设置为活动工作流
-      setActiveWorkflow(unwrappedWorkflow);
+      // 设置为活动工作流 (type assertion needed due to cc-wf-studio type compatibility)
+      setActiveWorkflow(unwrappedWorkflow as any);
 
       // 设置工作流名称
       setWorkflowName(unwrappedWorkflow.name);

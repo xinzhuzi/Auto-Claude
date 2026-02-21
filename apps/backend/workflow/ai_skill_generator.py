@@ -75,15 +75,16 @@ async def generate_skill_from_description(
             context=context,
         )
 
-        # Call Claude SDK
-        status, response = await run_agent_session(
-            client=client,
-            message=skill_prompt,
-            spec_dir=spec_dir,
-            verbose=False,
-        )
+        async with client:
+            # Call Claude SDK
+            status, response, _ = await run_agent_session(
+                client=client,
+                message=skill_prompt,
+                spec_dir=spec_dir,
+                verbose=False,
+            )
 
-        if status != "success":
+        if status == "error":
             raise RuntimeError(f"AI skill generation failed: {response}")
 
         # Extract skill markdown from response

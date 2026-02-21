@@ -101,7 +101,8 @@ export function AIOptimizationPanel({
       });
 
       if (result.success) {
-        setSuggestions(result.suggestions || []);
+        const payload = (result as { data?: any }).data ?? result;
+        setSuggestions(payload.suggestions || []);
       }
     } catch (err) {
       console.error('Failed to load suggestions:', err);
@@ -141,16 +142,19 @@ export function AIOptimizationPanel({
       });
 
       if (result.success) {
+        const payload = (result as { data?: any }).data ?? result;
         // Add assistant response
         const assistantMessage = {
           role: 'assistant' as const,
-          content: result.summary || 'Workflow optimized successfully',
+          content: payload.summary || 'Workflow optimized successfully',
           timestamp: Date.now(),
         };
         addMessage(workflowId, assistantMessage);
 
         // Update workflow
-        onWorkflowUpdated(result.workflow);
+        if (payload.workflow) {
+          onWorkflowUpdated(payload.workflow);
+        }
 
         // Reload suggestions
         loadSuggestions();
@@ -217,11 +221,12 @@ export function AIOptimizationPanel({
       });
 
       if (result.success) {
+        const payload = (result as { data?: any }).data ?? result;
         // Update the failed message with new response
         const updatedMessages = [...messages];
         updatedMessages[messageIndex] = {
           role: 'assistant' as const,
-          content: result.summary || 'Workflow optimized successfully',
+          content: payload.summary || 'Workflow optimized successfully',
           timestamp: Date.now(),
         };
 
@@ -230,7 +235,9 @@ export function AIOptimizationPanel({
         updatedMessages.forEach((msg) => addMessage(workflowId, msg));
 
         // Update workflow
-        onWorkflowUpdated(result.workflow);
+        if (payload.workflow) {
+          onWorkflowUpdated(payload.workflow);
+        }
 
         // Reload suggestions
         loadSuggestions();

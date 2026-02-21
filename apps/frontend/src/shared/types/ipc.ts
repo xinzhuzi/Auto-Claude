@@ -118,6 +118,16 @@ import type {
   PersistedRoadmapProgress
 } from './roadmap';
 import type {
+  NovelProject,
+  NovelCharacter,
+  NovelGenerateRequest,
+  NovelGenerationStatus,
+  NovelPromptsFile,
+  NovelDocumentConfig,
+  NovelWorkflow,
+  StepResult
+} from './novel';
+import type {
   LinearTeam,
   LinearProject,
   LinearIssue,
@@ -677,6 +687,22 @@ export interface ElectronAPI {
   deleteIdea: (projectId: string, ideaId: string) => Promise<IPCResult>;
   deleteMultipleIdeas: (projectId: string, ideaIds: string[]) => Promise<IPCResult>;
 
+  // Novel operations
+  getNovel: (projectId: string) => Promise<IPCResult<NovelProject | null>>;
+  saveNovel: (projectId: string, novel: NovelProject) => Promise<IPCResult>;
+  generateNovel: (projectId: string, request: NovelGenerateRequest) => void;
+  stopNovel: (projectId: string) => Promise<IPCResult>;
+  getNovelConfig: (projectId: string) => Promise<IPCResult<NovelDocumentConfig>>;
+  saveNovelConfig: (projectId: string, config: NovelDocumentConfig) => Promise<IPCResult>;
+  getNovelPrompts: (projectId: string) => Promise<IPCResult<NovelPromptsFile>>;
+  saveNovelPrompts: (projectId: string, prompts: NovelPromptsFile) => Promise<IPCResult>;
+  importNovelPrompts: (projectId: string) => Promise<IPCResult<NovelPromptsFile>>;
+  exportNovelPrompts: (projectId: string, prompts: NovelPromptsFile) => Promise<IPCResult<{ filePath: string }>>;
+  exportNovelMarkdown: (projectId: string) => Promise<IPCResult<{ path: string }>>;
+  getNovelOverviewPreface: (projectId: string) => Promise<IPCResult<{ filePath: string; content: string }>>;
+  loadNovelCharactersFromDocs: (projectId: string) => Promise<IPCResult<NovelCharacter[]>>;
+  createNovelCharacterDoc: (projectId: string) => Promise<IPCResult<NovelCharacter | null>>;
+
   // Ideation event listeners
   onIdeationProgress: (
     callback: (projectId: string, status: IdeationGenerationStatus) => void
@@ -699,6 +725,33 @@ export interface ElectronAPI {
   onIdeationTypeFailed: (
     callback: (projectId: string, ideationType: string) => void
   ) => () => void;
+
+  // Novel event listeners
+  onNovelProgress: (
+    callback: (projectId: string, status: NovelGenerationStatus) => void
+  ) => () => void;
+  onNovelComplete: (
+    callback: (projectId: string, novel: NovelProject) => void
+  ) => () => void;
+  onNovelError: (
+    callback: (projectId: string, error: string) => void
+  ) => () => void;
+  onNovelStopped: (
+    callback: (projectId: string) => void
+  ) => () => void;
+
+  // Novel Workflow operations
+  getNovelWorkflows: () => Promise<IPCResult<NovelWorkflow[]>>;
+  saveNovelWorkflow: (workflow: NovelWorkflow) => Promise<IPCResult>;
+  deleteNovelWorkflow: (workflowId: string) => Promise<IPCResult>;
+  executeWorkflowStep: (params: {
+    workflowId: string;
+    stepId: string;
+    promptTemplate: string;
+    params: Record<string, unknown>;
+    maxTokens?: number;
+    projectId?: string;
+  }) => Promise<IPCResult<{ data: string; tokensUsed?: number }>>;
 
   // Electron app update operations
   checkAppUpdate: () => Promise<IPCResult<AppUpdateInfo | null>>;

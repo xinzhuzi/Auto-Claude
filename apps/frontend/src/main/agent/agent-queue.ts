@@ -6,7 +6,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { RoadmapConfig } from './types';
-import type { IdeationConfig, Idea } from '../../shared/types';
+import type { IdeationConfig, Idea, NovelGenerateRequest, NovelProject, NovelGenerationStatus } from '../../shared/types';
 import { AUTO_BUILD_PATHS } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
@@ -91,7 +91,7 @@ export class AgentQueueManager {
    */
   private async ensurePythonEnvReady(
     projectId: string,
-    eventType: 'ideation-error' | 'roadmap-error'
+    eventType: 'ideation-error' | 'roadmap-error' | 'novel-error'
   ): Promise<boolean> {
     const status = await this.processManager.ensurePythonEnvReady('AgentQueue');
     if (!status.ready) {
@@ -319,6 +319,57 @@ export class AgentQueueManager {
   }
 
   /**
+   * Start novel generation process
+   */
+  async startNovelGeneration(
+    projectId: string,
+    projectPath: string,
+    request: NovelGenerateRequest
+  ): Promise<void> {
+    debugLog('[Agent Queue] Starting novel generation:', {
+      projectId,
+      projectPath,
+      action: request.action,
+      config: request.config
+    });
+
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+
+    if (!autoBuildSource) {
+      debugError('[Agent Queue] Auto-build source path not found');
+      this.emitter.emit('novel-error', projectId, 'Auto-build source path not found. Please configure it in App Settings.');
+      return;
+    }
+
+    const novelRunnerPath = path.join(autoBuildSource, 'runners', 'novel_writer_runner.py');
+
+    if (!existsSync(novelRunnerPath)) {
+      debugError('[Agent Queue] Novel runner not found at:', novelRunnerPath);
+      this.emitter.emit('novel-error', projectId, `Novel runner not found at: ${novelRunnerPath}`);
+      return;
+    }
+
+    const novelDir = path.join(projectPath, AUTO_BUILD_PATHS.NOVEL_DIR);
+    if (!existsSync(novelDir)) {
+      mkdirSync(novelDir, { recursive: true });
+    }
+
+    const requestPath = path.join(novelDir, 'request.json');
+    try {
+      await writeFileWithRetry(requestPath, JSON.stringify(request, null, 2), { encoding: 'utf-8' });
+    } catch (err) {
+      debugError('[Agent Queue] Failed to write novel request:', err);
+      this.emitter.emit('novel-error', projectId, 'Failed to write novel request file.');
+      return;
+    }
+
+    const args = [novelRunnerPath, '--project', projectPath, '--request', requestPath];
+
+    debugLog('[Agent Queue] Spawning novel process with args:', args);
+    await this.spawnNovelProcess(projectId, projectPath, args, request.action);
+  }
+
+  /**
    * Spawn a Python process for ideation generation
    */
   private async spawnIdeationProcess(
@@ -396,6 +447,7 @@ export class AgentQueueManager {
       PYTHONUNBUFFERED: '1',
       PYTHONUTF8: '1'
     };
+    delete (finalEnv as Record<string, string | undefined>).CLAUDECODE;
 
     // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
@@ -729,6 +781,7 @@ export class AgentQueueManager {
       PYTHONUNBUFFERED: '1',
       PYTHONUTF8: '1'
     };
+    delete (finalEnv as Record<string, string | undefined>).CLAUDECODE;
 
     // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
     const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
@@ -954,6 +1007,246 @@ export class AgentQueueManager {
     });
   }
 
+
+  /**
+   * Spawn a Python process for novel generation
+   */
+  private async spawnNovelProcess(
+    projectId: string,
+    projectPath: string,
+    args: string[],
+    action: string
+  ): Promise<void> {
+    debugLog('[Agent Queue] Spawning novel process:', { projectId, projectPath, action });
+
+    // Run from auto-claude source directory so imports work correctly
+    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
+    const cwd = autoBuildSource || process.cwd();
+
+    // Ensure Python environment is ready before spawning
+    if (!await this.ensurePythonEnvReady(projectId, 'novel-error')) {
+      return;
+    }
+
+    // Kill existing process for this project if any
+    const wasKilled = this.processManager.killProcess(projectId);
+    if (wasKilled) {
+      debugLog('[Agent Queue] Killed existing novel process for project:', projectId);
+    }
+
+    // Generate unique spawn ID for this process instance
+    const spawnId = this.state.generateSpawnId();
+    debugLog('[Agent Queue] Generated novel spawn ID:', spawnId);
+
+    // Get combined environment variables
+    const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+
+    // Get best available Claude profile environment (automatically handles rate limits)
+    const profileResult = getBestAvailableProfileEnv();
+    const profileEnv = profileResult.env;
+
+    // Get active API profile environment variables
+    const apiProfileEnv = await getAPIProfileEnv();
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
+    // Get Python path from process manager (uses venv if configured)
+    const pythonPath = this.processManager.getPythonPath();
+
+    // Get Python environment from pythonEnvManager (includes bundled site-packages)
+    const pythonEnv = pythonEnvManager.getPythonEnv();
+
+    // Build PYTHONPATH: bundled site-packages (if any) + autoBuildSource for local imports
+    const pythonPathParts: string[] = [];
+    if (pythonEnv.PYTHONPATH) {
+      pythonPathParts.push(pythonEnv.PYTHONPATH);
+    }
+    if (autoBuildSource) {
+      pythonPathParts.push(autoBuildSource);
+    }
+    const combinedPythonPath = pythonPathParts.join(getPathDelimiter());
+
+    // Build final environment with proper precedence:
+    // 1. process.env (system)
+    // 2. pythonEnv (bundled packages environment)
+    // 3. combinedEnv (auto-claude/.env for CLI usage)
+    // 4. oauthModeClearVars (clear stale ANTHROPIC_* vars when in OAuth mode)
+    // 5. profileEnv (Electron app OAuth token)
+    // 6. apiProfileEnv (Active API profile config - highest priority for ANTHROPIC_* vars)
+    // 7. Our specific overrides
+    const finalEnv = {
+      ...process.env,
+      ...pythonEnv,
+      ...combinedEnv,
+      ...oauthModeClearVars,
+      ...profileEnv,
+      ...apiProfileEnv,
+      PYTHONPATH: combinedPythonPath,
+      PYTHONUNBUFFERED: '1',
+      PYTHONUTF8: '1'
+    };
+    delete (finalEnv as Record<string, string | undefined>).CLAUDECODE;
+
+    // Debug: Show OAuth token source (token values intentionally omitted for security - AC4)
+    const tokenSource = profileEnv['CLAUDE_CODE_OAUTH_TOKEN']
+      ? 'Electron app profile'
+      : (combinedEnv['CLAUDE_CODE_OAUTH_TOKEN'] ? 'auto-claude/.env' : 'not found');
+    const hasToken = !!(finalEnv as Record<string, string | undefined>)['CLAUDE_CODE_OAUTH_TOKEN'];
+    debugLog('[Agent Queue] OAuth token status:', {
+      source: tokenSource,
+      hasToken
+    });
+
+    // Parse Python command to handle space-separated commands like "py -3"
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+      cwd,
+      env: finalEnv
+    });
+
+    this.state.addProcess(projectId, {
+      taskId: projectId,
+      process: childProcess,
+      startedAt: new Date(),
+      projectPath, // Store project path for loading novel on completion
+      spawnId,
+      queueProcessType: 'novel'
+    });
+
+    let progressPercent = 10;
+    let currentAction: NovelGenerationStatus['action'] = action as NovelGenerationStatus['action'];
+
+    const phaseMap: Record<string, { progress: number; message: string; action?: NovelGenerationStatus['action'] }> = {
+      OUTLINE: { progress: 35, message: 'Generating outline...', action: 'outline' },
+      CHAPTER: { progress: 55, message: 'Generating chapter...', action: 'chapter' },
+      CONTINUE: { progress: 55, message: 'Continuing story...', action: 'continue' },
+      POLISH: { progress: 60, message: 'Polishing text...', action: 'polish' },
+      SUMMARY: { progress: 60, message: 'Generating summary...', action: 'summary' },
+      ADVICE: { progress: 60, message: 'Generating advice...', action: 'advice' },
+      CREATIVE: { progress: 50, message: 'Generating creative content...', action: 'creative' },
+      CHARACTER: { progress: 55, message: 'Generating character...', action: 'character' },
+      WORLD: { progress: 55, message: 'Generating world setting...', action: 'world' },
+      COMPLETE: { progress: 100, message: 'Novel generation complete' }
+    };
+
+    const emitProgress = (message: string, progress: number, actionOverride?: NovelGenerationStatus['action']) => {
+      const status: NovelGenerationStatus = {
+        phase: 'running',
+        progress,
+        message,
+        action: actionOverride || currentAction
+      };
+      this.emitter.emit('novel-progress', projectId, status);
+    };
+
+    emitProgress('Starting novel generation...', progressPercent, currentAction);
+
+    // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
+    childProcess.stdout?.on('data', (data: Buffer) => {
+      const log = data.toString('utf-8');
+
+      const phaseMatch = log.match(/NOVEL_PHASE:([A-Z_]+)/);
+      if (phaseMatch) {
+        const phaseKey = phaseMatch[1];
+        const phaseMeta = phaseMap[phaseKey];
+        if (phaseMeta) {
+          progressPercent = phaseMeta.progress;
+          if (phaseMeta.action) {
+            currentAction = phaseMeta.action;
+          }
+          emitProgress(phaseMeta.message, progressPercent, currentAction);
+          return;
+        }
+      }
+
+      const statusMessage = formatStatusMessage(log);
+      if (statusMessage) {
+        emitProgress(statusMessage, progressPercent, currentAction);
+      }
+    });
+
+    // Handle stderr - explicitly decode as UTF-8 for cross-platform Unicode support
+    childProcess.stderr?.on('data', (data: Buffer) => {
+      const log = data.toString('utf-8');
+      console.error('[Novel STDERR]', log);
+      const statusMessage = formatStatusMessage(log);
+      if (statusMessage) {
+        emitProgress(statusMessage, progressPercent, currentAction);
+      }
+    });
+
+    // Handle process exit
+    childProcess.on('exit', (code: number | null) => {
+      debugLog('[Agent Queue] Novel process exited:', { projectId, code, spawnId });
+
+      // Check if this process was intentionally stopped by the user
+      const wasIntentionallyStopped = this.state.wasSpawnKilled(spawnId);
+      if (wasIntentionallyStopped) {
+        debugLog('[Agent Queue] Novel process was intentionally stopped, ignoring exit');
+        this.state.clearKilledSpawn(spawnId);
+        this.emitter.emit('novel-stopped', projectId);
+        return;
+      }
+
+      const processInfo = this.state.getProcess(projectId);
+      const storedProjectPath = processInfo?.projectPath || projectPath;
+      this.state.deleteProcess(projectId);
+
+      if (code === 0) {
+        debugLog('[Agent Queue] Novel generation completed successfully');
+        this.emitter.emit('novel-progress', projectId, {
+          phase: 'complete',
+          progress: 100,
+          message: 'Novel generation complete',
+          action: currentAction
+        } as NovelGenerationStatus);
+
+        try {
+          const novelFilePath = path.join(
+            storedProjectPath,
+            AUTO_BUILD_PATHS.NOVEL_DIR,
+            AUTO_BUILD_PATHS.NOVEL_FILE
+          );
+
+          if (existsSync(novelFilePath)) {
+            const loadNovel = async (): Promise<void> => {
+              try {
+                const content = await fsPromises.readFile(novelFilePath, 'utf-8');
+                const novel = JSON.parse(content) as NovelProject;
+                this.emitter.emit('novel-complete', projectId, novel);
+              } catch (err) {
+                debugError('[Novel] Failed to load novel data:', err);
+                this.emitter.emit('novel-error', projectId,
+                  `Failed to load novel data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+              }
+            };
+            loadNovel().catch((err: unknown) => {
+              debugError('[Agent Queue] Unhandled error loading novel data:', err);
+            });
+          } else {
+            debugError('[Novel] novel.json not found at:', novelFilePath);
+            this.emitter.emit('novel-error', projectId, 'Novel completed but novel.json not found.');
+          }
+        } catch (err) {
+          debugError('[Novel] Unexpected error in novel completion:', err);
+          this.emitter.emit('novel-error', projectId,
+            `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+      } else {
+        debugError('[Agent Queue] Novel generation failed:', { projectId, code });
+        this.emitter.emit('novel-error', projectId, `Novel generation failed with exit code ${code}`);
+      }
+    });
+
+    // Handle process error
+    childProcess.on('error', (err: Error) => {
+      console.error('[Novel] Process error:', err.message);
+      this.state.deleteProcess(projectId);
+      this.emitter.emit('novel-error', projectId, err.message);
+    });
+  }
+
   /**
    * Stop ideation generation for a project
    */
@@ -980,6 +1273,34 @@ export class AgentQueueManager {
   isIdeationRunning(projectId: string): boolean {
     const processInfo = this.state.getProcess(projectId);
     return processInfo?.queueProcessType === 'ideation';
+  }
+
+  /**
+   * Stop novel generation for a project
+   */
+  stopNovel(projectId: string): boolean {
+    debugLog('[Agent Queue] Stop novel requested:', { projectId });
+
+    const processInfo = this.state.getProcess(projectId);
+    const isNovel = processInfo?.queueProcessType === 'novel';
+    debugLog('[Agent Queue] Novel process running?', { projectId, isNovel, processType: processInfo?.queueProcessType });
+
+    if (isNovel) {
+      debugLog('[Agent Queue] Killing novel process:', projectId);
+      this.processManager.killProcess(projectId);
+      this.emitter.emit('novel-stopped', projectId);
+      return true;
+    }
+    debugLog('[Agent Queue] No running novel process found for:', projectId);
+    return false;
+  }
+
+  /**
+   * Check if novel generation is running for a project
+   */
+  isNovelRunning(projectId: string): boolean {
+    const processInfo = this.state.getProcess(projectId);
+    return processInfo?.queueProcessType === 'novel';
   }
 
   /**

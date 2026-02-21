@@ -51,6 +51,12 @@ const browserMockAPI: ElectronAPI = {
   // Task Optimization (AI-powered)
   ...taskOptimizeMock,
 
+  // Novel Workflow Operations (new)
+  getNovelWorkflows: async () => ({ success: true, data: [] }),
+  saveNovelWorkflow: async () => ({ success: false, error: 'Not available in browser mode' }),
+  deleteNovelWorkflow: async () => ({ success: false, error: 'Not available in browser mode' }),
+  executeWorkflowStep: async () => ({ success: false, error: 'Not available in browser mode' }),
+
   // Roadmap Operations
   getRoadmap: async () => ({
     success: true,
@@ -104,6 +110,60 @@ const browserMockAPI: ElectronAPI = {
   onRoadmapComplete: () => () => {},
   onRoadmapError: () => () => {},
   onRoadmapStopped: () => () => {},
+  // Novel Operations
+  getNovel: async () => ({ success: true, data: null }),
+
+  saveNovel: async () => ({ success: true }),
+
+  generateNovel: (_projectId: string, _request: unknown) => {
+    console.warn('[Browser Mock] generateNovel called');
+  },
+
+  stopNovel: async () => ({ success: true }),
+
+  getNovelConfig: async () => ({
+    success: true,
+    data: {
+      version: 1,
+      modulePaths: {
+        overview: 'docs/novel/overview.md',
+        creative: 'docs/novel/creative.md',
+        workflow: 'docs/novel/workflow.md',
+        outline: 'docs/novel/outline.md',
+        characters: 'docs/novel/characters.md',
+        world: 'docs/novel/world.md',
+        content: 'docs/novel/content.md',
+        output: 'docs/novel/output.md',
+        prompts: 'docs/novel/prompts.md'
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  }),
+
+  saveNovelConfig: async () => ({ success: true }),
+
+  getNovelPrompts: async () => ({ success: true, data: { prompts: [] } }),
+
+  saveNovelPrompts: async () => ({ success: true }),
+
+  importNovelPrompts: async () => ({ success: true, data: { prompts: [] } }),
+
+  exportNovelPrompts: async () => ({ success: true, data: { filePath: '/mock/novel-prompts.json' } }),
+
+  exportNovelMarkdown: async () => ({ success: true, data: { path: '/mock/novel.md' } }),
+
+  getNovelOverviewPreface: async () => ({ success: true, data: { filePath: '/mock/overview/序.md', content: '' } }),
+
+  loadNovelCharactersFromDocs: async () => ({ success: true, data: [] }),
+
+  createNovelCharacterDoc: async () => ({ success: true, data: null }),
+
+  onNovelProgress: () => () => {},
+  onNovelComplete: () => () => {},
+  onNovelError: () => () => {},
+  onNovelStopped: () => () => {},
+
   // Context Operations
   ...contextMock,
 
@@ -400,7 +460,7 @@ const browserMockAPI: ElectronAPI = {
     start: async () => ({ success: false, error: 'Not available in browser mode' }),
     stop: async () => ({ success: false, error: 'Not available in browser mode' }),
     openFile: async () => ({ success: false, error: 'Not available in browser mode' }),
-  },
+  } as any,
 
   // Workflow API
   workflow: {
@@ -418,7 +478,7 @@ const browserMockAPI: ElectronAPI = {
     onExecutionProgress: () => () => {},
     onExecutionComplete: () => () => {},
     onExecutionError: () => () => {},
-  },
+  } as any,
 
   // MCP API
   mcp: {
@@ -428,7 +488,7 @@ const browserMockAPI: ElectronAPI = {
     refreshCache: async () => ({ success: true, data: undefined }),
     checkMcpHealth: async () => ({ success: true, data: { serverId: '', status: 'unknown' as const, message: '', checkedAt: '' } }),
     testMcpConnection: async () => ({ success: true, data: { serverId: '', success: false, message: '' } }),
-  }
+  } as any
 };
 
 /**

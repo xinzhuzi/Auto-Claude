@@ -17,7 +17,7 @@ export const getTourSteps = (): DriveStep[] => [
     popover: {
       title: 'Welcome to Workflow Studio',
       description: 'Let\'s take a quick tour to help you get started with creating AI-powered workflows.',
-      side: 'over',
+      side: 'bottom',
       align: 'center',
     },
   },
@@ -126,7 +126,7 @@ export const getTourSteps = (): DriveStep[] => [
     popover: {
       title: 'You\'re Ready!',
       description: 'That\'s it! You\'re now ready to create powerful AI workflows. Start by dragging a Prompt node onto the canvas.',
-      side: 'over',
+      side: 'bottom',
       align: 'center',
     },
   },

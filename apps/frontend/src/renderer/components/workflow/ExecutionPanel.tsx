@@ -277,10 +277,10 @@ export const ExecutionPanel: React.FC<ExecutionPanelProps> = ({ className }) => 
       const { nodes: reactFlowNodes, edges: reactFlowEdges } = deserializeWorkflow(activeWorkflow);
 
       const workflow = serializeWorkflow(reactFlowNodes, reactFlowEdges, currentWorkflowName);
-      const mdContent = generateSlashCommandFile(workflow);
+      const mdContent = generateSlashCommandFile(workflow as any);
       const fileName = nodeNameToFileName(currentWorkflowName);
 
-      const exportResult = await window.electronAPI.workflow.exportWorkflowToProject(workflow, mdContent, projectPath);
+      const exportResult = await window.electronAPI.workflow.exportWorkflowToProject(workflow as any, mdContent, projectPath);
       if (!exportResult.success) {
         throw new Error(exportResult.error || '导出工作流失败');
       }

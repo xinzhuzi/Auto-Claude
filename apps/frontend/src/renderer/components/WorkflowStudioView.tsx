@@ -293,7 +293,7 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
 
       // Save to project directory
       log.info('Saving to project', { projectPath });
-      const result = await window.electronAPI.workflow.saveWorkflowToProject(workflow, projectPath);
+      const result = await window.electronAPI.workflow.saveWorkflowToProject(workflow as any, projectPath);
       log.info('Save result', result);
 
       if (result.success) {
@@ -411,12 +411,12 @@ export const WorkflowStudioView: React.FC<WorkflowStudioViewProps> = ({
 
       // Generate Markdown content
       log.info('Generating markdown content...');
-      const mdContent = generateSlashCommandFile(workflow);
+      const mdContent = generateSlashCommandFile(workflow as any);
       const fileName = nodeNameToFileName(workflowName);
 
       // Export to project directory
       log.info('Exporting to project', { projectPath, fileName });
-      const result = await window.electronAPI.workflow.exportWorkflowToProject(workflow, mdContent, projectPath);
+      const result = await window.electronAPI.workflow.exportWorkflowToProject(workflow as any, mdContent, projectPath);
       log.info('Export result', result);
 
       if (result.success) {

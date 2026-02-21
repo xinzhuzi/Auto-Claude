@@ -685,15 +685,20 @@ export class AgentProcessManager {
     // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     let childProcess;
+
+    // Build final env and remove CLAUDECODE to prevent nested session detection
+    const spawnEnv = {
+      ...env,
+      ...pythonEnv,
+      ...oauthModeClearVars,
+      ...apiProfileEnv
+    };
+    delete spawnEnv.CLAUDECODE;
+
     try {
       childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
         cwd,
-        env: {
-          ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
-          ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
-          ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
-          ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
-        }
+        env: spawnEnv
       });
     } catch (err) {
       // spawn() failed synchronously (e.g., command not found, permission denied)

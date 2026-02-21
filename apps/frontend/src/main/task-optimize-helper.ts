@@ -205,7 +205,7 @@ export async function optimizeTaskDescription(
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
 
     // Build clean env without CLAUDECODE to avoid nested session detection
-    const cleanEnv = {
+    const cleanEnv: Record<string, string | undefined> = {
       ...process.env,
       ...pythonEnv,
       ...autoBuildEnv,

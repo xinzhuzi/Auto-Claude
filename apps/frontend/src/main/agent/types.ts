@@ -6,7 +6,7 @@ import type { TaskEventPayload } from './task-event-schema';
  * Agent-specific types for process and state management
  */
 
-export type QueueProcessType = 'ideation' | 'roadmap';
+export type QueueProcessType = 'ideation' | 'roadmap' | 'novel';
 
 export interface AgentProcess {
   taskId: string;
@@ -14,7 +14,7 @@ export interface AgentProcess {
   startedAt: Date;
   projectPath?: string; // For ideation processes to load session on completion
   spawnId: number; // Unique ID to identify this specific spawn
-  queueProcessType?: QueueProcessType; // Type of queue process (ideation or roadmap)
+  queueProcessType?: QueueProcessType; // Type of queue process (ideation, roadmap, or novel)
 }
 
 export interface ExecutionProgressData {
@@ -87,4 +87,11 @@ export interface RoadmapProgressData {
   phase: string;
   progress: number;
   message: string;
+}
+
+export interface NovelProgressData {
+  phase: string;
+  progress: number;
+  message: string;
+  action?: string;
 }

@@ -32,7 +32,7 @@ export enum LogLevel {
 }
 
 // Color codes for console output
-const colors = {
+const colors: Record<string, string> = {
   debug: '\x1b[36m', // Cyan
   info: '\x1b[32m',  // Green
   warn: '\x1b[33m',  // Yellow

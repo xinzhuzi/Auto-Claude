@@ -133,6 +133,12 @@ class WorkflowExecutor:
             nodes = workflow.get("nodes", [])
             edges = workflow.get("edges", [])
 
+            incoming_edges_by_target: dict[str, list[dict[str, Any]]] = {}
+            for edge in edges:
+                target = edge.get("target")
+                if target:
+                    incoming_edges_by_target.setdefault(target, []).append(edge)
+
             debug("workflow_executor", f"Nodes: {len(nodes)}, Edges: {len(edges)}")
 
             # Topological sort to determine execution order
@@ -167,6 +173,34 @@ class WorkflowExecutor:
 
                 debug_section("workflow_executor", f"Executing node {index + 1}/{total_nodes}")
                 debug("workflow_executor", f"Node ID: {node_id}, Progress: {progress}%")
+
+                # Skip nodes that are not in the selected branch (when applicable)
+                incoming_edges = incoming_edges_by_target.get(node_id, [])
+                branch_edges = [
+                    edge for edge in incoming_edges if edge.get("sourceHandle")
+                ]
+                if branch_edges:
+                    allowed = False
+                    for edge in branch_edges:
+                        source = edge.get("source")
+                        selected = context.get_variable(f"branch:{source}") if source else None
+                        if not selected:
+                            allowed = True
+                            break
+                        if edge.get("sourceHandle") == selected:
+                            allowed = True
+                            break
+                    if not allowed:
+                        debug(
+                            "workflow_executor",
+                            f"Skipping node {node_id} (branch not selected)",
+                        )
+                        self.logger.log_node_execution(
+                            node_id=node_id,
+                            node_type=node.get("type", "unknown"),
+                            status="skipped",
+                        )
+                        continue
 
                 # Execute node with error handling
                 try:

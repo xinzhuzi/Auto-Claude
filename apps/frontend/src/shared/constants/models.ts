@@ -125,6 +125,7 @@ export const DEFAULT_FEATURE_MODELS: FeatureModelConfig = {
   insights: 'sonnet',     // Fast, responsive chat
   ideation: 'opus',       // Creative ideation benefits from Opus
   roadmap: 'opus',        // Strategic planning benefits from Opus
+  novel: 'opus',          // Long-form writing benefits from Opus
   githubIssues: 'opus',   // Issue triage and analysis benefits from Opus
   githubPrs: 'opus',      // PR review benefits from thorough Opus analysis
   utility: 'haiku'        // Fast utility operations (commit messages, merge resolution)
@@ -135,6 +136,7 @@ export const DEFAULT_FEATURE_THINKING: FeatureThinkingConfig = {
   insights: 'medium',     // Balanced thinking for chat
   ideation: 'high',       // Deep thinking for creative ideas
   roadmap: 'high',        // Strategic thinking for roadmap
+  novel: 'high',          // Deep thinking for long-form writing
   githubIssues: 'medium', // Moderate thinking for issue analysis
   githubPrs: 'medium',    // Moderate thinking for PR review
   utility: 'low'          // Fast thinking for utility operations
@@ -145,6 +147,7 @@ export const FEATURE_LABELS: Record<keyof FeatureModelConfig, { label: string; d
   insights: { label: 'Insights Chat', description: 'Ask questions about your codebase' },
   ideation: { label: 'Ideation', description: 'Generate feature ideas and improvements' },
   roadmap: { label: 'Roadmap', description: 'Create strategic feature roadmaps' },
+  novel: { label: 'Novel Studio', description: 'Generate outlines and chapters for fiction writing' },
   githubIssues: { label: 'GitHub Issues', description: 'Automated issue triage and labeling' },
   githubPrs: { label: 'GitHub PR Review', description: 'AI-powered pull request reviews' },
   utility: { label: 'Utility', description: 'Commit messages and merge conflict resolution' }

@@ -56,8 +56,9 @@ export const SubAgentFlowDialog: React.FC<SubAgentFlowDialogProps> = ({
   // Initialize local state when dialog opens
   useEffect(() => {
     if (open && subAgentFlowNode) {
-      setLocalName(subAgentFlowNode.data?.name || '');
-      setLocalDescription(subAgentFlowNode.data?.description || '');
+      const nodeData = subAgentFlowNode.data as { name?: string; description?: string };
+      setLocalName(nodeData?.name || '');
+      setLocalDescription(nodeData?.description || '');
       setNameError(null);
       setHasChanges(false);
     }
@@ -108,7 +109,7 @@ export const SubAgentFlowDialog: React.FC<SubAgentFlowDialogProps> = ({
     const updatedWorkflow = {
       ...activeWorkflow,
       nodes: updatedNodes,
-    };
+    } as any;
 
     await saveWorkflow(updatedWorkflow);
     onOpenChange(false);

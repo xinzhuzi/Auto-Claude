@@ -37,6 +37,7 @@ import { TerminalGrid } from './components/TerminalGrid';
 import { Roadmap } from './components/Roadmap';
 import { Context } from './components/Context';
 import { Ideation } from './components/Ideation';
+import { NovelStudioView } from './components/novel/NovelStudioView';
 import { Insights } from './components/Insights';
 import { ErrorBoundary } from './components/ui/error-boundary';
 import { GitHubIssues } from './components/GitHubIssues';
@@ -871,6 +872,9 @@ export function App() {
                 )}
                 {activeView === 'ideation' && (activeProjectId || selectedProjectId) && (
                   <Ideation projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                )}
+                {activeView === 'novel-studio' && (activeProjectId || selectedProjectId) && (
+                  <NovelStudioView projectId={activeProjectId || selectedProjectId!} />
                 )}
                 {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
                   <Insights projectId={activeProjectId || selectedProjectId!} />

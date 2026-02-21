@@ -53,6 +53,18 @@ class IPCBridge:
                 pass
             self.stdin_reader_task = None
             debug("ipc_bridge", "Stopped stdin reader")
+        self._fail_pending_requests("IPC bridge stopped")
+
+    def _fail_pending_requests(self, reason: str) -> None:
+        """Fail all pending requests with a RuntimeError."""
+        if not self.pending_requests:
+            return
+        pending = list(self.pending_requests.items())
+        self.pending_requests.clear()
+        for request_id, future in pending:
+            if future.done():
+                continue
+            future.set_exception(RuntimeError(reason))
 
     async def request_user_input(
         self,
@@ -138,7 +150,7 @@ class IPCBridge:
         debug("ipc_bridge", "Starting stdin reader loop")
 
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             while True:
                 # Read line from stdin (non-blocking)
@@ -147,6 +159,7 @@ class IPCBridge:
                 if not line:
                     # EOF reached
                     debug("ipc_bridge", "Stdin closed")
+                    self._fail_pending_requests("IPC stdin closed")
                     break
 
                 line = line.strip()
@@ -211,6 +224,7 @@ class IPCBridge:
 
 # Global IPC bridge instance
 _ipc_bridge: Optional[IPCBridge] = None
+_ipc_bridge_loop: asyncio.AbstractEventLoop | None = None
 
 
 async def get_ipc_bridge() -> IPCBridge:
@@ -220,10 +234,29 @@ async def get_ipc_bridge() -> IPCBridge:
     Returns:
         Global IPCBridge instance
     """
-    global _ipc_bridge
+    global _ipc_bridge, _ipc_bridge_loop
+
+    current_loop = asyncio.get_running_loop()
+
+    if _ipc_bridge is not None and _ipc_bridge_loop is not current_loop:
+        try:
+            if _ipc_bridge_loop and not _ipc_bridge_loop.is_closed():
+                if _ipc_bridge_loop.is_running():
+                    future = asyncio.run_coroutine_threadsafe(
+                        _ipc_bridge.stop(), _ipc_bridge_loop
+                    )
+                    try:
+                        future.result(timeout=1)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        _ipc_bridge = None
+        _ipc_bridge_loop = None
 
     if _ipc_bridge is None:
         _ipc_bridge = IPCBridge()
+        _ipc_bridge_loop = current_loop
         await _ipc_bridge.start()
 
     return _ipc_bridge

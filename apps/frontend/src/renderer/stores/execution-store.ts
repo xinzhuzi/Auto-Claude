@@ -64,7 +64,7 @@ export const useExecutionStore = create<ExecutionState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const result = await window.electronAPI.workflow.executeWorkflow(workflowId, config);
+      const result = await window.electronAPI.workflow.executeWorkflow(workflowId as any, config);
 
       if (result.success && result.data) {
         const executionId = result.data;

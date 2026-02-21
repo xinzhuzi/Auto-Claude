@@ -203,7 +203,7 @@
     "aiTerminalNaming": "AI 终端命名",
     "aiTerminalNamingDescription": "根据命令自动命名终端（使用 Haiku）",
     "featureModelSettings": "功能模型设置",
-    "featureModelSettingsDescription": "Insights、Ideation 和 Roadmap 的模型及思考级别",
+    "featureModelSettingsDescription": "Insights、Ideation、Roadmap 与 小说创作 的模型及思考级别",
     "model": "模型",
     "thinkingLevel": "思考级别",
     "paths": "路径",

@@ -134,6 +134,9 @@ export function runPythonSubprocess<T = unknown>(
     subprocessEnv = createFallbackRunnerEnv();
   }
 
+  // Remove CLAUDECODE to prevent nested session detection
+  delete subprocessEnv.CLAUDECODE;
+
   // Parse Python command to handle paths with spaces (e.g., ~/Library/Application Support/...)
   const [pythonCommand, pythonBaseArgs] = parsePythonCommand(options.pythonPath);
   const child = spawn(pythonCommand, [...pythonBaseArgs, ...options.args], {

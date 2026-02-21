@@ -2102,7 +2102,16 @@ async def _run_parallel_merges(
     # Process results, converting exceptions to error results
     final_results: list[ParallelMergeResult] = []
     for i, result in enumerate(results):
-        if isinstance(result, Exception):
+        if isinstance(result, asyncio.CancelledError):
+            final_results.append(
+                ParallelMergeResult(
+                    file_path=tasks[i].file_path,
+                    merged_content=None,
+                    success=False,
+                    error="Task cancelled",
+                )
+            )
+        elif isinstance(result, Exception):
             final_results.append(
                 ParallelMergeResult(
                     file_path=tasks[i].file_path,

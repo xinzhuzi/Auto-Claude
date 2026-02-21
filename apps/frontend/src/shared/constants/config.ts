@@ -101,6 +101,7 @@ export const AUTO_BUILD_PATHS = {
   SPECS_DIR: '.auto-claude/specs',
   ROADMAP_DIR: '.auto-claude/roadmap',
   IDEATION_DIR: '.auto-claude/ideation',
+  NOVEL_DIR: '.auto-claude/novel',
   IMPLEMENTATION_PLAN: 'implementation_plan.json',
   SPEC_FILE: 'spec.md',
   QA_REPORT: 'qa_report.md',
@@ -113,8 +114,25 @@ export const AUTO_BUILD_PATHS = {
   COMPETITOR_ANALYSIS: 'competitor_analysis.json',
   IDEATION_FILE: 'ideation.json',
   IDEATION_CONTEXT: 'ideation_context.json',
+  NOVEL_FILE: 'novel.json',
+  NOVEL_CONFIG: 'novel.config.json',
+  NOVEL_PROMPTS: 'prompts.json',
+  NOVEL_SESSIONS: 'sessions.json',
+  NOVEL_EXPORT: 'novel.md',
   PROJECT_INDEX: '.auto-claude/project_index.json',
   GRAPHITI_STATE: '.graphiti_state.json'
+} as const;
+
+export const DEFAULT_NOVEL_MODULE_PATHS = {
+  overview: 'docs/novel/overview.md',
+  creative: 'docs/novel/creative.md',
+  workflow: 'docs/novel/workflow.md',
+  outline: 'docs/novel/outline.md',
+  characters: 'docs/novel/characters.md',
+  world: 'docs/novel/world.md',
+  content: 'docs/novel/content.md',
+  output: 'docs/novel/output.md',
+  prompts: 'docs/novel/prompts.md'
 } as const;
 
 /**

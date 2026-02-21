@@ -72,7 +72,7 @@ async def launch_subagent(
 
         # Run the agent session with timeout
         if timeout:
-            status, response = await asyncio.wait_for(
+            status, response, _ = await asyncio.wait_for(
                 run_agent_session(
                     client=client,
                     message=prompt,
@@ -82,28 +82,16 @@ async def launch_subagent(
                 timeout=timeout,
             )
         else:
-            status, response = await run_agent_session(
+            status, response, _ = await run_agent_session(
                 client=client,
                 message=prompt,
-      spec_dir=spec_dir,
+                spec_dir=spec_dir,
                 verbose=False,
             )
 
         duration = time.time() - start_time
 
-        # Check if the session was successful
-        if status == "success":
-            debug_success(
-                "subagent_launcher",
-                f"Subagent {agent_name} completed in {duration:.1f}s",
-            )
-            return {
-                "success": True,
-                "agent_name": agent_name,
-                "result": response,
-                "duration": duration,
-            }
-        else:
+        if status == "error":
             debug_error(
                 "subagent_launcher",
                 f"Subagent {agent_name} failed after {duration:.1f}s",
@@ -114,6 +102,17 @@ async def launch_subagent(
                 "error": response or "Agent session failed",
                 "duration": duration,
             }
+
+        debug_success(
+            "subagent_launcher",
+            f"Subagent {agent_name} completed in {duration:.1f}s",
+        )
+        return {
+            "success": True,
+            "agent_name": agent_name,
+            "result": response,
+            "duration": duration,
+        }
 
     except asyncio.TimeoutError:
         duration = time.time() - start_time
@@ -172,30 +171,52 @@ async def launch_subagents_parallel(
         f"Launching {len(subagents)} subagents (max {max_parallel} parallel)",
     )
 
+    max_parallel = max(1, max_parallel)
+    semaphore = asyncio.Semaphore(max_parallel)
+
+    async def _run_subagent(subagent_config: Dict[str, Any]) -> Dict[str, Any]:
+        async with semaphore:
+            subagent_model = subagent_config.get("model", model)
+            subagent_timeout = subagent_config.get("timeout", timeout)
+            # Use a dedicated client per subagent to avoid concurrent use
+            subagent_client = create_client(
+                project_dir=project_dir,
+                spec_dir=spec_dir,
+                model=subagent_model,
+                agent_type="coder",
+            )
+            async with subagent_client:
+                return await launch_subagent(
+                    client=subagent_client,
+                    agent_name=subagent_config.get("agent_name", "unnamed"),
+                    prompt=subagent_config.get("prompt", ""),
+                    description=subagent_config.get("description", ""),
+                    project_dir=project_dir,
+                    spec_dir=spec_dir,
+                    model=subagent_model,
+                    timeout=subagent_timeout,
+                )
+
     # Create tasks for all subagents
-    tasks = []
-    for subagent_config in subagents:
-        task = launch_subagent(
-            client=client,
-            agent_name=subagent_config.get("agent_name", "unnamed"),
-            prompt=subagent_config.get("prompt", ""),
-            description=subagent_config.get("description", ""),
-            project_dir=project_dir,
-            spec_dir=spec_dir,
-            model=model,
-            timeout=timeout,
-        )
-        tasks.append(task)
+    tasks = [_run_subagent(subagent_config) for subagent_config in subagents]
 
     # Execute tasks with concurrency limit
-    # For now, we'll run all in parallel (asyncio handles concurrency)
-    # In a production system, we might want to use a semaphore to limit concurrency
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     # Process results and handle exceptions
     processed_results = []
     for i, result in enumerate(results):
-        if isinstance(result, Exception):
+        if isinstance(result, asyncio.CancelledError):
+            agent_name = subagents[i].get("agent_name", f"subagent-{i}")
+            processed_results.append(
+                {
+                    "success": False,
+                    "agent_name": agent_name,
+                    "error": "Task cancelled",
+                    "duration": 0,
+                }
+            )
+        elif isinstance(result, Exception):
             # Task raised an exception
             agent_name = subagents[i].get("agent_name", f"subagent-{i}")
             processed_results.append(

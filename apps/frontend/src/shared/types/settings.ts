@@ -185,6 +185,7 @@ export interface FeatureModelConfig {
   insights: ModelTypeShort;    // Insights chat feature
   ideation: ModelTypeShort;    // Ideation generation
   roadmap: ModelTypeShort;     // Roadmap generation
+  novel: ModelTypeShort;       // Novel writing generation
   githubIssues: ModelTypeShort; // GitHub Issues automation
   githubPrs: ModelTypeShort;    // GitHub PR review automation
   utility: ModelTypeShort;      // Utility agents (commit message, merge resolver)
@@ -195,6 +196,7 @@ export interface FeatureThinkingConfig {
   insights: ThinkingLevel;
   ideation: ThinkingLevel;
   roadmap: ThinkingLevel;
+  novel: ThinkingLevel;
   githubIssues: ThinkingLevel;
   githubPrs: ThinkingLevel;
   utility: ThinkingLevel;

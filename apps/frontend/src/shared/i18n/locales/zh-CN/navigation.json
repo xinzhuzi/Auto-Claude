@@ -18,7 +18,8 @@
     "gitlabMRs": "GitLab MRs",
     "worktrees": "工作树",
     "agentTools": "MCP 概览",
-    "editor": "编辑器"
+    "editor": "编辑器",
+    "novelStudio": "小说创作"
   },
   "actions": {
     "settings": "设置",
