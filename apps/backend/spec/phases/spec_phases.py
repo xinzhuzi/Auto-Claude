@@ -6,19 +6,53 @@ Phases for spec document creation and quality assurance.
 """
 
 import json
-import re
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from .. import validator, writer
+from ..discovery import get_project_index_stats
 from .models import MAX_RETRIES, PhaseResult
 
-if TYPE_CHECKING:
-    pass
+
+def _is_greenfield_project(spec_dir: Path) -> bool:
+    """Check if the project is empty/greenfield (0 discovered files)."""
+    stats = get_project_index_stats(spec_dir)
+    if not stats:
+        return False  # Can't determine - don't assume greenfield
+    return stats.get("file_count", 0) == 0
+
+
+def _greenfield_context() -> str:
+    """Return additional context for greenfield/empty projects."""
+    return """
+**GREENFIELD PROJECT**: This is an empty or new project with no existing code.
+There are no existing files to reference or modify. You are creating everything from scratch.
+
+Adapt your approach:
+- Do NOT reference existing files, patterns, or code structures
+- Focus on what needs to be CREATED, not modified
+- Define the initial project structure, files, and directories
+- Specify the tech stack, frameworks, and dependencies to install
+- Provide setup instructions for the new project
+- For "Files to Modify" and "Files to Reference" sections, list files to CREATE instead
+- For "Patterns to Follow", describe industry best practices rather than existing code
+"""
 
 
 class SpecPhaseMixin:
     """Mixin for spec writing and critique phase methods."""
+
+    def _check_and_log_greenfield(self) -> bool:
+        """Check if the project is greenfield and log if so.
+
+        Returns:
+            True if the project is greenfield (no existing files).
+        """
+        is_greenfield = _is_greenfield_project(self.spec_dir)
+        if is_greenfield:
+            self.ui.print_status(
+                "Greenfield project detected - adapting spec for new project", "info"
+            )
+        return is_greenfield
 
     async def phase_quick_spec(self) -> PhaseResult:
         """Quick spec for simple tasks - combines context and spec in one step."""
@@ -30,6 +64,8 @@ class SpecPhaseMixin:
             return PhaseResult(
                 "quick_spec", True, [str(spec_file), str(plan_file)], [], 0
             )
+
+        is_greenfield = self._check_and_log_greenfield()
 
         errors = []
         for attempt in range(MAX_RETRIES):
@@ -44,7 +80,7 @@ class SpecPhaseMixin:
 
 This is a SIMPLE task. Create a minimal spec and implementation plan directly.
 No research or extensive analysis needed.
-
+{_greenfield_context() if is_greenfield else ""}
 Create:
 1. A concise spec.md with just the essential sections
 2. A simple implementation_plan.json with 1-2 subtasks
@@ -70,7 +106,7 @@ Create:
         return PhaseResult("quick_spec", False, [], errors, MAX_RETRIES)
 
     async def phase_spec_writing(self) -> PhaseResult:
-        """Write the spec.md document - supports chunked mode for large specs."""
+        """Write the spec.md document."""
         spec_file = self.spec_dir / "spec.md"
 
         if spec_file.exists():
@@ -82,15 +118,9 @@ Create:
                 "spec.md exists but has issues, regenerating...", "warning"
             )
 
-        # Check if chunking is needed
-        assessment = self._load_complexity_assessment()
-        if assessment and assessment.get("requires_chunking", False):
-            return await self._write_spec_chunked(spec_file, assessment)
-        else:
-            return await self._write_spec_single_shot(spec_file)
+        is_greenfield = self._check_and_log_greenfield()
+        greenfield_ctx = _greenfield_context() if is_greenfield else ""
 
-    async def _write_spec_single_shot(self, spec_file: Path) -> PhaseResult:
-        """Single-shot spec writing mode (original logic)."""
         errors = []
         for attempt in range(MAX_RETRIES):
             self.ui.print_status(
@@ -99,6 +129,7 @@ Create:
 
             success, output = await self.run_agent_fn(
                 "spec_writer.md",
+                additional_context=greenfield_ctx,
                 phase_name="spec_writing",
             )
 
@@ -120,250 +151,6 @@ Create:
                 errors.append(f"Attempt {attempt + 1}: Agent did not create spec.md")
 
         return PhaseResult("spec_writing", False, [], errors, MAX_RETRIES)
-
-    async def _write_spec_chunked(
-        self, spec_file: Path, assessment: dict
-    ) -> PhaseResult:
-        """Chunked spec writing mode for large specs."""
-        num_chunks = assessment.get("suggested_chunks", 2)
-        strategy = assessment.get("chunking_strategy", "medium")
-
-        self.ui.print_status(
-            f"Using chunked mode: {num_chunks} chunks ({strategy} strategy)", "info"
-        )
-
-        # Create chunks directory
-        chunks_dir = self.spec_dir / "chunks"
-        chunks_dir.mkdir(exist_ok=True)
-
-        # Clean up old chunk files
-        for old_chunk in chunks_dir.glob("chunk_*.md"):
-            old_chunk.unlink()
-
-        # Remove existing spec.md to prevent AI from reading it
-        if spec_file.exists():
-            spec_file.unlink()
-
-        errors = []
-        successful_chunks = []
-
-        for chunk_idx in range(1, num_chunks + 1):
-            section_range = self._determine_section_range(chunk_idx, num_chunks)
-
-            context_str = f"""
-## Chunked Spec Writing
-
-**Part**: {chunk_idx} of {num_chunks}
-**Sections to Write**: {section_range}
-**Output File**: chunks/chunk_{chunk_idx}.md
-**Strategy**: {strategy}
-
-Write ONLY the sections assigned to you. Do NOT write the entire spec.
-Do NOT create or write to spec.md - only write to chunks/chunk_{chunk_idx}.md
-"""
-
-            # Inject spec_writer.md content so AI doesn't need to read it
-            prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-            spec_writer_path = prompts_dir / "spec_writer.md"
-            if spec_writer_path.exists():
-                spec_writer_content = spec_writer_path.read_text(encoding="utf-8")
-                template_context = f"""
----
-## SPEC WRITER TEMPLATE (已预加载，无需读取)
-
-以下是 spec_writer.md 的完整内容，请直接使用：
-
-{spec_writer_content}
-
----
-"""
-                context_str = context_str + template_context
-
-            chunk_success = False
-            for attempt in range(MAX_RETRIES):
-                self.ui.print_status(
-                    f"Writing chunk {chunk_idx}/{num_chunks} (attempt {attempt + 1})...",
-                    "progress",
-                )
-
-                success, output = await self.run_agent_fn(
-                    "spec_phases_writer.md",
-                    additional_context=context_str,
-                    phase_name=f"spec_chunk_{chunk_idx}",
-                )
-
-                chunk_file = chunks_dir / f"chunk_{chunk_idx}.md"
-
-                # Check if AI mistakenly created spec.md
-                if spec_file.exists():
-                    self.ui.print_status(
-                        f"Warning: AI created spec.md during chunk {chunk_idx}, removing...",
-                        "warning",
-                    )
-                    spec_file.unlink()
-
-                if success and chunk_file.exists():
-                    if self._sanity_check_chunk(chunk_file, chunk_idx, num_chunks):
-                        chunk_success = True
-                        successful_chunks.append(chunk_file)
-                        self.ui.print_status(
-                            f"Chunk {chunk_idx}/{num_chunks} completed", "success"
-                        )
-                        break
-                    else:
-                        errors.append(
-                            f"Chunk {chunk_idx} attempt {attempt + 1}: Invalid format"
-                        )
-                else:
-                    errors.append(
-                        f"Chunk {chunk_idx} attempt {attempt + 1}: Failed to create"
-                    )
-
-            if not chunk_success:
-                self.ui.print_status(
-                    f"Failed to create chunk {chunk_idx} after {MAX_RETRIES} attempts",
-                    "error",
-                )
-
-        # Check if we have enough chunks to merge
-        if len(successful_chunks) < num_chunks:
-            self.ui.print_status(
-                f"Only {len(successful_chunks)}/{num_chunks} chunks created", "warning"
-            )
-
-        if len(successful_chunks) == 0:
-            return PhaseResult(
-                "spec_writing", False, [], ["No chunks were created"], MAX_RETRIES
-            )
-
-        # Merge all chunks
-        self.ui.print_status("Merging chunks...", "progress")
-        merged_content = self._merge_spec_chunks(chunks_dir, num_chunks)
-
-        # Write final spec.md
-        with open(spec_file, "w", encoding="utf-8") as f:
-            f.write(merged_content)
-
-        # Validate final result
-        result = self.spec_validator.validate_spec_document()
-        if result.valid:
-            self.ui.print_status("Created valid spec.md from chunks", "success")
-            return PhaseResult("spec_writing", True, [str(spec_file)], [], 0)
-        else:
-            self.ui.print_status(
-                f"Merged spec invalid: {result.errors}", "warning"
-            )
-            return PhaseResult(
-                "spec_writing",
-                False,
-                [str(spec_file)],
-                [f"Merged spec invalid: {result.errors}"],
-                0,
-            )
-
-    def _load_complexity_assessment(self) -> dict | None:
-        """Load complexity assessment from file."""
-        assessment_file = self.spec_dir / "complexity_assessment.json"
-        if assessment_file.exists():
-            with open(assessment_file, encoding="utf-8") as f:
-                return json.load(f)
-        return None
-
-    def _determine_section_range(self, part_num: int, total_parts: int) -> str:
-        """Determine which sections each chunk should write."""
-        # Sections from spec_writer.md template
-        sections = [
-            "Overview",
-            "Workflow Type",
-            "Task Scope",
-            "Service Context",
-            "Files to Modify",
-            "Files to Reference",
-            "Patterns to Follow",
-            "Requirements",
-            "Implementation Notes",
-            "Development Environment",
-            "Success Criteria",
-            "QA Acceptance Criteria",
-        ]
-
-        total_sections = len(sections)
-        sections_per_part = total_sections // total_parts
-        remainder = total_sections % total_parts
-
-        start_idx = (part_num - 1) * sections_per_part + min(part_num - 1, remainder)
-        end_idx = start_idx + sections_per_part + (1 if part_num <= remainder else 0)
-
-        start_section = sections[start_idx]
-        end_section = sections[min(end_idx - 1, total_sections - 1)]
-
-        return f"{start_section} to {end_section}"
-
-    def _sanity_check_chunk(
-        self, chunk_file: Path, chunk_idx: int, num_chunks: int
-    ) -> bool:
-        """Perform basic validation on a chunk file."""
-        try:
-            content = chunk_file.read_text(encoding="utf-8")
-
-            # Check minimum size
-            if len(content) < 100:
-                return False
-
-            # Check for PART start marker
-            if f"<!-- PART {chunk_idx} START -->" not in content:
-                return False
-
-            # Check for end marker
-            if chunk_idx == num_chunks:
-                if "<!-- FINAL PART -->" not in content:
-                    return False
-            else:
-                if f"<!-- PART {chunk_idx} END -->" not in content:
-                    return False
-
-            return True
-        except Exception:
-            return False
-
-    def _merge_spec_chunks(self, chunks_dir: Path, num_chunks: int) -> str:
-        """Merge all chunk files into final spec content."""
-        merged_parts = []
-
-        for chunk_idx in range(1, num_chunks + 1):
-            chunk_file = chunks_dir / f"chunk_{chunk_idx}.md"
-            if not chunk_file.exists():
-                continue
-
-            content = chunk_file.read_text(encoding="utf-8")
-
-            # Remove PART markers
-            content = re.sub(r"<!-- PART \d+ START -->\n?", "", content)
-            content = re.sub(r"<!-- PART \d+ END -->\n?", "", content)
-            content = re.sub(r"<!-- FINAL PART -->\n?", "", content)
-
-            merged_parts.append(content.strip())
-
-        # Join parts and deduplicate headers
-        merged = "\n\n".join(merged_parts)
-        merged = self._deduplicate_headers(merged)
-
-        return merged
-
-    def _deduplicate_headers(self, content: str) -> str:
-        """Remove duplicate markdown headers."""
-        lines = content.split("\n")
-        seen_headers = set()
-        result = []
-
-        for line in lines:
-            if line.startswith("#"):
-                if line in seen_headers:
-                    continue
-                seen_headers.add(line)
-            result.append(line)
-
-        return "\n".join(result)
 
     async def phase_self_critique(self) -> PhaseResult:
         """Self-critique the spec using extended thinking."""

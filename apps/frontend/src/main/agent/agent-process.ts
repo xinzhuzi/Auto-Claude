@@ -3,7 +3,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
-import log from 'electron-log/main.js';
 
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -23,10 +22,10 @@ import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager
 import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
-import { getOAuthModeClearVars } from './env-utils';
+import { getOAuthModeClearVars, normalizeEnvPathKey, mergePythonEnvPath } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
-import { killProcessGracefully, isWindows } from '../platform';
+import { killProcessGracefully, isWindows, getPathDelimiter } from '../platform';
 import { debugLog } from '../../shared/utils/debug-logger';
 
 /**
@@ -275,8 +274,6 @@ export class AgentProcessManager {
     processType: ProcessType
   ): boolean {
     console.log('[AgentProcess] Checking for rate limit in output (last 500 chars):', allOutput.slice(-500));
-    // Log full output to main.log for debugging process failures
-    log.info(`[AgentProcess] handleProcessFailure for task ${taskId}, last 2000 chars of output:\n${allOutput.slice(-2000)}`);
 
     const rateLimitDetection = detectRateLimit(allOutput);
     console.log('[AgentProcess] Rate limit detection result:', {
@@ -682,23 +679,28 @@ export class AgentProcessManager {
       },
     });
 
-    // Parse Python commandto handle space-separated commands like "py -3"
+    // Merge PATH from pythonEnv with augmented PATH from env.
+    // pythonEnv may contain its own PATH (e.g., on Windows with pywin32_system32 prepended).
+    // Simply spreading pythonEnv after env would overwrite the augmented PATH (which includes
+    // npm globals, homebrew, etc.), causing "Claude code not found" on Windows (#1661).
+    // mergePythonEnvPath() normalizes PATH key casing and prepends pythonEnv-specific paths.
+    const mergedPythonEnv = { ...pythonEnv };
+    const pathSep = getPathDelimiter();
+
+    mergePythonEnvPath(env as Record<string, string | undefined>, mergedPythonEnv as Record<string, string | undefined>, pathSep);
+
+    // Parse Python command to handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     let childProcess;
-
-    // Build final env and remove CLAUDECODE to prevent nested session detection
-    const spawnEnv = {
-      ...env,
-      ...pythonEnv,
-      ...oauthModeClearVars,
-      ...apiProfileEnv
-    };
-    delete spawnEnv.CLAUDECODE;
-
     try {
       childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
         cwd,
-        env: spawnEnv
+        env: {
+          ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
+          ...mergedPythonEnv, // Python env with merged PATH (preserves augmented PATH entries)
+          ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+          ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
+        }
       });
     } catch (err) {
       // spawn() failed synchronously (e.g., command not found, permission denied)
@@ -871,9 +873,6 @@ export class AgentProcessManager {
     });
 
     childProcess.on('exit', (code: number | null) => {
-      // Log process exit to main.log for debugging
-      log.info(`[AgentProcess] Process exited with code: ${code}, taskId: ${taskId}, processType: ${processType}`);
-
       if (stdoutBuffer.trim()) {
         this.emitter.emit('log', taskId, stdoutBuffer + '\n', projectId);
         processLog(stdoutBuffer);
@@ -887,12 +886,10 @@ export class AgentProcessManager {
 
       if (this.state.wasSpawnKilled(spawnId)) {
         this.state.clearKilledSpawn(spawnId);
-        log.info(`[AgentProcess] Process was killed intentionally, taskId: ${taskId}`);
         return;
       }
 
       if (code !== 0) {
-        log.warn(`[AgentProcess] Process failed with code: ${code}, taskId: ${taskId}`);
         console.log('[AgentProcess] Process failed with code:', code, 'for task:', taskId);
         const wasHandled = this.handleProcessFailure(taskId, allOutput, processType);
 
