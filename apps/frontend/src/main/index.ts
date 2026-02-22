@@ -578,8 +578,9 @@ app.whenReady().then(() => {
     }
 
     // Initialize app auto-updater (only in production, or when DEBUG_UPDATER is set)
-    const forceUpdater = process.env.DEBUG_UPDATER === 'true';
-    if (app.isPackaged || forceUpdater) {
+    // DISABLED: 自动更新功能已禁用 (代码签名问题)
+    const forceUpdater = false; // process.env.DEBUG_UPDATER === 'true';
+    if (false && (app.isPackaged || forceUpdater)) {
       // Load settings to get beta updates preference
       const settings = loadSettingsSync();
       const betaUpdates = settings.betaUpdates ?? false;
@@ -593,9 +594,7 @@ app.whenReady().then(() => {
       }
     } else {
       console.warn('[main] ========================================');
-      console.warn('[main] App auto-updater DISABLED (development mode)');
-      console.warn('[main] To test updater logging, set DEBUG_UPDATER=true');
-      console.warn('[main] Note: Actual updates only work in packaged builds');
+      console.warn('[main] App auto-updater DISABLED');
       console.warn('[main] ========================================');
     }
   }
