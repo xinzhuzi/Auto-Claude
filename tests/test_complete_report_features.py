@@ -19,6 +19,7 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
+import pytest
 
 # Add backend to path
 script_dir = Path(__file__).parent
@@ -27,7 +28,7 @@ backend_dir = project_root / "apps" / "backend"
 sys.path.insert(0, str(backend_dir))
 
 
-class TestResult:
+class ReportTestResult:
     """测试结果记录"""
     def __init__(self):
         self.passed = 0
@@ -66,6 +67,13 @@ class TestResult:
                         print(f"     {msg}")
 
 
+
+@pytest.fixture
+def result() -> ReportTestResult:
+    """Provide pytest fixture for report-style tests."""
+    return ReportTestResult()
+
+
 def print_section(title: str):
     """打印测试章节标题"""
     print("\n" + "=" * 80)
@@ -73,7 +81,7 @@ def print_section(title: str):
     print("=" * 80)
 
 
-def test_git_safety_layer1_prompt_education(result: TestResult):
+def test_git_safety_layer1_prompt_education(result: ReportTestResult):
     """测试 Layer 1: Prompt 教育"""
     print_section("Layer 1: Prompt 教育 - Git 安全规则注入")
 
@@ -107,7 +115,7 @@ def test_git_safety_layer1_prompt_education(result: TestResult):
         result.add_fail("Layer 1 测试", f"异常: {e}")
 
 
-def test_git_safety_layer2_code_validation(result: TestResult):
+def test_git_safety_layer2_code_validation(result: ReportTestResult):
     """测试 Layer 2: 代码验证"""
     print_section("Layer 2: 代码验证 - Git 验证器")
 
@@ -150,7 +158,7 @@ def test_git_safety_layer2_code_validation(result: TestResult):
         result.add_fail("Layer 2 测试", f"异常: {e}")
 
 
-def test_git_safety_layer3_runtime_hooks(result: TestResult):
+def test_git_safety_layer3_runtime_hooks(result: ReportTestResult):
     """测试 Layer 3: 运行时钩子"""
     print_section("Layer 3: 运行时钩子")
 
@@ -192,7 +200,7 @@ def test_git_safety_layer3_runtime_hooks(result: TestResult):
         result.add_fail("Layer 3 测试", f"异常: {e}")
 
 
-def test_git_safety_layer4_precommit_hook(result: TestResult):
+def test_git_safety_layer4_precommit_hook(result: ReportTestResult):
     """测试 Layer 4: Pre-commit 钩子"""
     print_section("Layer 4: Pre-commit 钩子")
 
@@ -225,7 +233,7 @@ def test_git_safety_layer4_precommit_hook(result: TestResult):
         result.add_fail("Pre-commit 钩子", f"读取失败: {e}")
 
 
-def test_git_knowledge_base(result: TestResult):
+def test_git_knowledge_base(result: ReportTestResult):
     """测试 Git 知识库系统"""
     print_section("Git 知识库系统")
 
@@ -273,7 +281,7 @@ def test_git_knowledge_base(result: TestResult):
         result.add_fail("知识加载测试", f"异常: {e}")
 
 
-def test_git_knowledge_injection(result: TestResult):
+def test_git_knowledge_injection(result: ReportTestResult):
     """测试 Git 知识动态注入"""
     print_section("Git 知识动态注入")
 
@@ -332,7 +340,7 @@ def test_git_knowledge_injection(result: TestResult):
         result.add_fail("知识注入测试", f"异常: {e}")
 
 
-def test_worktree_optimization(result: TestResult):
+def test_worktree_optimization(result: ReportTestResult):
     """测试 Worktree 优化功能"""
     print_section("Worktree 优化功能")
 
@@ -379,7 +387,7 @@ def test_worktree_optimization(result: TestResult):
         result.add_fail("Worktree 测试", f"异常: {e}")
 
 
-def test_subtask_size_validation(result: TestResult):
+def test_subtask_size_validation(result: ReportTestResult):
     """测试子任务大小验证"""
     print_section("子任务大小验证")
 
@@ -433,7 +441,7 @@ def test_subtask_size_validation(result: TestResult):
         result.add_fail("子任务验证测试", f"异常: {e}")
 
 
-def test_planner_prompt_sizing_rules(result: TestResult):
+def test_planner_prompt_sizing_rules(result: ReportTestResult):
     """测试 Planner Prompt 中的大小规则"""
     print_section("Planner Prompt 大小规则")
 
@@ -468,7 +476,7 @@ def test_planner_prompt_sizing_rules(result: TestResult):
         result.add_fail("Planner Prompt 测试", f"异常: {e}")
 
 
-def test_file_integrity(result: TestResult):
+def test_file_integrity(result: ReportTestResult):
     """测试关键文件完整性"""
     print_section("关键文件完整性检查")
 
@@ -494,7 +502,7 @@ def test_file_integrity(result: TestResult):
             result.add_fail(f"文件缺失: {desc}", f"{file_path}")
 
 
-def test_git_knowledge_documentation(result: TestResult):
+def test_git_knowledge_documentation(result: ReportTestResult):
     """测试 Git 知识库文档"""
     print_section("Git 知识库文档")
 
@@ -521,7 +529,7 @@ def test_git_knowledge_documentation(result: TestResult):
             result.add_warning(f"文档: {desc}", f"{filename} 不存在")
 
 
-def test_fork_management_documentation(result: TestResult):
+def test_fork_management_documentation(result: ReportTestResult):
     """测试 Fork 管理文档"""
     print_section("Fork 管理文档")
 
@@ -564,7 +572,7 @@ def main():
     print("╚" + "=" * 78 + "╝")
     print()
 
-    result = TestResult()
+    result = ReportTestResult()
 
     try:
         # Git 安全系统测试 (4层)

@@ -388,7 +388,7 @@ class TestPhaseContext:
     ):
         """Context phase returns early if file exists."""
         context_file = spec_dir / "context.json"
-        context_file.write_text(json.dumps({"task_description": "Test"}))
+        context_file.write_text(json.dumps({"task_description": "Test", "files_to_modify": ["apps/backend/core/auth.py"], "files_to_reference": []}))
 
         executor = PhaseExecutor(
             project_dir=temp_dir,
