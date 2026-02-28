@@ -149,13 +149,7 @@
     "productName": "AI员工",
     "npmRebuild": false,
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "AndyMik90",
-        "repo": "Auto-Claude"
-      }
-    ],
+    
     "directories": {
       "output": "dist",
       "buildResources": "resources"

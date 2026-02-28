@@ -201,6 +201,23 @@ let intentionalDowngrade = false;
  * @param betaUpdates - Whether to receive beta/pre-release updates
  */
 export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false): void {
+  // Check if auto-update is disabled (no publish config in package.json)
+  const pkgPath = path.join(app.getAppPath(), 'package.json');
+  let pkgConfig: { build?: { publish?: unknown[] } } = {};
+  try {
+    pkgConfig = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  } catch {
+    console.error('[app-updater] Failed to read package.json for auto-update check');
+    return;
+  }
+
+  // If publish config is missing or empty, skip auto-updater initialization
+  if (!pkgConfig?.build?.publish || (Array.isArray(pkgConfig.build.publish) && pkgConfig.build.publish.length === 0)) {
+    console.warn('[app-updater] Auto-update disabled (no publish config in package.json)');
+    console.warn('[app-updater] Skipping auto-updater initialization');
+    return;
+  }
+
   mainWindow = window;
 
   // Set update channel based on user preference
