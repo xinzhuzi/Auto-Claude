@@ -1014,21 +1014,25 @@ export function NovelStudioView({ projectId }: NovelStudioViewProps) {
 
   const characterPanel = (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex items-center justify-end gap-2">
-        <Button variant="secondary" size="sm" onClick={handleRefreshCharactersFromDocs}>更新</Button>
-        <Button size="sm" onClick={() => handleOpenCharacterDetail()}>新建角色</Button>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => handleOpenCharacterDetail()}>新建角色</Button>
+          <Button variant="secondary" size="sm" onClick={handleRefreshCharactersFromDocs}>更新</Button>
+        </div>
+        {selectedCharacterCategory && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSelectedCharacterCategory(null)}
+          >
+            返回
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col gap-2">
         {selectedCharacterCategory && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedCharacterCategory(null)}
-            >
-              返回
-            </Button>
             <span>分类：{selectedCharacterCategory}</span>
           </div>
         )}
@@ -1217,19 +1221,17 @@ export function NovelStudioView({ projectId }: NovelStudioViewProps) {
           {activeSection === 'characters' && isCharacterDetailOpen ? (
             <div className="flex h-full flex-col gap-4 overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={handleCloseCharacterDetail}>返回</Button>
-                  <div className="space-y-1">
-                    <div className="text-base font-semibold">人物角色详情</div>
-                    <div className="text-xs text-muted-foreground">
-                      {selectedCharacterFileName || selectedCharacter?.name || '未选择角色'}
-                    </div>
+                <div className="space-y-1">
+                  <div className="text-base font-semibold">人物角色详情</div>
+                  <div className="text-xs text-muted-foreground">
+                    {selectedCharacterFileName || selectedCharacter?.name || '未选择角色'}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button variant="secondary" size="sm" onClick={handleRefreshCharactersFromDocs}>更新</Button>
                   <Button variant="secondary" size="sm" onClick={handleCreateCharacterDoc}>添加文档</Button>
                   <Button size="sm" onClick={handleGenerateCharacter}>生成人物角色</Button>
+                  <Button variant="secondary" size="sm" onClick={handleCloseCharacterDetail}>返回</Button>
                 </div>
               </div>
 
